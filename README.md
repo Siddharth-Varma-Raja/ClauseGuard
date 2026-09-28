@@ -7,7 +7,7 @@ The problem is broader than ordinary property management. A relocation agency mu
 
 **Evidence**
 
-A commercial so9ware category already exists for relocation management, temporary housing and corporate accommodation, demonstrating that organisations purchase technology to source accommodation and manage bookings and stays. Dedicated co-living platforms also manage room- or bed-level inventory, individual contracts, occupancy and maintenance, validating the operational need at property level.
+A commercial software category already exists for relocation management, temporary housing and corporate accommodation, demonstrating that organisations purchase technology to source accommodation and manage bookings and stays. Dedicated co-living platforms also manage room- or bed-level inventory, individual contracts, occupancy and maintenance, validating the operational need at property level.
 Existing property-operations products emphasise that room readiness depends on coordinated housekeeping, inspections, maintenance, access and vendor work rather than a booking calendar alone.
 
 **Proposed Product**
