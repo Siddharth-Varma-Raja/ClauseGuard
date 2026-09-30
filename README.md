@@ -1,18 +1,34 @@
-**StayOps — Relocation Accommodation Operations Platform**
+# GuideDawg
 
-**Problem**
+**A wearable shoe that gently guides you about obstacles and your steps so you can walk with more confidence.**
 
-Small relocation and accommodation agencies manage enquiries, room availability, temporary holds, landlord approvals, resident documents, move-in preparation, maintenance, rent records and landlord payments across disconnected spreadsheets, email threads and messaging applications. This fragmentation can cause double bookings, expired holds remaining active, missed preparation tasks, unclear payment records and poor visibility across agency-owned and partner-supplied properties.
-The problem is broader than ordinary property management. A relocation agency must match a person to suitable temporary or medium-term accommodation, coordinate approval from an external landlord, prepare the room before arrival and manage changes such as delayed arrivals, extensions and transfers.
+---
 
-**Evidence**
+## Overview
 
-A commercial software category already exists for relocation management, temporary housing and corporate accommodation, demonstrating that organisations purchase technology to source accommodation and manage bookings and stays. Dedicated co-living platforms also manage room- or bed-level inventory, individual contracts, occupancy and maintenance, validating the operational need at property level.
-Existing property-operations products emphasise that room readiness depends on coordinated housekeeping, inspections, maintenance, access and vendor work rather than a booking calendar alone.
+GuideDawg is an assistive shoe that gives people with low vision a better sense of their surroundings. Through short, gentle vibrations and discreet feedback, it helps you avoid obstacles naturally. It’s designed to just fade into the background easy to understand.
 
-**Proposed Product**
+---
 
-StayOps is a multi-tenant SaaS platform for local relocation and accommodation agencies managing their own rooms alongside properties supplied by external landlords. It supports the full operational lifecycle:
-Accommodation request → matching → temporary hold → landlord approval → booking → documents and deposit → room preparation → move-in → resident support → extension, transfer or move-out.
+## Why this matters
 
-<img width="1087" height="597" alt="image" src="https://github.com/user-attachments/assets/d1663ed2-a2a1-4bd2-8847-a5f850b854b1" />
+Usually, people with low vision rely on a walking stick or their memory of regular routes. GuideDawg simply gives them instant feedback about the space right in front of their foot, making it much more tension-free to walk in new or crowded places. The idea is to avoid sudden surprises, working together with their regular tools, not replacing them.
+
+---
+
+## Key features
+
+- **Camera‑based vision** to detect curbs, steps, edges and moving obstacles.
+- **Simple haptic feedbacks** for left, right, stop and warnings.  
+- **Optional short audio prompts** for extra clarity.  
+- **On‑device processing** so feedback is fast and private.  
+- **Configurable intensity and patterns** so each person can choose what feels right.
+
+---
+
+## How it works
+
+A small camera and sensors on the shoe watch the area right in front of your foot. The system looks for obstacles, sudden drops, steps, or changes in the ground.  
+When something important is detected, the shoe sends a short vibration or a simple audio cue. Everything is processed on the device itself to keep things private and fast.
+The system looks for obstacles, sudden drops, steps, or changes in the ground.  
+When something important is detected, the shoe sends a short vibration or a simple audio cue. Everything is processed on the device itself to keep things private and fast.
