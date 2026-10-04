@@ -1,0 +1,17 @@
+# macOS
+.DS_Store
+
+# Environment / secrets
+.env
+.env.local
+.env.*.local
+
+# Node dependencies
+node_modules/
+
+# Next.js build output
+.next/
+out/
+
+# Logs
+*.log
