@@ -7,7 +7,7 @@ class NoticeSubmission(BaseModel):
     notice_type: str = Field(..., pattern="^(TERMINATION|RENT_REVIEW)$")
     service_date: date
     proposed_effective_date: date
-    reason_category: Optional[str] = None # e.g., LANDLORD_SELLING
+    reason_category: Optional[str] = None 
 
 class DiffRequest(BaseModel):
     user_draft_text: str

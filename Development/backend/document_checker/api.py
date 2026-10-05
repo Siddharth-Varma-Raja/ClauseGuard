@@ -1,5 +1,5 @@
 from fastapi import APIRouter, UploadFile, HTTPException
-import httpx  # For internal microservice calls
+import httpx
 from .schemas import NoticeSubmission, DiffRequest
 from .ocr_service import OCRExtractor
 from .diff_engine import TemplateDiffEngine
@@ -20,14 +20,6 @@ async def process_scanned_notice(file: UploadFile):
 
 @router.post("/validate-and-commit")
 async def validate_notice(submission: NoticeSubmission):
-    """
-    Executes the integration flow:
-    1. Validates schema locally.
-    2. Asks Member 1 if the dates are legal.
-    3. Tells Member 2 to save it.
-    """
-    
-    # 1. Ask Member 1 (Rules Engine) to check dates & limits
     async with httpx.AsyncClient() as client:
         rules_payload = {
             "notice_type": submission.notice_type,
@@ -39,7 +31,6 @@ async def validate_notice(submission: NoticeSubmission):
         if rules_response.status_code != 200 or not rules_response.json().get("is_compliant"):
             raise HTTPException(status_code=400, detail="Notice violates statutory rules.")
 
-    # 2. If valid, commit to Member 2 (Timeline & State)
     async with httpx.AsyncClient() as client:
         event_payload = {
             "event_type": f"{submission.notice_type}_SERVED",
