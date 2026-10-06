@@ -10,7 +10,7 @@ export default function Footer() {
     <footer className="bg-slate-900 text-slate-400 py-4">
       <div className="container mx-auto text-center">
         <div className="flex flex-row justify-between items-center">
-            <p className="text-6xl font-semibold text-slate-300 tracking-wider mb-auto">ClauseGuard</p>
+            <p className="text-2xl font-semibold text-slate-300 tracking-wider">ClauseGuard</p>
             
             <div className="flex flex-col gap-2">
                 <p className="text-lg font-semibold text-slate-300 tracking-wider mb-auto">Navigation</p>
@@ -23,7 +23,7 @@ export default function Footer() {
             </div>
 
             <div className="flex flex-col gap-2">
-                <p className="text-lg font-semibold text-slate-300 tracking-wider mb-auto">Legal</p>
+                <p className="text-lg font-semibold text-slate-300 tracking-wider mb-auto mr-auto">Legal</p>
                 <div className="flex flex-col gap-2">
                     <Link href="/privacy-policy" className={linkHoverClass}>Privacy Policy</Link>
                     <Link href="/terms-of-service" className={linkHoverClass}>Terms of Service</Link>
