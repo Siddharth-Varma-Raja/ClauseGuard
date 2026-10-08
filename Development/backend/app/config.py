@@ -6,8 +6,8 @@ class Settings(BaseSettings):
 
     firebase_credentials_json: str = "./firebase-service-account.json"
 
-    database_url: str = "postgresql+asyncpg://postgres:password@localhost:5432/clauseguard"
-    database_url_sync: str = "postgresql+psycopg2://postgres:password@localhost:5432/clauseguard"
+    database_url: str = "mysql+aiomysql://root:root@localhost:3306/clauseguard"
+    database_url_sync: str = "mysql+pymysql://root:root@localhost:3306/clauseguard"
 
     allowed_origins: str = "http://localhost:5173,http://localhost:3000"
 
