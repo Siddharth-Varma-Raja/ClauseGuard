@@ -1,0 +1,10 @@
+{"lease_id": "L1", "idx": 0, "text": "The tenant shall pay a deposit of €1,200 on signing this lease.", "category": "deposit"}
+{"lease_id": "L1", "idx": 1, "text": "Either party may end the tenancy by giving 28 days notice in writing.", "category": "notice_period"}
+{"lease_id": "L1", "idx": 2, "text": "The landlord may enter the premises with 24 hours notice to carry out inspections.", "category": "access"}
+{"lease_id": "L1", "idx": 3, "text": "The tenant shall keep the interior of the property clean and report any damage promptly.", "category": "repairs"}
+{"lease_id": "L2", "idx": 0, "text": "A security deposit of two months rent is payable before the tenant moves in.", "category": "deposit"}
+{"lease_id": "L2", "idx": 1, "text": "The rent may be reviewed once every 12 months by written notice.", "category": "rent_review"}
+{"lease_id": "L2", "idx": 2, "text": "The tenant shall pay an administration fee of €150 for any change to this agreement.", "category": "fees"}
+{"lease_id": "L3", "idx": 0, "text": "The tenant gives up all rights to challenge any rent increase under this lease.", "category": "waiver"}
+{"lease_id": "L3", "idx": 1, "text": "The landlord may terminate this tenancy immediately if rent is unpaid for 14 days.", "category": "termination"}
+{"lease_id": "L3", "idx": 2, "text": "The tenant must give 60 days notice before leaving the property.", "category": "notice_period"}
