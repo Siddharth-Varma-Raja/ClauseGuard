@@ -3,6 +3,11 @@
 import Link from "next/link";
 import { useState } from "react";
 
+import { useRouter } from "next/navigation";
+import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
+import { auth } from "@/lib/firebase";
+
+
 export default function RegisterForm() {
     const [name, setName] = useState("");
     const [email, setEmail] = useState("");
@@ -12,29 +17,33 @@ export default function RegisterForm() {
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
 
+    const router = useRouter();
+
     async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
 
     if (password !== confirmPassword) {
-      setError("Passwords do not match");
-      return;
+        setError("Passwords do not match");
+        return;
+    }
+
+    if (password.length < 8) {
+        setError("Password must be at least 8 characters");
+        return;
     }
 
     setLoading(true);
 
     try {
-      console.log("Registration submitted for:", { name, email, password });
-
-      //Request delay
-      await new Promise((resolve) => setTimeout(resolve, 800));
-
-      //If registration is successful, router.push("/dashboard");
+        const { user } = await createUserWithEmailAndPassword(auth, email, password);
+        await updateProfile(user, { displayName: name });
+        router.push("/dashboard");
 
     } catch (err) {
-      setError("Something went wrong. Please try again.");
+        setError("Something went wrong. Please try again.");
     } finally {
-      setLoading(false);
+        setLoading(false);
     }
   }
 
@@ -68,7 +77,7 @@ export default function RegisterForm() {
             onChange={(e) => setName(e.target.value)}
             placeholder="Your full name"
             required
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-teal-600 focus:ring-1 focus:ring-teal-600"
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)]"
           />
         </div>
 
@@ -82,7 +91,7 @@ export default function RegisterForm() {
             onChange={(e) => setEmail(e.target.value)}
             placeholder="you@example.com"
             required
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-teal-600 focus:ring-1 focus:ring-teal-600"
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)]"
           />
         </div>
 
@@ -96,7 +105,7 @@ export default function RegisterForm() {
             onChange={(e) => setPassword(e.target.value)}
             placeholder="Create a password"
             required
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-teal-600 focus:ring-1 focus:ring-teal-600"
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)]"
           />
         </div>
 
@@ -110,7 +119,7 @@ export default function RegisterForm() {
             onChange={(e) => setConfirmPassword(e.target.value)}
             placeholder="Confirm your password"
             required
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-teal-600 focus:ring-1 focus:ring-teal-600"
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)]"
           />
         </div>
 
@@ -119,7 +128,7 @@ export default function RegisterForm() {
             type="checkbox"
             name="terms"
             required
-            className="mt-1 h-4 w-4 rounded border-slate-300 text-teal-600 focus:ring-teal-600"
+            className="mt-1 h-4 w-4 rounded border-slate-300 text-[var(--primary)] focus:ring-[var(--primary)]"
           />
           <span>
             I agree to the <Link href="/terms" className="text-[var(--primary)]">Terms of Service</Link> and <Link href="/privacy" className="text-[var(--primary)]">Privacy Policy</Link>.
@@ -129,7 +138,7 @@ export default function RegisterForm() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full rounded-lg bg-teal-600 py-2.5 text-sm font-medium text-white hover:bg-teal-700 transition disabled:opacity-50"
+          className="w-full rounded-lg bg-[var(--primary)] py-2.5 text-sm font-medium text-white hover:bg-teal-700 transition disabled:opacity-50"
         >
           {loading ? "Creating account..." : "Create account"}
         </button>
@@ -139,7 +148,7 @@ export default function RegisterForm() {
                 Already have an account?
                 <Link
                 href="/login"
-                className="font-medium text-teal-600 hover:underline"
+                className="font-medium text-[var(--primary)] hover:underline"
                 >
                 Sign in
                 </Link>
