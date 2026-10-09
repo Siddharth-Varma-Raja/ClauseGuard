@@ -25,6 +25,7 @@ export default function LoginForm() {
     } else {
       await sendPasswordResetEmail(auth, email);
       alert("Reset link sent. Check your email.");
+      setIslogin(true);
     }
   } catch (err) {
       if (err instanceof FirebaseError && err.code === "auth/invalid-credential") {
