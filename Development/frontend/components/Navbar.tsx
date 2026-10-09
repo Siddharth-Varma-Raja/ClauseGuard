@@ -12,8 +12,8 @@ return(
 
         <div className="flex gap-6 items-center text-sm text-slate-600">
         <Link href="/" className={linkHoverClass}>Home</Link>
-        <Link href="/about" className={linkHoverClass}>About</Link>
-        <Link href="/workflow" className={linkHoverClass}>How it works</Link>
+        <Link href="/#how-it-works" className={linkHoverClass}>How it works</Link>
+        <Link href="/#about" className={linkHoverClass}>About</Link>   
         <Link href="/login" className={linkHoverClass}>Login</Link>
         </div>
     </nav>

@@ -3,6 +3,11 @@
 import Link from "next/link";
 import { useState } from "react";
 
+import { useRouter } from "next/navigation";
+import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
+import { auth } from "@/lib/firebase";
+
+
 export default function RegisterForm() {
     const [name, setName] = useState("");
     const [email, setEmail] = useState("");
@@ -12,29 +17,33 @@ export default function RegisterForm() {
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
 
+    const router = useRouter();
+
     async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
 
     if (password !== confirmPassword) {
-      setError("Passwords do not match");
-      return;
+        setError("Passwords do not match");
+        return;
+    }
+
+    if (password.length < 8) {
+        setError("Password must be at least 8 characters");
+        return;
     }
 
     setLoading(true);
 
     try {
-      console.log("Registration submitted for:", { name, email, password });
-
-      //Request delay
-      await new Promise((resolve) => setTimeout(resolve, 800));
-
-      //If registration is successful, router.push("/dashboard");
+        const { user } = await createUserWithEmailAndPassword(auth, email, password);
+        await updateProfile(user, { displayName: name });
+        router.push("/dashboard");
 
     } catch (err) {
-      setError("Something went wrong. Please try again.");
+        setError("Something went wrong. Please try again.");
     } finally {
-      setLoading(false);
+        setLoading(false);
     }
   }
 
