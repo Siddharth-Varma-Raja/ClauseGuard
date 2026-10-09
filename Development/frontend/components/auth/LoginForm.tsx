@@ -3,21 +3,37 @@
 import Link from "next/link";
 import { useState } from "react";
 
+import { useRouter } from "next/navigation";
+import { signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
+import { auth } from "@/lib/firebase";
+import { FirebaseError } from "firebase/app";
+
 export default function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
   const [islogin, setIslogin] = useState(true);
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  const router = useRouter();
 
+  async function handleSubmit(e: React.FormEvent) {
+  e.preventDefault();
+  try {
     if (islogin) {
-      // API for login authentication
+      await signInWithEmailAndPassword(auth, email, password);
+      router.push("/dashboard");
     } else {
-      // API for forgot password
+      await sendPasswordResetEmail(auth, email);
+      alert("Reset link sent. Check your email.");
     }
+  } catch (err) {
+      if (err instanceof FirebaseError && err.code === "auth/invalid-credential") {
+        alert("Incorrect email or password");
+      } else {
+        alert("Something went wrong. Please try again.");
   }
+  }
+}
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-50 p-4">
