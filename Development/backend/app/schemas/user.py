@@ -22,7 +22,7 @@ class ProfileUpdateRequest(BaseModel):
 class UserResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    id: uuid.UUID
+    id: str
     firebase_uid: str
     email: str
     display_name: str | None

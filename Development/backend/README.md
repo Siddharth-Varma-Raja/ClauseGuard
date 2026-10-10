@@ -1,6 +1,6 @@
 # ClauseGuard — Identity & Auth Backend
 
-Python 3.12 · FastAPI · Firebase Admin SDK · PostgreSQL · Alembic
+Python 3.12 · FastAPI · Firebase Admin SDK · MySQL · Alembic
 
 ---
 
@@ -38,7 +38,7 @@ Frontend (React)
   │  1. Sign in / sign up via Firebase SDK (email+password or Google)
   │  2. Firebase returns an ID token (JWT, short-lived ~1 h)
   │
-  └─► POST /api/v1/auth/register   ← first login only; writes profile to PostgreSQL
+  └─► POST /api/v1/auth/register   ← first login only; writes profile to MySQL
       GET  /api/v1/account/me      ← every subsequent request; Bearer <id_token>
       PATCH /api/v1/account/me     ← profile update
       POST /api/v1/auth/logout     ← revokes ALL Firebase refresh tokens server-side
@@ -76,8 +76,8 @@ Frontend (React)
 | Variable | Description |
 |---|---|
 | `FIREBASE_CREDENTIALS_JSON` | Path to Firebase service account JSON |
-| `DATABASE_URL` | Async PostgreSQL URL (`postgresql+asyncpg://…`) |
-| `DATABASE_URL_SYNC` | Sync URL for Alembic (`postgresql+psycopg2://…`) |
+| `DATABASE_URL` | Async MySQL URL (`mysql+aiomysql://…`) |
+| `DATABASE_URL_SYNC` | Sync URL for Alembic (`mysql+pymysql://…`) |
 | `ALLOWED_ORIGINS` | Comma-separated CORS origins |
 | `RATE_LIMIT_AUTH` | SlowAPI limit string for auth routes (default `10/minute`) |
 | `RATE_LIMIT_API` | SlowAPI limit string for all other routes (default `60/minute`) |
