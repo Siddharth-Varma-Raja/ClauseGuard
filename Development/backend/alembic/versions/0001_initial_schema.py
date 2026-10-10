@@ -8,7 +8,6 @@ from typing import Sequence, Union
 
 import sqlalchemy as sa
 from alembic import op
-from sqlalchemy.dialects import postgresql
 
 revision: str = "0001"
 down_revision: Union[str, None] = None
@@ -19,7 +18,7 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     op.create_table(
         "users",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
+        sa.Column("id", sa.String(36), primary_key=True),
         sa.Column("firebase_uid", sa.String(128), unique=True, nullable=False),
         sa.Column("email", sa.String(320), unique=True, nullable=False),
         sa.Column("display_name", sa.String(256), nullable=True),
@@ -30,7 +29,7 @@ def upgrade() -> None:
             nullable=False,
             server_default="tenant",
         ),
-        sa.Column("is_active", sa.Boolean, nullable=False, server_default="true"),
+        sa.Column("is_active", sa.Boolean, nullable=False, server_default="1"),
         sa.Column("gdpr_consent_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
@@ -40,7 +39,7 @@ def upgrade() -> None:
 
     op.create_table(
         "audit_logs",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
+        sa.Column("id", sa.String(36), primary_key=True),
         sa.Column("actor_uid", sa.String(128), nullable=False),
         sa.Column("action", sa.String(128), nullable=False),
         sa.Column("resource", sa.String(256), nullable=False),
@@ -57,4 +56,4 @@ def downgrade() -> None:
     op.drop_index("ix_users_email", "users")
     op.drop_index("ix_users_firebase_uid", "users")
     op.drop_table("users")
-    op.execute("DROP TYPE IF EXISTS userrole")
+
