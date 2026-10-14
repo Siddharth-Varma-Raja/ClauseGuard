@@ -1,7 +1,7 @@
 """
 Document API Endpoints
 ========================
-POST   /api/v1/documents/upload   — Upload a PDF → pipeline → save to MySQL
+POST   /api/v1/documents/upload   — Upload a PDF or image → pipeline → save to MySQL
 GET    /api/v1/documents/          — List the current user's documents
 GET    /api/v1/documents/{id}      — Get a single document by ID
 DELETE /api/v1/documents/{id}      — Soft-delete a document
@@ -30,7 +30,14 @@ router = APIRouter(prefix="/documents", tags=["Documents"])
 
 # ── Constants ──────────────────────────────────────────────────────────────────
 
-_ALLOWED_CONTENT_TYPES = {"application/pdf"}
+_ALLOWED_CONTENT_TYPES = {
+    "application/pdf",
+    "image/jpeg",
+    "image/png",
+    "image/tiff",
+    "image/webp",
+    "image/bmp",
+}
 _MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024  # 20 MB
 
 
@@ -42,7 +49,10 @@ def _validate_upload(file: UploadFile) -> None:
     if file.content_type not in _ALLOWED_CONTENT_TYPES:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"Unsupported file type '{file.content_type}'. Only PDF files are accepted.",
+            detail=(
+                f"Unsupported file type '{file.content_type}'. "
+                "Accepted formats: PDF, JPEG, PNG, TIFF, WebP, BMP."
+            ),
         )
 
 
@@ -53,51 +63,54 @@ def _validate_upload(file: UploadFile) -> None:
     "/upload",
     response_model=DocumentUploadResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Upload a PDF document",
+    summary="Upload a lease document (PDF or image)",
     description=(
-        "Upload a PDF file.  The server will extract its text, apply PII/clause "
-        "redaction, and store the processed result in S3.  The original PDF is "
-        "**never** persisted — only the redacted text file reaches S3.  "
+        "Upload a PDF or image file (JPEG, PNG, TIFF, WebP, BMP).  "
+        "The server auto-detects the file type, extracts text "
+        "(using OCR for images and scanned PDFs), applies PII/clause "
+        "redaction, and stores the processed result in S3.  The original "
+        "file is **never** persisted — only the redacted text reaches S3.  "
         "A metadata record is saved to MySQL for ownership, audit, and querying."
     ),
 )
 async def upload_document(
-    file: UploadFile = File(..., description="PDF file to upload (max 20 MB)"),
+    file: UploadFile = File(..., description="PDF or image file to upload (max 20 MB)"),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> DocumentUploadResponse:
     _validate_upload(file)
 
-    pdf_bytes = await file.read()
+    file_bytes = await file.read()
 
-    if len(pdf_bytes) > _MAX_FILE_SIZE_BYTES:
+    if len(file_bytes) > _MAX_FILE_SIZE_BYTES:
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
             detail="File exceeds the 20 MB size limit.",
         )
 
-    if not pdf_bytes:
+    if not file_bytes:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Uploaded file is empty.",
         )
 
-    original_filename = file.filename or "document.pdf"
+    content_type = file.content_type or "application/pdf"
+    original_filename = file.filename or "document"
 
     logger.info(
         "Upload request — user=%s file='%s' size=%d bytes",
         current_user.id,
         original_filename,
-        len(pdf_bytes),
+        len(file_bytes),
     )
 
     # ── Create document record with PROCESSING status ──────────────────────
     doc = Document(
         user_id=current_user.id,
         original_filename=original_filename,
-        content_type=file.content_type or "application/pdf",
-        file_size_bytes=len(pdf_bytes),
-        sha256_hash=Document.compute_hash(pdf_bytes),
+        content_type=content_type,
+        file_size_bytes=len(file_bytes),
+        sha256_hash=Document.compute_hash(file_bytes),
         status=DocumentStatus.PROCESSING,
     )
     db.add(doc)
@@ -107,8 +120,9 @@ async def upload_document(
     # ── Run pipeline ───────────────────────────────────────────────────────
     try:
         result = run_upload_pipeline(
-            pdf_bytes=pdf_bytes,
+            file_bytes=file_bytes,
             original_filename=original_filename,
+            content_type=content_type,
         )
     except PipelineError as exc:
         # Mark the document as FAILED in MySQL
