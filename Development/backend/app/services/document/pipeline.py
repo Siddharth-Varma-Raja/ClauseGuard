@@ -1,9 +1,9 @@
 """
 Document Processing Pipeline
 ==============================
-Orchestrates the three steps that happen before a PDF lands in S3:
+Orchestrates the three steps that happen before a file lands in S3:
 
-    1. Text Extraction  (extractor.py)
+    1. Text Extraction  (extractor.py)  — PDF or image via OCR
     2. PII / Clause Redaction  (redactor.py ← teammate's code)
     3. S3 Upload  (s3.py)
 
@@ -15,11 +15,10 @@ Why a dedicated pipeline module?
 • Makes unit testing trivial — mock the three callables and test flow.
 """
 
-import io
 import logging
 import uuid
 
-from app.services.document.extractor import extract_text_from_pdf
+from app.services.document.extractor import extract_text
 from app.services.document.redactor import RedactionError, redact
 from app.services.document.s3 import S3UploadError, upload_text_to_s3
 
@@ -42,19 +41,25 @@ class PipelineError(Exception):
 
 
 def run_upload_pipeline(
-    pdf_bytes: bytes,
+    file_bytes: bytes,
     original_filename: str,
+    content_type: str,
     s3_key_prefix: str = "documents/",
 ) -> dict:
     """
-    Run the full Extract → Redact → Upload pipeline for a PDF.
+    Run the full Extract → Redact → Upload pipeline for a document.
+
+    Supports both PDF files and image files (JPEG, PNG, TIFF, etc.).
 
     Parameters
     ----------
-    pdf_bytes:
-        Raw bytes of the uploaded PDF file.
+    file_bytes:
+        Raw bytes of the uploaded file.
     original_filename:
         Original file name from the upload (used to derive the S3 key).
+    content_type:
+        MIME type of the uploaded file (e.g. ``"application/pdf"``
+        or ``"image/jpeg"``).
     s3_key_prefix:
         Optional S3 "folder" prefix.  Defaults to ``"documents/"``.
 
@@ -68,14 +73,18 @@ def run_upload_pipeline(
     PipelineError
         If any step fails, with ``step`` set to indicate which one.
     """
-    stem = original_filename.rsplit(".", 1)[0]            # strip .pdf
+    stem = original_filename.rsplit(".", 1)[0]            # strip extension
     unique_id = uuid.uuid4().hex[:8]
     s3_key = f"{s3_key_prefix}{stem}_{unique_id}.txt"
 
     # ── Step 1: Extract ───────────────────────────────────────────────
-    logger.info("[pipeline] Starting extraction for '%s'.", original_filename)
+    logger.info(
+        "[pipeline] Starting extraction for '%s' (type=%s).",
+        original_filename,
+        content_type,
+    )
     try:
-        raw_text = extract_text_from_pdf(io.BytesIO(pdf_bytes))
+        raw_text = extract_text(file_bytes, content_type)
     except Exception as exc:
         logger.exception("[pipeline] Extraction failed.")
         raise PipelineError(f"Text extraction failed: {exc}", step="extraction") from exc
