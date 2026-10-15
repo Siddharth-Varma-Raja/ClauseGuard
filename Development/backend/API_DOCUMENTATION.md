@@ -32,6 +32,10 @@ This document provides complete technical specifications for all API endpoints b
 | `PATCH` | `/api/v1/account/me` | **Yes** (Bearer Token) | Updates display name or phone number |
 | `GET` | `/api/v1/account/me/gdpr-export` | **Yes** (Bearer Token) | Exports user profile & audit history (GDPR Art. 15) |
 | `DELETE` | `/api/v1/account/me` | **Yes** (Bearer Token) | Deactivates user account (GDPR Art. 17) |
+| `POST` | `/api/v1/documents/upload` | **Yes** (Bearer Token) | Uploads PDF, redacts PII, saves to S3 & MySQL |
+| `GET` | `/api/v1/documents` | **Yes** (Bearer Token) | Lists user's uploaded documents (paginated) |
+| `GET` | `/api/v1/documents/{id}` | **Yes** (Bearer Token) | Retrieves metadata for a specific document |
+| `DELETE` | `/api/v1/documents/{id}` | **Yes** (Bearer Token) | Soft-deletes a document (audit retained) |
 
 ---
 
@@ -241,6 +245,136 @@ This document provides complete technical specifications for all API endpoints b
 {
   "message": "Account deactivated. Your data is retained for 30 days per GDPR Article 17."
 }
+---
+
+### 9. Upload Document
+* **HTTP Method:** `POST`
+* **Path:** `/api/v1/documents/upload`
+* **Description:** Uploads a PDF file (max 20 MB). Extracts plain text, runs the redaction pipeline, uploads the redacted text to S3, and saves the file metadata and processing state in MySQL. The original PDF is never stored.
+* **Content-Type:** `multipart/form-data`
+
+#### Request Headers
+* `Authorization: Bearer <FIREBASE_ID_TOKEN>`
+
+#### Request Body (`form-data`)
+* `file`: Binary PDF file (key type: `File`)
+
+#### Response (`201 Created`)
+```json
+{
+  "message": "Document processed and uploaded successfully.",
+  "document": {
+    "id": "e4b2d189-9a74-4b53-a5c9-94038162e84d",
+    "user_id": "1d5288ee-462c-4c17-8e25-8b91a49e729b",
+    "original_filename": "sample_tenancy_agreement.pdf",
+    "content_type": "application/pdf",
+    "file_size_bytes": 1048576,
+    "sha256_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "s3_key": "documents/sample_tenancy_agreement_a1b2c3d4.txt",
+    "s3_uri": "s3://clauseguard-bucket/documents/sample_tenancy_agreement_a1b2c3d4.txt",
+    "status": "completed",
+    "char_count": 14200,
+    "pipeline_error": null,
+    "is_deleted": false,
+    "created_at": "2026-10-13T10:30:00Z",
+    "updated_at": "2026-10-13T10:30:05Z"
+  }
+}
+```
+
+---
+
+### 10. List User Documents
+* **HTTP Method:** `GET`
+* **Path:** `/api/v1/documents`
+* **Description:** Returns a paginated list of all active documents uploaded by the authenticated user, ordered newest first.
+
+#### Request Headers
+* `Authorization: Bearer <FIREBASE_ID_TOKEN>`
+
+#### Query Parameters
+* `page` *(optional, integer, default: 1)*: 1-indexed page number.
+* `page_size` *(optional, integer, default: 20, max: 100)*: Number of items per page.
+
+#### Response (`200 OK`)
+```json
+{
+  "documents": [
+    {
+      "id": "e4b2d189-9a74-4b53-a5c9-94038162e84d",
+      "user_id": "1d5288ee-462c-4c17-8e25-8b91a49e729b",
+      "original_filename": "sample_tenancy_agreement.pdf",
+      "content_type": "application/pdf",
+      "file_size_bytes": 1048576,
+      "sha256_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "s3_key": "documents/sample_tenancy_agreement_a1b2c3d4.txt",
+      "s3_uri": "s3://clauseguard-bucket/documents/sample_tenancy_agreement_a1b2c3d4.txt",
+      "status": "completed",
+      "char_count": 14200,
+      "pipeline_error": null,
+      "is_deleted": false,
+      "created_at": "2026-10-13T10:30:00Z",
+      "updated_at": "2026-10-13T10:30:05Z"
+    }
+  ],
+  "total": 1,
+  "page": 1,
+  "page_size": 20
+}
+```
+
+---
+
+### 11. Get Document Details
+* **HTTP Method:** `GET`
+* **Path:** `/api/v1/documents/{document_id}`
+* **Description:** Retrieves metadata for a specific document. The document must belong to the authenticated user.
+
+#### Request Headers
+* `Authorization: Bearer <FIREBASE_ID_TOKEN>`
+
+#### Path Parameters
+* `document_id` *(string, UUID)*: The unique ID of the document.
+
+#### Response (`200 OK`)
+```json
+{
+  "id": "e4b2d189-9a74-4b53-a5c9-94038162e84d",
+  "user_id": "1d5288ee-462c-4c17-8e25-8b91a49e729b",
+  "original_filename": "sample_tenancy_agreement.pdf",
+  "content_type": "application/pdf",
+  "file_size_bytes": 1048576,
+  "sha256_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "s3_key": "documents/sample_tenancy_agreement_a1b2c3d4.txt",
+  "s3_uri": "s3://clauseguard-bucket/documents/sample_tenancy_agreement_a1b2c3d4.txt",
+  "status": "completed",
+  "char_count": 14200,
+  "pipeline_error": null,
+  "is_deleted": false,
+  "created_at": "2026-10-13T10:30:00Z",
+  "updated_at": "2026-10-13T10:30:05Z"
+}
+```
+
+---
+
+### 12. Soft-Delete Document
+* **HTTP Method:** `DELETE`
+* **Path:** `/api/v1/documents/{document_id}`
+* **Description:** Soft-deletes a document (`is_deleted = true`, sets `deleted_at`). Hides the document from listings while preserving records for compliance and audit logs.
+
+#### Request Headers
+* `Authorization: Bearer <FIREBASE_ID_TOKEN>`
+
+#### Path Parameters
+* `document_id` *(string, UUID)*: The unique ID of the document.
+
+#### Response (`200 OK`)
+```json
+{
+  "message": "Document deleted successfully.",
+  "document_id": "e4b2d189-9a74-4b53-a5c9-94038162e84d"
+}
 ```
 
 ---
@@ -364,10 +498,87 @@ This document provides complete technical specifications for all API endpoints b
 
 ---
 
+### 9. `POST /api/v1/documents/upload` (Upload PDF Document)
+1. **Method Dropdown (top-left):** Select `POST`
+2. **URL Bar:** `http://127.0.0.1:8081/api/v1/documents/upload`
+3. **Params tab:** Leave empty
+4. **Authorization tab (click this tab):**
+   * In the **Type** dropdown, select **Bearer Token**
+   * In the **Token** field on the right, paste your Firebase ID Token
+5. **Body tab (click this tab):**
+   * Select radio button **form-data**
+   * Under the **Key** column, type: `file`
+   * Hover over the `file` text box $\rightarrow$ click the small dropdown arrow on the right side of the field $\rightarrow$ change from **Text** to **File**
+   * Under the **Value** column, click **Select Files** $\rightarrow$ choose any test PDF from your computer (must be $< 20$ MB)
+6. Click **Send** $\rightarrow$ Expected Result (`201 Created`):
+   ```json
+   {
+     "message": "Document processed and uploaded successfully.",
+     "document": {
+       "id": "e4b2d189-9a74-4b53-a5c9-94038162e84d",
+       "user_id": "...",
+       "original_filename": "your_file.pdf",
+       "content_type": "application/pdf",
+       "file_size_bytes": 1048576,
+       "sha256_hash": "...",
+       "s3_key": "documents/your_file_xxxx.txt",
+       "s3_uri": "s3://clauseguard-bucket/documents/your_file_xxxx.txt",
+       "status": "completed",
+       "char_count": 14200,
+       "pipeline_error": null,
+       "is_deleted": false,
+       "created_at": "...",
+       "updated_at": "..."
+     }
+   }
+   ```
+   *(Copy the returned `"id"` value to test the next endpoints!)*
+
+---
+
+### 10. `GET /api/v1/documents` (List User's Documents)
+1. **Method Dropdown (top-left):** Select `GET`
+2. **URL Bar:** `http://127.0.0.1:8081/api/v1/documents`
+3. **Params tab (click this tab - optional):**
+   * Key: `page` $\rightarrow$ Value: `1`
+   * Key: `page_size` $\rightarrow$ Value: `20`
+4. **Authorization tab:** Select **Bearer Token** $\rightarrow$ paste token
+5. **Body tab:** Select `none`
+6. Click **Send** $\rightarrow$ Expected Result (`200 OK`): Paginated list containing an array of document objects and `total` count.
+
+---
+
+### 11. `GET /api/v1/documents/{document_id}` (Get Single Document Details)
+1. **Method Dropdown (top-left):** Select `GET`
+2. **URL Bar:** `http://127.0.0.1:8081/api/v1/documents/<PASTE_DOCUMENT_ID_HERE>`
+3. **Params tab:** Leave empty
+4. **Authorization tab:** Select **Bearer Token** $\rightarrow$ paste token
+5. **Body tab:** Select `none`
+6. Click **Send** $\rightarrow$ Expected Result (`200 OK`): Complete document metadata object for that document ID.
+
+---
+
+### 12. `DELETE /api/v1/documents/{document_id}` (Soft-Delete Document)
+1. **Method Dropdown (top-left):** Select `DELETE`
+2. **URL Bar:** `http://127.0.0.1:8081/api/v1/documents/<PASTE_DOCUMENT_ID_HERE>`
+3. **Params tab:** Leave empty
+4. **Authorization tab:** Select **Bearer Token** $\rightarrow$ paste token
+5. **Body tab:** Select `none`
+6. Click **Send** $\rightarrow$ Expected Result (`200 OK`):
+   ```json
+   {
+     "message": "Document deleted successfully.",
+     "document_id": "<DELETED_DOCUMENT_ID>"
+   }
+   ```
+   *(Running `GET /api/v1/documents` afterwards will no longer show this document).*
+
+---
+
 ## 5. MySQL Verification
 
 To verify that records are being correctly inserted into MySQL during your Postman testing, run this command in your Mac terminal:
 
 ```bash
-/opt/homebrew/Cellar/mysql/26.7.0_3/bin/mysql -u root -proot -e "USE clauseguard; SELECT id, firebase_uid, email, role, is_active FROM users; SELECT * FROM audit_logs;"
+/opt/homebrew/Cellar/mysql/26.7.0_3/bin/mysql -u root -proot -e "USE clauseguard; SELECT id, firebase_uid, email, role FROM users; SELECT id, user_id, original_filename, status, s3_key FROM documents;"
 ```
