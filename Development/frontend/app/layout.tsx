@@ -1,32 +1,24 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Figtree, Fraunces } from "next/font/google";
 import "./globals.css";
-import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
+import { AuthProvider } from "@/components/auth/AuthProvider";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+const figtree = Figtree({ subsets: ["latin"], variable: "--font-figtree" });
+const fraunces = Fraunces({ subsets: ["latin"], variable: "--font-fraunces", weight: ["500", "600", "700"] });
 
 export const metadata: Metadata = {
-  title: "ClauseGuard",
-  description: "Lease Checker for Tenants",
+  title: {
+    default: "ClauseGuard",
+    template: "%s · ClauseGuard",
+  },
+  description: "Lease checker for tenants in Ireland.",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased scroll-smooth`}
-    >
-      <body className="min-h-full flex flex-col">
-        {children}
+    <html lang="en" className={`${figtree.variable} ${fraunces.variable}`}>
+      <body className="min-h-screen">
+        <AuthProvider>{children}</AuthProvider>
         </body>
     </html>
   );

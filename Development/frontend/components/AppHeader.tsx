@@ -1,5 +1,4 @@
 import Link from "next/link";
-import globalStyles from "../styles/globals.css";
 
 export default function AppHeader() {
     return (
