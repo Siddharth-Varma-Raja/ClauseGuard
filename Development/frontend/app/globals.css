@@ -1,19 +1,27 @@
 @import "tailwindcss";
 
-
+/*
+  Design tokens.
+  Anything defined here becomes a Tailwind class automatically,
+  e.g. --color-brand gives us bg-brand, text-brand, border-brand.
+*/
 @theme {
+  /* fonts (the variables come from next/font in app/layout.tsx) */
   --font-sans: var(--font-figtree), ui-sans-serif, system-ui, sans-serif;
   --font-display: var(--font-fraunces), Georgia, serif;
 
+  /* brand */
   --color-brand: #0e5560;
   --color-brand-dark: #0a3b43;
   --color-brand-soft: #e3f1f2;
 
+  /* text, borders and backgrounds */
   --color-ink: #14232a;
   --color-mute: #56676f;
   --color-line: #e1e7ea;
   --color-surface: #f4f6f7;
 
+  /* clause status colours: red, amber, green, grey */
   --color-bad: #b42318;
   --color-bad-bg: #fdecea;
   --color-bad-line: #f5b5ae;
@@ -37,14 +45,6 @@
   --shadow-soft: 0 1px 2px rgb(16 40 48 / 0.05), 0 4px 16px rgb(16 40 48 / 0.06);
 }
 
-:root {
-  --background: var(--color-surface);
-  --primary: var(--color-brand);
-  --primary-hover: var(--color-brand-dark);
-  --border: var(--color-line);
-  --muted: var(--color-mute);
-}
-
 body {
   font-family: var(--font-sans);
   color: var(--color-ink);
@@ -52,7 +52,18 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* visible outline for keyboard users */
 :focus-visible {
   outline: 3px solid #1b8a98;
   outline-offset: 2px;
+}
+
+/* respect users who turn off animations in their OS settings */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }
