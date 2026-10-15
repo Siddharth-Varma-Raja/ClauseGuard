@@ -1,66 +1,69 @@
 import Link from "next/link";
+import { ArrowRight, FileSearchCorner, FilePlusCorner } from "lucide-react";
+import { FileCheck, CalendarClock, Upload } from "lucide-react";
 
-export default function DashboardPage() {
+
+// Dashboard cards: each item contains an icon, title, description, and href for navigation.
+const CARDS = [
+  {
+    Icon: FileCheck, 
+    title: "Check a Notice", 
+    description: "Check whether a landlord notice follows tenancy requirements and is valid.", 
+    href: "/notices"
+  },
+  {
+    Icon: CalendarClock, 
+    title: "Tenancy Timeline", 
+    description: "View a timeline of your tenancy, including important dates and events.", 
+    href: "/timeline"
+  }
+] as const;
+
+export default function Dashboard() {
   return (
-    <div className="mx-auto max-w-7xl">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold">
-          Welcome back
-        </h1>
+    <main className="px-4 mx-auto max-w-5xl">
+      <p className="text-mute">Welcome back</p>
+      <h1 className="text-3xl mt-1 font-semibold tracking-tight font-display">What would you like to do?</h1>
 
-        <p className="mt-2 text-[var(--muted)]">
-          What would you like to do?
-        </p>
-      </div>
-
-      <div className="grid gap-6 md:grid-cols-3">
-        <Link
-          href="/validate/new"
-          className="rounded-2xl border border-[var(--border)] bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-md"
-        >
-          <h2 className="text-lg font-semibold">
-            Validate New Lease
-          </h2>
-
-          <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
-            Upload a draft lease and check important clauses
-            before signing.
-          </p>
-
-          <span className="mt-5 inline-block text-sm font-medium text-[var(--primary)]">
-            Get started →
-          </span>
-        </Link>
-
-        <div className="rounded-2xl border border-[var(--border)] bg-white p-6 opacity-60">
-          <h2 className="text-lg font-semibold">
-            Check a Notice
-          </h2>
-
-          <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
-            Check whether a landlord notice follows the relevant
-            tenancy requirements.
-          </p>
-
-          <span className="mt-5 inline-block text-sm text-[var(--muted)]">
-            Coming soon
-          </span>
+      <div className="mt-8 grid gap-5 grid-cols-2">
+        <div className="bg-brand-dark p-8 text-white relative overflow-hidden rounded-3xl flex flex-row col-span-2 items-center justify-between gap-8">
+          <div className="relative max-w-lg">
+            <span className="grid rounded-2xl bg-white/10 size-14 place-items-center"><FileSearchCorner /></span>
+            <h2 className="text-3xl mt-5 font-semibold font-display">Validate New Lease</h2>
+            <p className="text-md mt-2 text-white/80">Upload a draft lease and check important clauses before signing.</p>
+          </div>
+          <Link href="/analyse-lease" className="bg-white text-brand-dark px-6 py-3.5 rounded-xl font-semibold relative inline-flex items-center gap-2 font-display">Get Started <ArrowRight size={18} /></Link>
         </div>
 
-        <div className="rounded-2xl border border-[var(--border)] bg-white p-6 opacity-60">
-          <h2 className="text-lg font-semibold">
-            Tenancy Timeline
-          </h2>
-
-          <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
-            Track important dates, deadlines and tenancy events.
-          </p>
-
-          <span className="mt-5 inline-block text-sm text-[var(--muted)]">
-            Coming soon
-          </span>
-        </div>
+        {/* Create one card for each item in the CARDS array */}
+        {CARDS.map(({Icon, title, description, href}) => (
+          <Link href={href} key={title} className="group block rounded-2xl border border-gray-300 bg-white p-6 shadow-soft transition-colors hover:border-teal-600 ">
+            <div className="flex justify-between ">
+              <span className="size-11 grid place-items-center rounded-xl bg-brand-soft text-brand"><Icon size={22}/></span>
+              <ArrowRight size={18} className="text-mute"/>
+            </div>
+            <h3 className="text-xl mt-4 font-semibold text-ink font-display">{title}</h3>
+            <p className="text-mute mt-2">{description}</p>
+          </Link>
+        ))}
       </div>
-    </div>
+      
+      <section className="mt-6">
+        <h2 className="text-xl font-semibold text-brand-dark font-display">Recent analyses</h2>
+        <div className="flex flex-col mt-4 items-center border border-dashed rounded-2xl border-line px-6 py-12 bg-surface/60">
+          <div className="bg-brand-soft text-brand mb-5 size-20 place-items-center grid rounded-full">
+            <FilePlusCorner size={25}/>
+          </div>
+          <h3 className="text-xl font-semibold text-brand-park font-display">No leases were analysed yet</h3>
+          <p className="mt-2 text-mute max-w-sm text-center">
+            Upload a lease and we we'll show you which clauses look fine and which are worth questioning.
+          </p>
+          <Link href="/analyse-lease" className="font-semibold mt-6 inline-flex gap-2 items-center bg-brand text-white rounded-xl px-6 py-3">
+            <Upload size={20} />
+            Upload your first lease
+          </Link>
+        </div>
+      </section>
+    </main>
   );
 }
