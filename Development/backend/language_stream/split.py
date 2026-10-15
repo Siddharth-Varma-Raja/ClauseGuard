@@ -3,10 +3,11 @@ import re
 from .schema import Clause
 
 START = re.compile(
-    r"^\s*(?:clause\s+)?(?:\d+(?:\.\d+)+\.?|\d+[.)]|\([a-z0-9]{1,3}\))\s+\S",
+    r"^\s*(?:clause\s+)?(?:\d+(?:\.\d+)+\.?|\d+[.)]|\((?:[a-z]|[ivxl]{2,6}|\d{1,2})\)|[•*-])\s+\S",
     re.I,
 )
 
+HEADING = re.compile(r"^\s*(?:(?:FIRST|SECOND|THIRD) SCHEDULE|SPECIAL CONDITIONS|SIGNED)\b")
 
 def split_clauses(pages, lease_id):
     clauses, buf, page_of = [], [], 1
@@ -19,7 +20,7 @@ def split_clauses(pages, lease_id):
 
     for pno, page in enumerate(pages, 1):
         for line in page.splitlines():
-            if START.match(line) and buf:
+            if (START.match(line) or HEADING.match(line)) and buf:
                 flush()
                 buf = []
             if not buf:
