@@ -1,6 +1,7 @@
 import AppHeader from "@/components/AppHeader"
 import Footer from "@/components/Footer"
 import Sidebar from "@/components/Sidebar"
+import RequireAuth from "@/components/auth/RequireAuth"
 import type { ReactNode } from "react"
 
 export default function ProtectedLayout({
@@ -10,6 +11,7 @@ export default function ProtectedLayout({
 }) {
     return (
         <div className="min-h-screen bg-surface/50">
+            <RequireAuth>
             <AppHeader />
             <div className="flex">
                 {/*<Sidebar />*/}
@@ -17,6 +19,7 @@ export default function ProtectedLayout({
                     {children}
                 </main>
             </div>
+            </RequireAuth>
         </div>
     )
 }
