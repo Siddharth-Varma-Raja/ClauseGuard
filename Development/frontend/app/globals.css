@@ -1,7 +1,18 @@
 @import "tailwindcss";
 
+@theme {
+  --font-sans: var(--font-figtree), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-fraunces), Georgia, serif;
+  --color-mute: #56676f;
+  --color-brand: #0e5560;
+  --color-brand-dark: #0a3b43;
+  --color-brand-soft: #e3f1f2;
+  --color-ink: #14232a;
+  --color-surface: #f4f6f7
+}
+
 :root {
-  --background: #f7f7f2;
+  --background: #f4f6f7;
   --foreground: #17231d;
 
   /*--primary: #087f5b;*/
@@ -13,7 +24,7 @@
 
   --muted: #66736d;
 
-  
+
 }
 
 * {
