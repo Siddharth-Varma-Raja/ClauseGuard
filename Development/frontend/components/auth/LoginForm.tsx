@@ -102,7 +102,7 @@ export default function LoginForm() {
           </form>
 
           <p className="mt-6 text-center text-sm text-slate-500">
-            Don't have an account?{" "}
+            Dont have an account?{" "}
             <Link
               href="/register"
               className="font-medium text-[var(--primary)] hover:underline"
@@ -120,7 +120,7 @@ export default function LoginForm() {
               Forgot password?
             </h1>
             <p className="mt-1 text-sm text-slate-500">
-              Enter your email address and we'll send you instructions to reset your password.
+              Enter your email address and we will send you instructions to reset your password.
             </p>
           </div>
 
