@@ -1,5 +1,5 @@
 import AppHeader from "@/components/AppHeader"
-import Footer from "@/components/Footer"
+//import Footer from "@/components/Footer"
 import Sidebar from "@/components/Sidebar"
 import RequireAuth from "@/components/auth/RequireAuth"
 import type { ReactNode } from "react"

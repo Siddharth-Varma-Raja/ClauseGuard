@@ -60,7 +60,7 @@ export default function LandingPage() {
         <div className="mx-auto grid max-w-6xl items-center gap-12 px-4 py-16 sm:px-6 lg:grid-cols-2 lg:py-24">
           <div>
             <p className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-2 text-sm font-semibold">
-              <Lock size={16} aria-hidden="true" />
+              <Lock size={16} />
               For tenants in Ireland
             </p>
 
@@ -77,7 +77,7 @@ export default function LandingPage() {
                 href="/register"
                 className="inline-flex min-h-12 items-center gap-2 rounded-xl bg-white px-6 py-3 font-semibold text-brand-dark hover:bg-brand-soft"
               >
-                Get started <ArrowRight size={18} aria-hidden="true" />
+                Get started <ArrowRight size={18} />
               </Link>
 
               <Link
@@ -95,7 +95,6 @@ export default function LandingPage() {
 
       <section
         className="mx-auto max-w-6xl px-4 py-16 sm:px-6"
-        aria-labelledby="how-it-works"
       >
         <h2
           id="how-it-works"
@@ -120,7 +119,6 @@ export default function LandingPage() {
                   <Icon
                     size={22}
                     className="text-brand"
-                    aria-hidden="true"
                   />
                 </div>
 
@@ -136,7 +134,6 @@ export default function LandingPage() {
 
       <section
         className="bg-surface"
-        aria-labelledby="features"
       >
         <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
           <h2
@@ -156,7 +153,7 @@ export default function LandingPage() {
                   className="flex gap-4 rounded-2xl border border-line bg-white p-6"
                 >
                   <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-brand-soft text-brand">
-                    <Icon size={22} aria-hidden="true" />
+                    <Icon size={22} />
                   </span>
 
                   <div>
@@ -190,7 +187,7 @@ export default function LandingPage() {
             className="inline-flex min-h-12 items-center gap-2 rounded-xl bg-white px-6 py-3 font-semibold text-brand-dark hover:bg-brand-soft"
           >
             Create an account
-            <ArrowRight size={18} aria-hidden="true" />
+            <ArrowRight size={18} />
           </Link>
         </div>
       </section>
