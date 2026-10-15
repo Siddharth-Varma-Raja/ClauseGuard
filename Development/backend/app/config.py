@@ -14,6 +14,12 @@ class Settings(BaseSettings):
     rate_limit_auth: str = "10/minute"
     rate_limit_api: str = "60/minute"
 
+    # ── AWS / S3 ───────────────────────────────────────────────────────────────
+    aws_region: str = "eu-north-1"
+    aws_access_key_id: str = ""
+    aws_secret_access_key: str = ""
+    s3_bucket_name: str = "clauseguard-bucket"
+
     @property
     def cors_origins(self) -> list[str]:
         return [o.strip() for o in self.allowed_origins.split(",")]
