@@ -1,3 +1,8 @@
+from app.schemas.document import (
+    DocumentListResponse,
+    DocumentResponse,
+    DocumentUploadResponse,
+)
 from app.schemas.user import (
     GdprExportResponse,
     MessageResponse,
@@ -12,4 +17,7 @@ __all__ = [
     "UserResponse",
     "GdprExportResponse",
     "MessageResponse",
+    "DocumentResponse",
+    "DocumentUploadResponse",
+    "DocumentListResponse",
 ]
