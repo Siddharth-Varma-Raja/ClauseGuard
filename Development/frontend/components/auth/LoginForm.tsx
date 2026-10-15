@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Button } from "@/components/ui/Button";
 import { useState } from "react";
 
 import { useRouter } from "next/navigation";
@@ -13,18 +14,21 @@ export default function LoginForm() {
   const [password, setPassword] = useState("");
 
   const [islogin, setIslogin] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
   const router = useRouter();
 
   async function handleSubmit(e: React.FormEvent) {
   e.preventDefault();
+  setSubmitting(true);  
   try {
     if (islogin) {
       await signInWithEmailAndPassword(auth, email, password);
-      router.push("/dashboard");
+      router.replace("/dashboard");
     } else {
       await sendPasswordResetEmail(auth, email);
       alert("Reset link sent. Check your email.");
+      setSubmitting(false);
       setIslogin(true);
     }
   } catch (err) {
@@ -33,6 +37,7 @@ export default function LoginForm() {
       } else {
         alert("Something went wrong. Please try again.");
   }
+  setSubmitting(false);
   }
 }
 
@@ -44,7 +49,7 @@ export default function LoginForm() {
         <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
 
           <div className="mb-6">
-            <h1 className="text-2xl font-bold text-slate-900">
+            <h1 className="text-2xl font-bold text-brand-dark font-display">
               Welcome back
             </h1>
             <p className="mt-1 text-sm text-slate-500">
@@ -64,7 +69,7 @@ export default function LoginForm() {
                 placeholder="you@example.com"
                 autoComplete="email"
                 required
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)]"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
               />
             </div>
 
@@ -79,33 +84,30 @@ export default function LoginForm() {
                 placeholder="Enter your password"
                 autoComplete="current-password"
                 required
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)]"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
               />
 
               <div className="mt-1 text-right">
                 <button
                   type="button"
                   onClick={() => setIslogin(false)}
-                  className="text-xs text-[var(--primary)] hover:underline"
+                  className="text-xs text-brand-dark font-bold hover:underline cursor-pointer"
                 >
                   Forgot password?
                 </button>
               </div>
             </div>
 
-            <button
-              type="submit"
-              className="w-full rounded-lg bg-[var(--primary)] py-2.5 text-sm font-medium text-white transition hover:bg-teal-700"
-            >
-              Sign in
-            </button>
+            <Button type="submit" size="lg" className="w-full" disabled={submitting}>
+              {submitting ? "Logging in…" : "Log in"}
+            </Button>
           </form>
 
           <p className="mt-6 text-center text-sm text-slate-500">
-            Don't have an account?{" "}
+            Dont have an account?{" "}
             <Link
               href="/register"
-              className="font-medium text-[var(--primary)] hover:underline"
+              className="font-medium text-brand hover:underline"
             >
               Create account
             </Link>
@@ -116,11 +118,11 @@ export default function LoginForm() {
         <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
 
           <div className="mb-6">
-            <h1 className="text-2xl font-bold text-slate-900">
+            <h1 className="text-2xl font-bold text-brand-dark font-display">
               Forgot password?
             </h1>
             <p className="mt-1 text-sm text-slate-500">
-              Enter your email address and we'll send you instructions to reset your password.
+              Enter your email address and we will send you instructions to reset your password.
             </p>
           </div>
 
@@ -136,24 +138,27 @@ export default function LoginForm() {
                 placeholder="you@example.com"
                 autoComplete="email"
                 required
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)]"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
               />
             </div>
 
-            <button
-              type="submit"
-              className="w-full rounded-lg bg-[var(--primary)] py-2.5 text-sm font-medium text-white transition hover:bg-teal-700"
-            >
-              Send Reset Link
-            </button>
+             <Button
+                type="submit"
+                size="lg"
+                className="w-full"
+              >
+                Send Reset Link
+            </Button>
 
-            <button
+            <Button
               type="button"
+              variant="secondary"
+              size="lg"
+              className="w-full"
               onClick={() => setIslogin(true)}
-              className="w-full rounded-lg border border-slate-300 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
             >
               Back to sign in
-            </button>
+            </Button>
           </form>
         </div>
       )}
