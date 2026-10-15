@@ -16,7 +16,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en-ie" className={`${figtree.variable} ${fraunces.variable}`}>
+    <html lang="en" className={`${figtree.variable} ${fraunces.variable}`}>
       <body className="min-h-screen">
         <AuthProvider>{children}</AuthProvider>
         </body>
