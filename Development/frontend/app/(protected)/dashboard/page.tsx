@@ -32,7 +32,7 @@ export default function Dashboard() {
             <h2 className="text-3xl mt-5 font-semibold font-display">Validate New Lease</h2>
             <p className="text-md mt-2 text-white/80">Upload a draft lease and check important clauses before signing.</p>
           </div>
-          <Link href="/analyse-lease" className="bg-white text-brand-dark px-6 py-3.5 rounded-xl font-semibold relative inline-flex items-center gap-2 font-display">Get Started <ArrowRight size={18} /></Link>
+          <Link href="/lease" className="bg-white text-brand-dark px-6 py-3.5 rounded-xl font-semibold relative inline-flex items-center gap-2 font-display">Get Started <ArrowRight size={18} /></Link>
         </div>
 
         {/* Create one card for each item in the CARDS array */}
@@ -58,7 +58,7 @@ export default function Dashboard() {
           <p className="mt-2 text-mute max-w-sm text-center">
             Upload a lease and we we'll show you which clauses look fine and which are worth questioning.
           </p>
-          <Link href="/analyse-lease" className="font-semibold mt-6 inline-flex gap-2 items-center bg-brand text-white rounded-xl px-6 py-3">
+          <Link href="/lease" className="font-semibold mt-6 inline-flex gap-2 items-center bg-brand text-white rounded-xl px-6 py-3">
             <Upload size={20} />
             Upload your first lease
           </Link>
