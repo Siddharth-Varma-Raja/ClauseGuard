@@ -53,7 +53,7 @@ export default function RegisterForm() {
 
   return (
     
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 p-4">
+    <div className="flex min-h-screen items-center justify-center p-4">
     <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
       
       <div className="mb-6">
