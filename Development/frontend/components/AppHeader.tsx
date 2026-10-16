@@ -26,17 +26,17 @@ export default function AppHeader() {
         },
         {
             label: "Validate Lease",
-            href: "/validate-lease",
+            href: "/lease",
             icon: FileSearchCorner
         },
         {
             label: "Check Notice",
-            href: "/check-notice",
+            href: "/notice",
             icon: FileCheck
         },
         {
             label: "Tenancy Timeline",
-            href: "/tenancy-timeline",
+            href: "/timeline",
             icon: CalendarClock
         },
         {
