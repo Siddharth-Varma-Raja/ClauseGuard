@@ -26,17 +26,17 @@ export default function AppHeader() {
         },
         {
             label: "Validate Lease",
-            href: "/validate-lease",
+            href: "/lease",
             icon: FileSearchCorner
         },
         {
             label: "Check Notice",
-            href: "/check-notice",
+            href: "/notice",
             icon: FileCheck
         },
         {
             label: "Tenancy Timeline",
-            href: "/tenancy-timeline",
+            href: "/timeline",
             icon: CalendarClock
         },
         {
@@ -54,9 +54,9 @@ export default function AppHeader() {
                 </Link>
 
                 <div className="relative">
-                    <button type="button" onClick={() => setIsMenuOpen(!isMenuOpen)}>
+                    <button type="button" onClick={() => setIsMenuOpen(!isMenuOpen)} className="relative z-50 p-2 rounded-lg hover:bg-gray-100 duration-200 transition-colors cursor-pointer">
                         {isMenuOpen ? (
-                            <X size={22}/>
+                            <X size={22} />
                         ) : (
                             <Menu size={22}/>
                         )}
