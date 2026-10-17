@@ -4,6 +4,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { ArrowLeft, FileText, Upload } from "lucide-react";
+import Stepper, { LEASE_STEPS } from "@/components/app/stepper";
 
 export default function NewLeasePage() {
   const [file, setFile] = useState<File | null>(null);
@@ -58,6 +59,11 @@ export default function NewLeasePage() {
         Back to my leases
       </Link>
 
+      {/* Add Stepper to indicate which step is the current page in */}
+      <div className="mt-8">
+        <Stepper steps={LEASE_STEPS} current={1}/>
+      </div>
+      
       <header className="mt-8">
         <h1 className="text-3xl font-semibold text-brand font-display">
           Upload a lease
