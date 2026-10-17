@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { Button } from "@/components/ui/Button";
 
 import { useRouter } from "next/navigation";
 import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
@@ -16,12 +17,14 @@ export default function RegisterForm() {
   
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
 
     const router = useRouter();
 
     async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+    setSubmitting(true);
 
     if (password !== confirmPassword) {
         setError("Passwords do not match");
@@ -38,10 +41,11 @@ export default function RegisterForm() {
     try {
         const { user } = await createUserWithEmailAndPassword(auth, email, password);
         await updateProfile(user, { displayName: name });
-        router.push("/dashboard");
+        router.replace("/dashboard");
 
     } catch (err) {
         setError("Something went wrong. Please try again.");
+        setSubmitting(false);
     } finally {
         setLoading(false);
     }
@@ -49,11 +53,11 @@ export default function RegisterForm() {
 
   return (
     
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 p-4">
+    <div className="flex min-h-screen items-center justify-center p-4">
     <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
       
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-900">Create your account</h1>
+        <h1 className="text-2xl font-bold text-brand-dark font-display">Create your account</h1>
         <p className="mt-1 text-sm text-slate-500">
           Create a ClauseGuard tenant account.
         </p>
@@ -77,7 +81,7 @@ export default function RegisterForm() {
             onChange={(e) => setName(e.target.value)}
             placeholder="Your full name"
             required
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)]"
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
           />
         </div>
 
@@ -91,7 +95,7 @@ export default function RegisterForm() {
             onChange={(e) => setEmail(e.target.value)}
             placeholder="you@example.com"
             required
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)]"
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
           />
         </div>
 
@@ -105,7 +109,7 @@ export default function RegisterForm() {
             onChange={(e) => setPassword(e.target.value)}
             placeholder="Create a password"
             required
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)]"
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
           />
         </div>
 
@@ -119,7 +123,7 @@ export default function RegisterForm() {
             onChange={(e) => setConfirmPassword(e.target.value)}
             placeholder="Confirm your password"
             required
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)]"
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
           />
         </div>
 
@@ -128,27 +132,23 @@ export default function RegisterForm() {
             type="checkbox"
             name="terms"
             required
-            className="mt-1 h-4 w-4 rounded border-slate-300 text-[var(--primary)] focus:ring-[var(--primary)]"
+            className="mt-1 h-4 w-4 rounded border-slate-300 text-brand focus:ring-brand"
           />
           <span>
-            I agree to the <Link href="/terms" className="text-[var(--primary)]">Terms of Service</Link> and <Link href="/privacy" className="text-[var(--primary)]">Privacy Policy</Link>.
+            I agree to the <Link href="/terms" className="text-brand hover:underline">Terms of Service</Link> and <Link href="/privacy" className="text-brand hover:underline">Privacy Policy</Link>.
           </span>
         </label>
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full rounded-lg bg-[var(--primary)] py-2.5 text-sm font-medium text-white hover:bg-teal-700 transition disabled:opacity-50"
-        >
-          {loading ? "Creating account..." : "Create account"}
-        </button>
+        <Button type="submit" size="lg" className="w-full" disabled={submitting}>
+          {submitting ? "Creating account…" : "Create account"}
+        </Button>
       </form>
 
             <p className="mt-6 text-center text-sm text-slate-500">
                 Already have an account?
                 <Link
                 href="/login"
-                className="font-medium text-[var(--primary)] hover:underline"
+                className="font-medium text-brand hover:underline"
                 >
                 Sign in
                 </Link>
