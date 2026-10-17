@@ -2,7 +2,6 @@ import difflib
 
 class TemplateDiffEngine:
     def __init__(self):
-        # In production, load this from the local file system or Member 1's DB
         self.rtb_baseline_text = "Standard RTB Tenancy Agreement..." 
 
     def compare_to_baseline(self, user_text: str) -> list:
