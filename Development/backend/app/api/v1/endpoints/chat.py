@@ -5,10 +5,19 @@ from pydantic import BaseModel
 from google import genai
 from google.genai import types
 
+from app.config import settings
+
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
-client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
+def get_genai_client() -> genai.Client:
+    api_key = settings.gemini_api_key or os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        raise HTTPException(
+            status_code=503,
+            detail="GEMINI_API_KEY is not configured in the backend .env file.",
+        )
+    return genai.Client(api_key=api_key)
 
 class ChatMessage(BaseModel):
     role: str
@@ -57,11 +66,14 @@ async def ask_clauseguard_bot(request: ChatRequest):
             types.Content(role="user", parts=[types.Part.from_text(text=prompt_with_context)])
         )
 
-        #
+        client = get_genai_client()
         response = client.models.generate_content(
             model='gemini-2.5-flash',
             contents=contents,
-            config=types.GenerateContentConfig(
+            config=types.GenerateConfig(
+                system_instruction=system_instruction,
+                temperature=0.2,
+            ) if hasattr(types, "GenerateConfig") else types.GenerateContentConfig(
                 system_instruction=system_instruction,
                 temperature=0.2,
             ),
@@ -69,6 +81,8 @@ async def ask_clauseguard_bot(request: ChatRequest):
         
         return ChatResponse(reply=response.text)
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Chatbot error: {str(e)}")
         raise HTTPException(status_code=500, detail="The chatbot is currently unavailable.")
