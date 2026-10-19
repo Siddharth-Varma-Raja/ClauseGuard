@@ -23,6 +23,9 @@ class Settings(BaseSettings):
     # ── Firebase Web API Key (for dev token generator) ────────────────────────
     firebase_web_api_key: str = ""
 
+    # ── Gemini API Key (for chatbot) ──────────────────────────────────────────
+    gemini_api_key: str = ""
+
     @property
     def cors_origins(self) -> list[str]:
         return [o.strip() for o in self.allowed_origins.split(",")]
