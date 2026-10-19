@@ -20,6 +20,9 @@ class Settings(BaseSettings):
     aws_secret_access_key: str = ""
     s3_bucket_name: str = "clauseguard-bucket"
 
+    # ── Firebase Web API Key (for dev token generator) ────────────────────────
+    firebase_web_api_key: str = ""
+
     @property
     def cors_origins(self) -> list[str]:
         return [o.strip() for o in self.allowed_origins.split(",")]
