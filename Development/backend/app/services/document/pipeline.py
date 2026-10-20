@@ -42,7 +42,7 @@ class PipelineError(Exception):
 
 def run_upload_pipeline(
     file_bytes: bytes,
-    original_filename: str,
+    user_id: str,
     content_type: str,
     s3_key_prefix: str = "documents/",
 ) -> dict:
@@ -55,8 +55,8 @@ def run_upload_pipeline(
     ----------
     file_bytes:
         Raw bytes of the uploaded file.
-    original_filename:
-        Original file name from the upload (used to derive the S3 key).
+    user_id:
+        The ID of the user uploading the file (used to derive the S3 key).
     content_type:
         MIME type of the uploaded file (e.g. ``"application/pdf"``
         or ``"image/jpeg"``).
@@ -73,14 +73,13 @@ def run_upload_pipeline(
     PipelineError
         If any step fails, with ``step`` set to indicate which one.
     """
-    stem = original_filename.rsplit(".", 1)[0]            # strip extension
-    unique_id = uuid.uuid4().hex[:8]
-    s3_key = f"{s3_key_prefix}{stem}_{unique_id}.txt"
+    unique_id = str(uuid.uuid4())
+    s3_key = f"{s3_key_prefix}{user_id}/{unique_id}.txt"
 
     # ── Step 1: Extract ───────────────────────────────────────────────
     logger.info(
-        "[pipeline] Starting extraction for '%s' (type=%s).",
-        original_filename,
+        "[pipeline] Starting extraction for user_id='%s' (type=%s).",
+        user_id,
         content_type,
     )
     try:
