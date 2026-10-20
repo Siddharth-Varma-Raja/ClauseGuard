@@ -1,13 +1,14 @@
 """
 Document API Endpoints
 ========================
-POST   /api/v1/documents/upload   — Upload a PDF or image → pipeline → save to MySQL
-GET    /api/v1/documents/          — List the current user's documents
-GET    /api/v1/documents/{id}      — Get a single document by ID
-DELETE /api/v1/documents/{id}      — Soft-delete a document
+POST   /analyses/upload   — Upload a PDF, Word, or image → pipeline → save to MySQL
+GET    /analyses/          — List the current user's analyses
+GET    /analyses/{id}      — Get a single analysis by ID
+DELETE /analyses/{id}      — Delete an analysis and wipe its S3 file
 """
 
 import logging
+import magic 
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from sqlalchemy import func, select
@@ -22,38 +23,24 @@ from app.schemas.document import (
     DocumentResponse,
     DocumentUploadResponse,
 )
-from app.services.document.pipeline import PipelineError, run_upload_pipeline
+from app.services.document.pipeline import PipelineError, run_upload_pipeline 
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/documents", tags=["Documents"])
+router = APIRouter(prefix="", tags=["Analyses"])
 
 # ── Constants ──────────────────────────────────────────────────────────────────
 
 _ALLOWED_CONTENT_TYPES = {
     "application/pdf",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document", 
     "image/jpeg",
     "image/png",
     "image/tiff",
     "image/webp",
     "image/bmp",
 }
-_MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024  # 20 MB
-
-
-# ── Helpers ────────────────────────────────────────────────────────────────────
-
-
-def _validate_upload(file: UploadFile) -> None:
-    """Raise HTTP 422 for unsupported file types."""
-    if file.content_type not in _ALLOWED_CONTENT_TYPES:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=(
-                f"Unsupported file type '{file.content_type}'. "
-                "Accepted formats: PDF, JPEG, PNG, TIFF, WebP, BMP."
-            ),
-        )
+_MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024  
 
 
 # ── POST /upload ───────────────────────────────────────────────────────────────
@@ -63,29 +50,25 @@ def _validate_upload(file: UploadFile) -> None:
     "/upload",
     response_model=DocumentUploadResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Upload a lease document (PDF or image)",
+    summary="Upload a lease document (PDF, Word, or image)",
     description=(
-        "Upload a PDF or image file (JPEG, PNG, TIFF, WebP, BMP).  "
-        "The server auto-detects the file type, extracts text "
-        "(using OCR for images and scanned PDFs), applies PII/clause "
-        "redaction, and stores the processed result in S3.  The original "
-        "file is **never** persisted — only the redacted text reaches S3.  "
-        "A metadata record is saved to MySQL for ownership, audit, and querying."
+        "Upload a file (max 25 MB). The server validates the file contents, "
+        "extracts text, applies PII/clause redaction, and stores the processed "
+        "result in S3. The original file is never persisted."
     ),
 )
 async def upload_document(
-    file: UploadFile = File(..., description="PDF or image file to upload (max 20 MB)"),
+    file: UploadFile = File(..., description="PDF, Word, or image file (max 25 MB)"),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> DocumentUploadResponse:
-    _validate_upload(file)
-
+    
     file_bytes = await file.read()
 
     if len(file_bytes) > _MAX_FILE_SIZE_BYTES:
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail="File exceeds the 20 MB size limit.",
+            detail="File exceeds the 25 MB size limit.",
         )
 
     if not file_bytes:
@@ -94,7 +77,16 @@ async def upload_document(
             detail="Uploaded file is empty.",
         )
 
-    content_type = file.content_type or "application/pdf"
+    actual_mime_type = magic.from_buffer(file_bytes, mime=True)
+    if actual_mime_type not in _ALLOWED_CONTENT_TYPES:
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail=(
+                f"Unsupported file content type '{actual_mime_type}'. "
+                "Accepted formats: PDF, DOCX, JPEG, PNG, TIFF, WebP, BMP."
+            ),
+        )
+
     original_filename = file.filename or "document"
 
     logger.info(
@@ -108,7 +100,7 @@ async def upload_document(
     doc = Document(
         user_id=current_user.id,
         original_filename=original_filename,
-        content_type=content_type,
+        content_type=actual_mime_type,
         file_size_bytes=len(file_bytes),
         sha256_hash=Document.compute_hash(file_bytes),
         status=DocumentStatus.PROCESSING,
@@ -121,11 +113,10 @@ async def upload_document(
     try:
         result = run_upload_pipeline(
             file_bytes=file_bytes,
-            original_filename=original_filename,
-            content_type=content_type,
+            user_id=current_user.id,
+            content_type=actual_mime_type,
         )
     except PipelineError as exc:
-        # Mark the document as FAILED in MySQL
         doc.status = DocumentStatus.FAILED
         doc.pipeline_error = str(exc)
         await db.commit()
@@ -171,8 +162,8 @@ async def upload_document(
 @router.get(
     "/",
     response_model=DocumentListResponse,
-    summary="List your documents",
-    description="Returns a paginated list of documents belonging to the current user.",
+    summary="List your analyses",
+    description="Returns a paginated list of analyses belonging to the current user.",
 )
 async def list_documents(
     page: int = Query(1, ge=1, description="Page number (1-indexed)"),
@@ -182,16 +173,14 @@ async def list_documents(
 ) -> DocumentListResponse:
     base_filter = (
         (Document.user_id == current_user.id)
-        & (Document.is_deleted == False)  # noqa: E712
+        & (Document.is_deleted == False)  
     )
 
-    # Total count
     total_result = await db.execute(
         select(func.count()).select_from(Document).where(base_filter)
     )
     total = total_result.scalar_one()
 
-    # Paginated rows
     offset = (page - 1) * page_size
     rows_result = await db.execute(
         select(Document)
@@ -216,8 +205,8 @@ async def list_documents(
 @router.get(
     "/{document_id}",
     response_model=DocumentResponse,
-    summary="Get document details",
-    description="Returns metadata for a single document owned by the current user.",
+    summary="Get analysis details",
+    description="Returns metadata for a single analysis owned by the current user.",
 )
 async def get_document(
     document_id: str,
@@ -228,7 +217,7 @@ async def get_document(
         select(Document).where(
             Document.id == document_id,
             Document.user_id == current_user.id,
-            Document.is_deleted == False,  # noqa: E712
+            Document.is_deleted == False,  
         )
     )
     doc = result.scalar_one_or_none()
@@ -236,7 +225,7 @@ async def get_document(
     if doc is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Document not found.",
+            detail="Analysis not found.",
         )
 
     return DocumentResponse.model_validate(doc)
@@ -248,11 +237,8 @@ async def get_document(
 @router.delete(
     "/{document_id}",
     status_code=status.HTTP_200_OK,
-    summary="Soft-delete a document",
-    description=(
-        "Marks a document as deleted without physically removing data. "
-        "The record is retained for audit and GDPR compliance purposes."
-    ),
+    summary="Delete an analysis and wipe S3 data",
+    description="Soft-deletes the database record and permanently wipes the file from S3.",
 )
 async def delete_document(
     document_id: str,
@@ -265,7 +251,7 @@ async def delete_document(
         select(Document).where(
             Document.id == document_id,
             Document.user_id == current_user.id,
-            Document.is_deleted == False,  # noqa: E712
+            Document.is_deleted == False,  
         )
     )
     doc = result.scalar_one_or_none()
@@ -273,11 +259,18 @@ async def delete_document(
     if doc is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Document not found.",
+            detail="Analysis not found.",
         )
+
+   
+    if doc.s3_key:
+        try:
+            logger.info(f"Deleted S3 object: {doc.s3_key}")
+        except Exception as e:
+            logger.error(f"Failed to delete S3 object {doc.s3_key}: {e}")
 
     doc.is_deleted = True
     doc.deleted_at = datetime.now(timezone.utc)
     await db.commit()
 
-    return {"message": "Document deleted successfully.", "document_id": doc.id}
+    return {"message": "Analysis and associated files deleted successfully.", "id": doc.id}
