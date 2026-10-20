@@ -1,6 +1,8 @@
+import logging
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
@@ -8,8 +10,12 @@ from app.config import settings
 from app.core.firebase import revoke_refresh_tokens
 from app.core.rate_limit import limiter
 from app.database import get_db
+from app.models.document import Document
 from app.models.user import AuditLog, User
 from app.schemas.user import GdprExportResponse, MessageResponse, ProfileUpdateRequest, UserResponse
+from app.services.document.s3 import delete_from_s3
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/account", tags=["Account"])
 
@@ -65,6 +71,22 @@ async def delete_account(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> MessageResponse:
+    
+    docs_result = await db.execute(
+        select(Document).where(Document.user_id == current_user.id)
+    )
+    user_documents = docs_result.scalars().all()
+    
+    for doc in user_documents:
+        if doc.s3_key:
+            try:
+                delete_from_s3(doc.s3_key)
+            except Exception as e:
+                logger.error(f"Failed to delete S3 file {doc.s3_key} during account deletion: {e}")
+        
+        doc.is_deleted = True
+        doc.deleted_at = datetime.now(timezone.utc)
+
     current_user.is_active = False
     current_user.updated_at = datetime.now(timezone.utc)
 
@@ -73,14 +95,17 @@ async def delete_account(
     db.add(
         AuditLog(
             actor_uid=current_user.firebase_uid,
-            action="ACCOUNT_DEACTIVATED",
+            action="ACCOUNT_DEACTIVATED_AND_FILES_PURGED",
             resource=f"user:{current_user.firebase_uid}",
             ip_address=_client_ip(request),
         )
     )
 
     await db.commit()
-    return MessageResponse(message="Account deactivated. Your data is retained for 30 days per GDPR Article 17.")
+    
+    return MessageResponse(
+        message="Account deactivated and associated files permanently wiped from storage."
+    )
 
 
 @router.get("/me/gdpr-export", response_model=GdprExportResponse)
