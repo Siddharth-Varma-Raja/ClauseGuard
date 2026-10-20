@@ -23,14 +23,15 @@ structlog.configure(
 app = FastAPI(
     title="ClauseGuard Identity API",
     version="1.0.0",
-    docs_url="/docs",
-    redoc_url="/redoc",
+    docs_url=None, 
+    redoc_url=None,
 )
 
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(RequestLoggingMiddleware)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
@@ -40,7 +41,7 @@ app.add_middleware(
 )
 
 app.include_router(v1_router, prefix="/api")
-app.include_router(chat.router, prefix="/api/v1/chat", tags=["chatbot"])
+app.include_router(chat.router, prefix="/api/chat", tags=["chatbot"]) 
 
 
 @app.on_event("startup")
@@ -59,5 +60,5 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
     logger.error("unhandled_exception", path=request.url.path, error=str(exc))
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content={"detail": "An unexpected error occurred."},
+        content={"message": "An unexpected error occurred."}, 
     )
