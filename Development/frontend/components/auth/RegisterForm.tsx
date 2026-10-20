@@ -28,11 +28,13 @@ export default function RegisterForm() {
 
     if (password !== confirmPassword) {
         setError("Passwords do not match");
+        setSubmitting(false);
         return;
     }
 
     if (password.length < 8) {
         setError("Password must be at least 8 characters");
+        setSubmitting(false);
         return;
     }
 

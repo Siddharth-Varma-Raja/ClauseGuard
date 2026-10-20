@@ -25,6 +25,10 @@ class S3DownloadError(Exception):
     """Raised when a download from S3 fails."""
 
 
+class S3DeleteError(Exception):
+    """Raised when deleting from S3 fails."""
+
+
 def _client():
     """Return a configured S3 client (created per-call; boto3 handles pooling)."""
     return boto3.client(
@@ -102,3 +106,18 @@ def download_text_from_s3(object_key: str) -> str:
     except (BotoCoreError, ClientError) as exc:
         logger.exception("S3 download failed for key '%s'.", object_key)
         raise S3DownloadError(f"Failed to download '{object_key}' from S3.") from exc
+
+
+def delete_from_s3(object_key: str) -> None:
+    """
+    Permanently delete an object from S3.
+    Used for GDPR compliance when an analysis is deleted.
+    """
+    bucket = settings.s3_bucket_name
+    try:
+        s3 = _client()
+        s3.delete_object(Bucket=bucket, Key=object_key)
+        logger.info("Deleted object from S3: s3://%s/%s", bucket, object_key)
+    except (BotoCoreError, ClientError) as exc:
+        logger.exception("S3 deletion failed for key '%s'.", object_key)
+        raise S3DeleteError(f"Failed to delete '{object_key}' from S3.") from exc
