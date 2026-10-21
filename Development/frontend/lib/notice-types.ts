@@ -5,7 +5,7 @@ export type StatusCounts = Record<Status, number>;
 export type Confidence = "high" | "medium" | "low";
 
 export type Source = {
-  kind: string; 
+  kind: string;
   title: string;
   url?: string;
   note?: string;
@@ -19,8 +19,8 @@ export type Clause = {
   page: number;
   status: Status;
   confidence: Confidence;
-  explanation: string; 
-  reason: string; 
+  explanation: string;
+  reason: string;
   nextSteps: string[];
   sources: Source[];
   reviewed: boolean;
