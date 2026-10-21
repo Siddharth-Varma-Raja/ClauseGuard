@@ -86,6 +86,14 @@ class DocumentReview(Base):
     compliant_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     informational_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
+    # ── Extra analysis metadata ────────────────────────────────────────────────
+    property_address: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    monthly_rent_cents: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    deposit_cents: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    tenancy_start: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    term_months: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    page_count: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+
     # ── Review status ──────────────────────────────────────────────────────────
     review_status: Mapped[ReviewStatus] = mapped_column(
         Enum(ReviewStatus, values_callable=lambda x: [e.value for e in x]),
@@ -137,6 +145,8 @@ class ClauseReview(Base):
     clause_number: Mapped[int] = mapped_column(Integer, nullable=False)
     clause_title: Mapped[str] = mapped_column(String(512), nullable=False)
     clause_text: Mapped[Text] = mapped_column(Text, nullable=False)
+    page: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    confidence: Mapped[str] = mapped_column(String(32), nullable=False, default="high")
 
     # ── Risk assessment ────────────────────────────────────────────────────────
     risk_level: Mapped[RiskLevel] = mapped_column(
