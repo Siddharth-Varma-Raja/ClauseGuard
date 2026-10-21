@@ -32,6 +32,11 @@ __pycache__/
 *.py[cod]
 *$py.class
 *.so
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
 
 # IDEs
 .idea/
@@ -44,5 +49,5 @@ target/
 *.ear
 *.class
 
-#yaml file
+# YAML / Generated documentation
 openapi.yaml
