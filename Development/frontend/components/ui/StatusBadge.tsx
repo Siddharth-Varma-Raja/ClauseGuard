@@ -1,10 +1,10 @@
-import { STATUS } from "@/lib/status";
+import { STATUS } from "@/lib/notice-status";
 import { cn } from "@/lib/cn";
-import type { Status } from "@/lib/types";
+import type { Status } from "@/lib/notice-types";
 
 type StatusBadgeProps = {
   status: Status;
-  label?: string; 
+  label?: string;
   size?: "sm" | "md";
 };
 
