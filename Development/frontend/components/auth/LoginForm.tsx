@@ -155,7 +155,7 @@ export default function LoginForm() {
               variant="secondary"
               size="lg"
               className="w-full"
-              onClick={() => setIslogin(true)}
+              onClick={(e) => { e.preventDefault();setSubmitting(false); setEmail(""); setPassword(""); setIslogin(true); }}
             >
               Back to sign in
             </Button>
