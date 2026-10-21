@@ -300,7 +300,7 @@ async def upload_lease(
     await db.commit()
     await db.refresh(doc)
 
-    # Run upload pipeline
+    # Run upload pipeline (including diff_engine lease verification)
     try:
         pipeline_result = run_upload_pipeline(
             file_bytes=file_bytes,
@@ -311,9 +311,28 @@ async def upload_lease(
         doc.s3_key = pipeline_result["s3_key"]
         doc.char_count = pipeline_result["char_count"]
         doc.status = DocumentStatus.COMPLETED
+    except PipelineError as exc:
+        doc.status = DocumentStatus.FAILED
+        doc.pipeline_error = str(exc)
+        await db.commit()
+        if exc.step == "lease_validation":
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=str(exc),
+            )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Upload pipeline failed during {exc.step}: {exc}",
+        )
     except Exception as exc:
-        logger.warning(f"Pipeline error during upload: {exc}")
-        doc.status = DocumentStatus.COMPLETED  # Keep available for review
+        logger.exception(f"Unexpected error during upload pipeline: {exc}")
+        doc.status = DocumentStatus.FAILED
+        doc.pipeline_error = str(exc)
+        await db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while processing the document.",
+        )
 
     # Initialize standard review analysis for the document
     review = DocumentReview(
