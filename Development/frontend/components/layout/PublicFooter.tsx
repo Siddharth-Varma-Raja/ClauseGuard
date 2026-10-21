@@ -2,7 +2,6 @@
 
 import Link from "next/link"
 
-// styling for the links in the footer
 const linkHoverClass = "text-sm hover:text-brand transition-colors duration-300 ease-in-out text-left"
 
 export default function Footer() {

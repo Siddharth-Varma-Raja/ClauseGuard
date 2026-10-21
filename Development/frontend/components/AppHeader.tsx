@@ -54,7 +54,7 @@ export default function AppHeader() {
                 </Link>
 
                 <div className="relative">
-                    <button type="button" onClick={() => setIsMenuOpen(!isMenuOpen)} className="relative z-50 p-2 rounded-lg hover:bg-gray-100 duration-200 transition-colors cursor-pointer">
+                    <button type="button" data-tour="menu" aria-label="Menu" onClick={() => setIsMenuOpen(!isMenuOpen)} className="relative z-50 p-2 rounded-lg hover:bg-gray-100 duration-200 transition-colors cursor-pointer">
                         {isMenuOpen ? (
                             <X size={22} />
                         ) : (
