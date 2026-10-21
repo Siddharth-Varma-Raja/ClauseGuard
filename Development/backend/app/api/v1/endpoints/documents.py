@@ -124,6 +124,7 @@ async def upload_document(
 
         step_status_map = {
             "extraction": status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "lease_validation": status.HTTP_422_UNPROCESSABLE_ENTITY,
             "redaction":  status.HTTP_500_INTERNAL_SERVER_ERROR,
             "upload":     status.HTTP_502_BAD_GATEWAY,
         }
