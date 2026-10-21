@@ -21,3 +21,29 @@ This project aims to develop an AI-assisted lease review tool designed to assist
 10. Make the pipeline more resistant to prompt injection: Assume that uploaded leases are untrusted input, look for hidden text and injected instructions, and compute attack success rate, accuracy (or loss) and latency (or delay) cost of the defenses.
 11.	Build a usable web interface for upload, a document-anchored review report, and interactive grounded Q&A.
 12.	Evaluate the system with classifier metrics and a usability study (SUS score, at least 10 prospective tenant users).
+
+---
+
+## Quick Start
+
+### Backend (FastAPI + MySQL)
+For detailed instructions, endpoints catalog, and Postman guide, see the **[Backend README](file:///Users/prasadnitinpansare/Desktop/Dissertation/project/ClauseGuard/Development/backend/README.md)**.
+
+```bash
+cd Development/backend
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+alembic upgrade head
+uvicorn app.main:app --reload --port 8000
+```
+
+* **Interactive Docs (Swagger UI)**: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
+* **Health Check**: [http://127.0.0.1:8000/health](http://127.0.0.1:8000/health)
+
+### Frontend (Next.js 16)
+```bash
+cd Development/frontend
+npm install
+npm run dev
+```
+
