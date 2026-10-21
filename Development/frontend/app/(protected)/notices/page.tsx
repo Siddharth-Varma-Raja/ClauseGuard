@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, Banknote, DoorOpen, FileText, Gavel, LoaderCircle } from "lucide-react";
 import { checkNotice, getNotices } from "@/lib/api";
-import type { NoticeSummary, NoticeType } from "@/lib/types";
+import type { NoticeSummary, NoticeType } from "@/lib/notice-types";
 
 const noticeTypes = [
   { value: "termination", title: "Notice of termination", description: "The landlord says the tenancy is ending.", Icon: Gavel },
@@ -134,9 +134,8 @@ export default function NoticesPage() {
                 role="radio"
                 aria-checked={type === value}
                 onClick={() => setType(value)}
-                className={`flex min-h-24 items-start gap-3 rounded-2xl border-2 p-4 text-left transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand ${
-                  type === value ? "border-brand bg-brand-soft/60" : "border-line hover:border-brand/50"
-                }`}
+                className={`flex min-h-24 items-start gap-3 rounded-2xl border-2 p-4 text-left transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand ${type === value ? "border-brand bg-brand-soft/60" : "border-line hover:border-brand/50"
+                  }`}
               >
                 <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-white text-brand shadow-sm">
                   <Icon size={20} aria-hidden="true" />
