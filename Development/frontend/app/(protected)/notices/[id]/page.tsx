@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { ArrowLeft, Check, CircleCheck, CircleX, FileQuestion, Info, LoaderCircle, TriangleAlert } from "lucide-react";
 import { getNotice } from "@/lib/api";
-import { formatDate } from "@/lib/notice-format";
+import { fmtDate } from "@/lib/notice-format";
 import type { Notice, NoticeCheck, NoticeType } from "@/lib/notice-types";
 
 function noticeTitle(type: NoticeType) {
@@ -61,7 +61,7 @@ export default function NoticeResultPage() {
 
       <header>
         <h1 className="font-display text-3xl font-semibold tracking-tight text-brand-dark sm:text-4xl">Notice check result</h1>
-        {notice && <p className="mt-2 text-base text-mute sm:text-lg">Checked on {formatDate(notice.createdAt, "long")}</p>}
+        {notice && <p className="mt-2 text-base text-mute sm:text-lg">Checked on {fmtDate(notice.createdAt)}</p>}
       </header>
 
       {loading ? (
@@ -117,7 +117,7 @@ export default function NoticeResultPage() {
                 {notice.keyDates.map((item, index) => (
                   <li key={`${item.label}-${index}`} className="flex flex-col gap-1 border-b border-line pb-3 last:border-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between">
                     <span className="text-sm text-mute">{item.label}</span>
-                    <strong className="text-sm text-brand-dark">{formatDate(item.date, "long")}</strong>
+                    <strong className="text-sm text-brand-dark">{fmtDate(item.date)}</strong>
                   </li>
                 ))}
               </ul>
