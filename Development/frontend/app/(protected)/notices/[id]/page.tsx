@@ -5,8 +5,8 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { ArrowLeft, Check, CircleCheck, CircleX, FileQuestion, Info, LoaderCircle, TriangleAlert } from "lucide-react";
 import { getNotice } from "@/lib/api";
-import { formatDate } from "@/lib/format";
-import type { Notice, NoticeCheck, NoticeType } from "@/lib/types";
+import { formatDate } from "@/lib/notice-format";
+import type { Notice, NoticeCheck, NoticeType } from "@/lib/notice-types";
 
 function noticeTitle(type: NoticeType) {
   const titles: Record<NoticeType, string> = {
