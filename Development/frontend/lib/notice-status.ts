@@ -1,14 +1,14 @@
 import { CircleCheck, Info, ShieldAlert, TriangleAlert, type LucideIcon } from "lucide-react";
-import type { Status, StatusCounts } from "./types";
+import type { Status, StatusCounts } from "./notice-types";
 
 type StatusStyle = {
   label: string;
   risk: string;
   Icon: LucideIcon;
-  badge: string; 
-  solid: string; 
-  highlight: string; 
-  colour: string; 
+  badge: string;
+  solid: string;
+  highlight: string;
+  colour: string;
 };
 
 export const STATUS: Record<Status, StatusStyle> = {
