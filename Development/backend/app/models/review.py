@@ -57,12 +57,11 @@ class SourceType(str, enum.Enum):
 
 
 # ── Risk level → colour mapping ───────────────────────────────────────────────
-
 RISK_COLOR_MAP = {
-    RiskLevel.LIKELY_UNENFORCEABLE: "#DC2626",  # Red
-    RiskLevel.NEEDS_REVIEW: "#F59E0B",          # Amber
-    RiskLevel.COMPLIANT: "#16A34A",             # Green
-    RiskLevel.INFORMATIONAL: "#6B7280",         # Grey
+    RiskLevel.LIKELY_UNENFORCEABLE: "red",
+    RiskLevel.NEEDS_REVIEW: "amber",
+    RiskLevel.COMPLIANT: "green",
+    RiskLevel.INFORMATIONAL: "grey",
 }
 
 
@@ -86,6 +85,14 @@ class DocumentReview(Base):
     needs_review_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     compliant_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     informational_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    # ── Extra analysis metadata ────────────────────────────────────────────────
+    property_address: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    monthly_rent_cents: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    deposit_cents: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    tenancy_start: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    term_months: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    page_count: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
 
     # ── Review status ──────────────────────────────────────────────────────────
     review_status: Mapped[ReviewStatus] = mapped_column(
@@ -137,7 +144,9 @@ class ClauseReview(Base):
     # ── Clause identification ──────────────────────────────────────────────────
     clause_number: Mapped[int] = mapped_column(Integer, nullable=False)
     clause_title: Mapped[str] = mapped_column(String(512), nullable=False)
-    clause_text: Mapped[str] = mapped_column(Text, nullable=False)
+    clause_text: Mapped[Text] = mapped_column(Text, nullable=False)
+    page: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    confidence: Mapped[str] = mapped_column(String(32), nullable=False, default="high")
 
     # ── Risk assessment ────────────────────────────────────────────────────────
     risk_level: Mapped[RiskLevel] = mapped_column(
@@ -145,8 +154,8 @@ class ClauseReview(Base):
         nullable=False,
     )
     color_code: Mapped[str] = mapped_column(
-        String(7), nullable=False, default="#6B7280",
-        comment="Hex colour code for the risk level",
+        String(16), nullable=False, default="grey",
+        comment="Colour label for the risk level (red, amber, green, grey)",
     )
 
     # ── AI-generated explanations ──────────────────────────────────────────────
