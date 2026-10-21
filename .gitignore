@@ -12,7 +12,7 @@ node_modules/
 # Next.js build output
 .next/
 out/
-
+    
 # Logs
 *.log
 
@@ -32,6 +32,11 @@ __pycache__/
 *.py[cod]
 *$py.class
 *.so
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
 
 # IDEs
 .idea/
@@ -43,3 +48,6 @@ target/
 *.war
 *.ear
 *.class
+
+# YAML / Generated documentation
+openapi.yaml
