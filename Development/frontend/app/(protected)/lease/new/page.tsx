@@ -6,9 +6,29 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, FileText, Upload, Loader2, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import PageTour from "@/components/PageTour";
+import ProcessingCard from "@/components/lease/ProcessingCard";
 import { UPLOAD_TOUR } from "@/lib/tours";
+import { ApiError, LEASE_ACCEPT, LEASE_MAX_BYTES, errorMessage, isAllowedLeaseFile, uploadLease } from "@/lib/api";
 
-const MAX_SIZE_MB = 10;
+const MAX_SIZE_MB = LEASE_MAX_BYTES / 1024 / 1024;
+
+const STEPS = [
+  "Uploading your lease",
+  "Reading the text",
+  "Removing personal details",
+  "Checking each clause against Irish tenancy law",
+];
+const STEP_INTERVAL_MS = 6000;
+
+function uploadErrorMessage(error: unknown) {
+  if (error instanceof ApiError) {
+    if (error.status === 413) return `This file is over ${MAX_SIZE_MB} MB. Try a smaller scan or compress the PDF.`;
+    if (error.status === 415) return "This file type isn't supported. Upload a PDF, DOCX, JPG or PNG.";
+    if (error.status === 422) return error.message;
+    if (error.status === 408) return "The analysis took too long. The server may be waking up — please try again.";
+  }
+  return errorMessage(error, "The upload didn't go through. Try again.");
+}
 
 function formatSize(bytes: number) {
   return bytes < 1024 * 1024 ? `${Math.ceil(bytes / 1024)} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
@@ -20,6 +40,7 @@ export default function NewLeasePage() {
   const [error, setError] = useState("");
   const [uploading, setUploading] = useState(false);
   const [dragging, setDragging] = useState(false);
+  const [progress, setProgress] = useState(0);
 
   function chooseFile(selectedFile: File | undefined) {
     setError("");
@@ -27,8 +48,12 @@ export default function NewLeasePage() {
 
     if (!selectedFile) return;
 
-    if (selectedFile.type !== "application/pdf") {
-      setError("This file isn't a PDF. Save your lease as a PDF and try again.");
+    if (!isAllowedLeaseFile(selectedFile)) {
+      setError("This file type isn't supported. Upload a PDF, DOCX, JPG or PNG.");
+      return;
+    }
+    if (selectedFile.size === 0) {
+      setError("This file is empty. Choose another file.");
       return;
     }
     if (selectedFile.size > MAX_SIZE_MB * 1024 * 1024) {
@@ -50,28 +75,23 @@ export default function NewLeasePage() {
 
     setUploading(true);
     setError("");
+    setProgress(0);
+    const timer = setInterval(() => setProgress((p) => Math.min(p + 1, STEPS.length - 1)), STEP_INTERVAL_MS);
 
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-
-      const res = await fetch("/api/leases", { method: "POST", body: formData });
-
-      const isJson = res.headers.get("content-type")?.includes("application/json");
-      if (!isJson) {
-        throw new Error(`Upload API returned ${res.status} ${res.statusText}. Is app/api/leases/route.ts in place?`);
-      }
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? `Upload failed (${res.status})`);
-
-      router.push(`/lease/${data.id}`);
+      const result = await uploadLease(file);
+      clearInterval(timer);
+      setProgress(STEPS.length);
+      router.push(`/lease/${result.id}`);
     } catch (err) {
-      console.error("Lease upload failed:", err);
-      setError(err instanceof Error ? err.message : "The upload didn't go through. Try again.");
+      setError(uploadErrorMessage(err));
       setUploading(false);
+    } finally {
+      clearInterval(timer);
     }
   }
+
+  if (uploading) return <ProcessingCard steps={STEPS} current={progress} />;
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -110,11 +130,12 @@ export default function NewLeasePage() {
             {dragging ? "Drop your lease here" : "Drag your lease here, or choose a file"}
           </span>
           <span className="mt-1 text-sm text-mute">PDF, DOCX, JPG or PNG up to {MAX_SIZE_MB} MB</span>
+          <span className="mt-1 text-xs text-mute">Personal details are removed before your lease is analysed.</span>
 
           <input
             id="lease-file"
             type="file"
-            accept="application/pdf,.pdf"
+            accept={LEASE_ACCEPT}
             disabled={uploading}
             onChange={(e) => {
               chooseFile(e.target.files?.[0]);
@@ -159,8 +180,9 @@ export default function NewLeasePage() {
           className="mt-6 inline-flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-brand px-5 py-3 font-semibold text-white hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50"
         >
           {uploading && <Loader2 size={18} className="animate-spin" />}
-          {uploading ? "Uploading…" : "Check my lease"}
+          {uploading ? "Checking…" : "Check my lease"}
         </button>
+
       </section>
 
       <ol data-tour="what-happens" className="mt-8 grid gap-4 grid-cols-3">
