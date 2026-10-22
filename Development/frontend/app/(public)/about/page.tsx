@@ -27,5 +27,9 @@ const SECTIONS = [
 ];
 
 export default function About() {
-  return <LegalDocument title="About ClauseGuard" updated="10 October 2026" sections={SECTIONS} />;
+  return (
+    <>
+      <LegalDocument title="About ClauseGuard" updated="10 October 2026" sections={SECTIONS} tourTitle="about-title" tourSections="about-sections" />
+    </>
+  );
 }

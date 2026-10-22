@@ -1,0 +1,13 @@
+# Test cases: expected verdicts. Written to prove the engine runs. The team must have SOMEONE OTHER than
+# the rule author add and check cases against the law (Q11).
+- {id: T01, topic: deposit, text: "The Tenant shall pay a deposit equal to three months' rent.", expect: against_guidance}
+- {id: T02, topic: deposit, text: "The Tenant shall pay a deposit equal to one month's rent.", expect: looks_fine}
+- {id: T03, topic: deposit, text: "A deposit of €1,800 is payable before the tenancy starts.", context: {monthly_rent_cents: 180000}, expect: looks_fine}
+- {id: T04, topic: deposit, text: "A deposit of €3,600 is payable before the tenancy starts.", context: {monthly_rent_cents: 180000}, expect: against_guidance}
+- {id: T05, topic: deposit, text: "A deposit of €3,600 is payable before the tenancy starts.", expect: needs_review, note: "rent unknown"}
+- {id: T06, topic: deposit, text: "A security deposit is payable.", expect: needs_review, note: "no amount"}
+- {id: T07, topic: deposit, text: "The Tenant shall pay a deposit equal to three months' rent.", confidence: 0.3, expect: needs_review, note: "classifier unsure"}
+- {id: T08, topic: access, text: "The Landlord may enter the property at any time without prior notice.", expect: against_guidance}
+- {id: T09, topic: access, text: "The Landlord may enter on 24 hours written notice.", expect: needs_review}
+- {id: T10, topic: pets, text: "No pets are allowed in the property.", expect: needs_review, note: "needs_review"}
+- {id: T11, topic: termination, text: "The Landlord may end the tenancy by giving 28 days notice.", context: {tenancy_months: 8}, expect: needs_review, note: "table not filled in"}
