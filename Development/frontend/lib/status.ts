@@ -1,5 +1,5 @@
 import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
-import type { Status } from "./types";
+import { Status } from "./notice-types";
 
 export const STATUS = {
   red: {

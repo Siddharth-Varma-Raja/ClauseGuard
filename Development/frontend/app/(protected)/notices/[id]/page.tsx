@@ -40,7 +40,6 @@ export default function NoticeResultPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    // from BACKEND: lib/api.ts (GET /notices/{id})
     getNotice(id)
       .then((result) => {
         if (!result) setError("We couldn't find this check. It may have been deleted, or the link may be wrong.");
