@@ -4,8 +4,20 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, Banknote, DoorOpen, FileText, Gavel, LoaderCircle } from "lucide-react";
-import { checkNotice, getNotices } from "@/lib/api";
-import type { NoticeSummary, NoticeType } from "@/lib/types";
+import { checkNotice, errorMessage, getNotices } from "@/lib/api";
+import { buildNoticeAnswers } from "@/lib/notice-answers";
+import type { NoticeSummary, NoticeType } from "@/lib/notice-types";
+import PageTour from "@/components/PageTour";
+import { NOTICES_TOUR } from "@/lib/tours";
+
+const TERMINATION_REASONS = [
+  { value: "sale", label: "The landlord is selling the property" },
+  { value: "own_use", label: "The landlord is moving in" },
+  { value: "family", label: "A family member of the landlord is moving in" },
+  { value: "refurbishment", label: "Major refurbishment of the property" },
+  { value: "breach", label: "I broke a term of the lease (e.g. rent arrears)" },
+  { value: "other", label: "Another reason / no reason given" },
+];
 
 const noticeTypes = [
   { value: "termination", title: "Notice of termination", description: "The landlord says the tenancy is ending.", Icon: Gavel },
@@ -60,6 +72,24 @@ function InputField({
   );
 }
 
+function SelectField({ label, name, options }: { label: string; name: string; options: { value: string; label: string }[] }) {
+  return (
+    <div className="min-w-0">
+      <label htmlFor={name} className="mb-1.5 block text-sm font-semibold text-brand-dark">{label}</label>
+      <select
+        id={name}
+        name={name}
+        defaultValue={options[0].value}
+        className="min-h-11 w-full rounded-xl border border-line bg-white px-3 py-2.5 text-base text-slate-900 outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
+      >
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>{o.label}</option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
 function CheckField({ name, children }: { name: string; children: React.ReactNode }) {
   return (
     <label className="flex min-h-11 cursor-pointer items-start gap-3 rounded-xl border border-line bg-white p-3 text-sm leading-5 hover:bg-surface">
@@ -82,9 +112,7 @@ export default function NoticesPage() {
   useEffect(() => {
     getNotices()
       .then(setNotices)
-      .catch((err: unknown) => {
-        setHistoryError(err instanceof Error ? err.message : "Previous checks could not be loaded.");
-      })
+      .catch((err: unknown) => setHistoryError(errorMessage(err, "Previous checks could not be loaded.")))
       .finally(() => setLoadingHistory(false));
   }, []);
 
@@ -92,39 +120,43 @@ export default function NoticesPage() {
     event.preventDefault();
     setError("");
 
-    const form = new FormData(event.currentTarget);
-    const answers: Record<string, string | boolean> = {};
-    form.forEach((value, key) => {
-      answers[key] = value === "on" ? true : String(value).trim();
-    });
+    const built = buildNoticeAnswers(type, new FormData(event.currentTarget));
+    if (!built.ok) {
+      setError(built.error);
+      return;
+    }
 
-    // from BACKEND: lib/api.ts (POST /notices)
     setSubmitting(true);
     try {
-      const result = await checkNotice({ type, answers });
+      const result = await checkNotice({ type, answers: built.answers });
       router.push(`/notices/${result.id}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "We couldn't check this notice. Please try again.");
+      setError(errorMessage(err, "We couldn't check this notice. Please try again."));
       setSubmitting(false);
     }
   }
 
   return (
     <main className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6 sm:py-10">
-      <Link href="/dashboard" className="mb-5 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-brand hover:underline focus-visible:outline-2 focus-visible:outline-offset-4">
-        <ArrowLeft size={16} aria-hidden="true" />
-        Back to dashboard
-      </Link>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
+        <Link href="/dashboard" className="mb-5 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-brand hover:underline focus-visible:outline-2 focus-visible:outline-offset-4">
+          <ArrowLeft size={18} aria-hidden="true" />
+          Back to dashboard
+        </Link>
+        <PageTour tourId="notices" steps={NOTICES_TOUR} />
+      </div>
 
-      <header>
-        <h1 className="font-display text-3xl font-semibold tracking-tight text-brand-dark sm:text-4xl">Check a notice</h1>
-        <p className="mt-2 text-base leading-7 text-mute sm:text-lg">
-          Tell us about a notice you received. ClauseGuard will check your answers against the tenancy rules configured by your team.
-        </p>
+      <header data-tour="notice-intro">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
+          <h1 className="font-display text-3xl font-semibold tracking-tight text-brand-dark sm:text-4xl">Check a notice</h1>
+          <p className="mt-2 text-base leading-7 text-mute sm:text-lg">
+            Tell us about a notice you received. ClauseGuard will check your answers against Irish tenancy rules (Residential Tenancies Acts and RTB guidance).
+          </p>
+        </div>
       </header>
 
       {step === 1 ? (
-        <section className="mt-6 rounded-2xl border border-line bg-white p-4 shadow-soft sm:p-6">
+        <section data-tour="notice-type" className="mt-6 rounded-2xl border border-line bg-white p-4 shadow-soft sm:p-6">
           <h2 className="text-xl font-semibold text-brand-dark">What kind of notice is it?</h2>
           <div role="radiogroup" aria-label="Notice type" className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
             {noticeTypes.map(({ value, title, description, Icon }) => (
@@ -134,9 +166,8 @@ export default function NoticesPage() {
                 role="radio"
                 aria-checked={type === value}
                 onClick={() => setType(value)}
-                className={`flex min-h-24 items-start gap-3 rounded-2xl border-2 p-4 text-left transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand ${
-                  type === value ? "border-brand bg-brand-soft/60" : "border-line hover:border-brand/50"
-                }`}
+                className={`flex min-h-24 items-start gap-3 rounded-2xl border-2 p-4 text-left transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand ${type === value ? "border-brand bg-brand-soft/60" : "border-line hover:border-brand/50"
+                  }`}
               >
                 <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-white text-brand shadow-sm">
                   <Icon size={20} aria-hidden="true" />
@@ -149,13 +180,13 @@ export default function NoticesPage() {
             ))}
           </div>
           <div className="mt-6 flex justify-end">
-            <button type="button" onClick={() => setStep(2)} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-brand px-5 py-3 font-semibold text-white hover:bg-brand-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">
+            <button data-tour="notice-continue" type="button" onClick={() => setStep(2)} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-brand px-5 py-3 font-semibold text-white hover:bg-brand-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">
               Continue <ArrowRight size={18} aria-hidden="true" />
             </button>
           </div>
         </section>
       ) : (
-        <form onSubmit={handleSubmit} className="mt-6 rounded-2xl border border-line bg-white p-4 shadow-soft sm:p-6">
+        <form data-tour="notice-form" onSubmit={handleSubmit} className="mt-6 rounded-2xl border border-line bg-white p-4 shadow-soft sm:p-6">
           <h2 className="text-xl font-semibold text-brand-dark">About your {noticeTitle(type).toLowerCase()}</h2>
           <p className="mt-1 text-sm text-mute">Fields marked with * are required.</p>
 
@@ -165,15 +196,17 @@ export default function NoticesPage() {
             <>
               <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <InputField label="When did your tenancy start?" name="tenancyStart" type="date" required />
-                <InputField label="Date on the notice" name="serviceDate" type="date" required />
+                <InputField label="Date on the notice" name="serviceDate" type="date" required hint="The date it was given to you." />
                 <InputField label="Date the tenancy ends" name="terminationDate" type="date" required />
-                <InputField label="Reason given on the notice" name="reason" placeholder="e.g. landlord is selling" />
+                <SelectField label="Reason given on the notice" name="reason" options={TERMINATION_REASONS} />
               </div>
               <fieldset className="mt-5">
                 <legend className="mb-2 text-sm font-semibold text-brand-dark">Tick everything that applies</legend>
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  <CheckField name="inWriting">It's a written letter (not a text or call)</CheckField>
-                  <CheckField name="signed">It's signed by the landlord or agent</CheckField>
+                  <CheckField name="isWritten">It&apos;s a written letter (not a text or call)</CheckField>
+                  <CheckField name="isSigned">It&apos;s signed by the landlord or agent</CheckField>
+                  <CheckField name="hasStatutoryDeclaration">A signed statutory declaration came with it</CheckField>
+                  <CheckField name="copySentToRtb">It says a copy was sent to the RTB</CheckField>
                   <CheckField name="disputeRights">It says I can refer a dispute to the RTB</CheckField>
                 </div>
               </fieldset>
@@ -181,21 +214,30 @@ export default function NoticesPage() {
           )}
 
           {type === "rent" && (
-            <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <InputField label="Current monthly rent (€)" name="currentRent" type="number" placeholder="e.g. 1800" required />
-              <InputField label="New monthly rent (€)" name="proposedRent" type="number" placeholder="e.g. 1950" required />
-              <InputField label="Date on the letter" name="serviceDate" type="date" required />
-              <InputField label="Date the new rent starts" name="effectiveDate" type="date" hint="Leave blank if the letter doesn't say." />
-              <InputField label="When did your rent last change?" name="lastReviewDate" type="date" hint="Leave blank if it never has." />
-            </div>
+            <>
+              <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <InputField label="Current monthly rent (€)" name="currentRent" type="number" placeholder="e.g. 1800" required />
+                <InputField label="New monthly rent (€)" name="newRent" type="number" placeholder="e.g. 1950" required />
+                <InputField label="Date on the letter" name="serviceDate" type="date" required />
+                <InputField label="Date the new rent starts" name="effectiveDate" type="date" required />
+                <InputField label="When did your rent last change?" name="lastReviewDate" type="date" hint="Leave blank if it never has." />
+              </div>
+              <fieldset className="mt-5">
+                <legend className="mb-2 text-sm font-semibold text-brand-dark">Tick everything that applies</legend>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <CheckField name="inRpz">My home is in a Rent Pressure Zone</CheckField>
+                  <CheckField name="hasThreeComparables">The letter lists 3 similar homes and their rents</CheckField>
+                </div>
+              </fieldset>
+            </>
           )}
 
           {type === "entry" && (
             <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <InputField label="Date you were told about the visit" name="requestDate" type="date" required />
-              <InputField label="Date of the visit" name="visitDate" type="date" required />
+              <InputField label="When were you told about the visit?" name="toldAt" type="datetime-local" required />
+              <InputField label="When is the visit?" name="visitAt" type="datetime-local" required />
               <div className="grid gap-2 sm:col-span-2">
-                <CheckField name="emergency">It's a genuine emergency (e.g. a leak or fire)</CheckField>
+                <CheckField name="isEmergency">It&apos;s a genuine emergency (e.g. a leak or fire)</CheckField>
                 <CheckField name="agreedTime">The time was agreed with me</CheckField>
               </div>
             </div>
@@ -221,7 +263,7 @@ export default function NoticesPage() {
         </form>
       )}
 
-      <section className="mt-10 sm:mt-12">
+      <section data-tour="previous-checks" className="mt-10 sm:mt-12">
         <h2 className="mb-4 text-xl font-semibold text-brand-dark">Previous checks</h2>
         {loadingHistory ? (
           <p className="rounded-xl border border-line bg-white p-4 text-sm text-mute">Loading previous checks…</p>

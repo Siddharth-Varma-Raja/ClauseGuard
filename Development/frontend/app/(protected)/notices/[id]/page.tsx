@@ -4,9 +4,9 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { ArrowLeft, Check, CircleCheck, CircleX, FileQuestion, Info, LoaderCircle, TriangleAlert } from "lucide-react";
-import { getNotice } from "@/lib/api";
-import { formatDate } from "@/lib/format";
-import type { Notice, NoticeCheck, NoticeType } from "@/lib/types";
+import { errorMessage, getNotice } from "@/lib/api";
+import { formatDate, formatDateOrDateTime } from "@/lib/notice-format";
+import type { Notice, NoticeCheck, NoticeType } from "@/lib/notice-types";
 
 function noticeTitle(type: NoticeType) {
   const titles: Record<NoticeType, string> = {
@@ -40,14 +40,13 @@ export default function NoticeResultPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    // from BACKEND: lib/api.ts (GET /notices/{id})
     getNotice(id)
       .then((result) => {
         if (!result) setError("We couldn't find this check. It may have been deleted, or the link may be wrong.");
         else setNotice(result);
       })
       .catch((err: unknown) => {
-        setError(err instanceof Error ? err.message : "We couldn't load this result. Please try again.");
+        setError(errorMessage(err, "We couldn't load this result. Please try again."));
       })
       .finally(() => setLoading(false));
   }, [id]);
@@ -93,7 +92,7 @@ export default function NoticeResultPage() {
             ) : (
               <ul className="mt-2 divide-y divide-line">
                 {notice.checks.map((check, index) => {
-                  const item = checkStyle[check.status];
+                  const item = checkStyle[check.status] ?? checkStyle.info;
                   const Icon = item.Icon;
                   return (
                     <li key={`${check.title}-${index}`} className="flex gap-3 py-4">
@@ -117,7 +116,7 @@ export default function NoticeResultPage() {
                 {notice.keyDates.map((item, index) => (
                   <li key={`${item.label}-${index}`} className="flex flex-col gap-1 border-b border-line pb-3 last:border-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between">
                     <span className="text-sm text-mute">{item.label}</span>
-                    <strong className="text-sm text-brand-dark">{formatDate(item.date, "long")}</strong>
+                    <strong className="text-sm text-brand-dark">{formatDateOrDateTime(item.date)}</strong>
                   </li>
                 ))}
               </ul>
