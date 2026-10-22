@@ -7,6 +7,8 @@ import { ArrowLeft, ArrowRight, Banknote, DoorOpen, FileText, Gavel, LoaderCircl
 import { checkNotice, errorMessage, getNotices } from "@/lib/api";
 import { buildNoticeAnswers } from "@/lib/notice-answers";
 import type { NoticeSummary, NoticeType } from "@/lib/notice-types";
+import PageTour from "@/components/PageTour";
+import { NOTICES_TOUR } from "@/lib/tours";
 
 const TERMINATION_REASONS = [
   { value: "sale", label: "The landlord is selling the property" },
@@ -136,20 +138,25 @@ export default function NoticesPage() {
 
   return (
     <main className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6 sm:py-10">
-      <Link href="/dashboard" className="mb-5 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-brand hover:underline focus-visible:outline-2 focus-visible:outline-offset-4">
-        <ArrowLeft size={16} aria-hidden="true" />
-        Back to dashboard
-      </Link>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
+        <Link href="/dashboard" className="mb-5 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-brand hover:underline focus-visible:outline-2 focus-visible:outline-offset-4">
+          <ArrowLeft size={18} aria-hidden="true" />
+          Back to dashboard
+        </Link>
+        <PageTour tourId="notices" steps={NOTICES_TOUR} />
+      </div>
 
-      <header>
-        <h1 className="font-display text-3xl font-semibold tracking-tight text-brand-dark sm:text-4xl">Check a notice</h1>
-        <p className="mt-2 text-base leading-7 text-mute sm:text-lg">
-          Tell us about a notice you received. ClauseGuard will check your answers against Irish tenancy rules (Residential Tenancies Acts and RTB guidance).
-        </p>
+      <header data-tour="notice-intro">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
+          <h1 className="font-display text-3xl font-semibold tracking-tight text-brand-dark sm:text-4xl">Check a notice</h1>
+          <p className="mt-2 text-base leading-7 text-mute sm:text-lg">
+            Tell us about a notice you received. ClauseGuard will check your answers against Irish tenancy rules (Residential Tenancies Acts and RTB guidance).
+          </p>
+        </div>
       </header>
 
       {step === 1 ? (
-        <section className="mt-6 rounded-2xl border border-line bg-white p-4 shadow-soft sm:p-6">
+        <section data-tour="notice-type" className="mt-6 rounded-2xl border border-line bg-white p-4 shadow-soft sm:p-6">
           <h2 className="text-xl font-semibold text-brand-dark">What kind of notice is it?</h2>
           <div role="radiogroup" aria-label="Notice type" className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
             {noticeTypes.map(({ value, title, description, Icon }) => (
@@ -173,13 +180,13 @@ export default function NoticesPage() {
             ))}
           </div>
           <div className="mt-6 flex justify-end">
-            <button type="button" onClick={() => setStep(2)} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-brand px-5 py-3 font-semibold text-white hover:bg-brand-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">
+            <button data-tour="notice-continue" type="button" onClick={() => setStep(2)} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-brand px-5 py-3 font-semibold text-white hover:bg-brand-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">
               Continue <ArrowRight size={18} aria-hidden="true" />
             </button>
           </div>
         </section>
       ) : (
-        <form onSubmit={handleSubmit} className="mt-6 rounded-2xl border border-line bg-white p-4 shadow-soft sm:p-6">
+        <form data-tour="notice-form" onSubmit={handleSubmit} className="mt-6 rounded-2xl border border-line bg-white p-4 shadow-soft sm:p-6">
           <h2 className="text-xl font-semibold text-brand-dark">About your {noticeTitle(type).toLowerCase()}</h2>
           <p className="mt-1 text-sm text-mute">Fields marked with * are required.</p>
 
@@ -256,7 +263,7 @@ export default function NoticesPage() {
         </form>
       )}
 
-      <section className="mt-10 sm:mt-12">
+      <section data-tour="previous-checks" className="mt-10 sm:mt-12">
         <h2 className="mb-4 text-xl font-semibold text-brand-dark">Previous checks</h2>
         {loadingHistory ? (
           <p className="rounded-xl border border-line bg-white p-4 text-sm text-mute">Loading previous checks…</p>
