@@ -44,7 +44,7 @@ export const UPLOAD_TOUR: TourStep[] = [
   {
     target: "drop-zone",
     title: "Drop your lease",
-    text: "Drag a PDF, DOCX of your rental agreement here, or click to pick one from your files.",
+    text: "Drag a PDF, DOCX of your rental agreement here, or click to pick one of them from your files.",
   },
   {
     target: "check-button",
@@ -72,33 +72,7 @@ export const HOME_TOUR: TourStep[] = [
   {
     target: "how-it-works",
     title: "How it works",
-    text: "Three simple steps: upload, review, understand. No legal jargon.",
-  },
-];
-
-export const ABOUT_TOUR: TourStep[] = [
-  {
-    target: "about-title",
-    title: "About ClauseGuard",
-    text: "Learn why ClauseGuard was built, what it does (and doesn't do), and who's behind it.",
-  },
-  {
-    target: "about-sections",
-    title: "Read each section",
-    text: "Scroll down to see sections on privacy, how the analysis works, and the team.",
-  },
-];
-
-export const CONTACT_TOUR: TourStep[] = [
-  {
-    target: "contact-title",
-    title: "Get in touch",
-    text: "Found a bug, think we got a clause wrong, or have an idea? This is where to reach us.",
-  },
-  {
-    target: "contact-sections",
-    title: "Contact details",
-    text: "Our contact information is listed below.",
+    text: "Three simple steps: upload, review, understand.",
   },
 ];
 
@@ -130,5 +104,33 @@ export const TIMELINE_TOUR: TourStep[] = [
     target: "add-event",
     title: "Add an event",
     text: "Click this button to add a new event to your timeline, such as a rent review or notice period.",
+  },
+  {
+    target: "event-list",
+    title: "Your events",
+    text: "View and manage your upcoming, past and completed tenancy events here.",
+  },
+]
+
+export const NOTICES_TOUR: TourStep[] = [
+  {
+    target: "notice-intro",
+    title: "Check a notice",
+    text: "Answer a few questions about a notice from your landlord. ClauseGuard will check the details against Irish tenancy rules.",
+  },
+  {
+    target: "notice-type",
+    title: "Choose your notice type",
+    text: "Select the option that matches your situation, such as a rent increase, notice of termination, or property inspection.",
+  },
+  {
+    target: "notice-continue",
+    title: "Continue to the questions",
+    text: "Once you have selected the type of notice, click Continue to enter the relevant dates and details.",
+  },
+  {
+    target: "previous-checks",
+    title: "Previous checks",
+    text: "Find your earlier notice checks here. Open a completed check to view its results again.",
   },
 ]

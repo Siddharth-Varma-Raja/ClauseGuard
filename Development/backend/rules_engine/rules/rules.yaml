@@ -1,0 +1,80 @@
+# ClauseGuard rules. One entry per rule. Plain text so it can be reviewed without reading code.
+#
+# status : draft     = written but NOT checked against the law. Ignored unless the engine is run
+#                      with include_drafts=True (prototype / demo only).
+#          verified  = a second person checked the rule against the statute or RTB page and filled
+#                      in citation.verified_on and citation.verified_by.
+# basis  : law       = the clause breaks the law            -> verdict "breaks_law"      (red)
+#          guidance  = the clause goes against RTB advice   -> verdict "against_guidance" (amber)
+# applies_from / applies_to : tenancy start dates the rule covers (YYYY-MM-DD), or null for all.
+#                      Some rules changed for tenancies created on or after 1 March 2026.
+
+law_version: "2026-03-01"      # date of the most recent legal change reflected in this file
+last_legal_review: null        # set when someone re-checks every rule (plan: monthly)
+
+rules:
+  - id: DEP-001
+    topic: deposit
+    status: draft
+    basis: guidance                 # CONFIRM from the statute text. RTB's page states the limit as "cannot ask for more".
+    applies_from: null
+    applies_to: null
+    check: {type: deposit_max_months, max_months: 1}
+    explain_fail_law: "A landlord cannot ask for a deposit of more than one month's rent. This clause asks for about {months} months."
+    explain_fail_guidance: "The RTB advises that a deposit should not be more than one month's rent. This clause asks for about {months} months."
+    explain_ok: "The deposit is within the one-month limit."
+    explain_unsure: "We could not work out the deposit. {reason}"
+    next_steps:
+      - "Ask the landlord to reduce the deposit to one month's rent before you sign."
+      - "Ask for a signed and dated receipt for any deposit you pay."
+    citation:
+      name: "RTB: Security deposits"
+      act: "Residential Tenancies Act 2004, as amended"
+      section: "TO VERIFY"
+      url: "https://rtb.ie/renting/rights-responsibilities/security-deposits/"
+      verified_on: null
+      verified_by: null
+
+  - id: TERM-001
+    topic: termination
+    status: draft
+    basis: law
+    applies_from: null
+    applies_to: "2026-02-28"   # tenancies created before 1 March 2026. Tenancies from that date need their own rule (TERM-002).
+    check:
+      type: termination_notice_days
+      table: []                # FILL IN FROM THE STATUTE: - {min_months: 0, max_months: 6, days: <n>}
+    explain_fail_law: "The notice in this clause is shorter than the law requires. You need at least {required_days} days, and this gives {notice_days}."
+    explain_fail_guidance: "The notice in this clause is shorter than advised."
+    explain_ok: "The notice period is long enough."
+    explain_unsure: "We cannot check this notice period yet. {reason}"
+    next_steps:
+      - "Check the notice period with the RTB before you rely on this clause."
+    citation:
+      name: "RTB: Ending a tenancy"
+      act: "Residential Tenancies Act 2004, as amended"
+      section: "TO VERIFY"
+      url: null
+      verified_on: null
+      verified_by: null
+
+  - id: ENTRY-001
+    topic: access
+    status: draft
+    basis: guidance            # CONFIRM: is a fixed notice period set in law, or is it RTB advice?
+    applies_from: null
+    applies_to: null
+    check: {type: entry_without_notice}
+    explain_fail_law: "A landlord must respect your right to live in the home in peace. This clause lets the landlord enter without notice."
+    explain_fail_guidance: "The RTB advises that a landlord should give reasonable notice before entering. This clause lets the landlord enter without notice."
+    explain_ok: "The clause asks the landlord for notice before entering."
+    explain_unsure: "{reason}"
+    next_steps:
+      - "Ask the landlord to change the clause so that written notice is needed before entry, except in an emergency."
+    citation:
+      name: "RTB: Landlord access"
+      act: "Residential Tenancies Act 2004, as amended"
+      section: "TO VERIFY"
+      url: null
+      verified_on: null
+      verified_by: null
