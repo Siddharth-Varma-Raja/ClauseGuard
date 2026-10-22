@@ -46,7 +46,7 @@ def _regex_redact(text: str) -> str:
     irish_passport_pattern = r'\b[A-Z]{2}\d{7}\b'
     text = re.sub(irish_passport_pattern, '[REDACTED_PASSPORT]', text)
     
-    international_passport_pattern = r'\b(?=.*[0-9])[A-Z0-9]{6,9}\b'
+    international_passport_pattern = r'\b(?=[A-Z0-9]*[0-9])[A-Z0-9]{6,9}\b'
     text = re.sub(international_passport_pattern, '[REDACTED_PASSPORT]', text, flags=re.IGNORECASE)
     
     return text
