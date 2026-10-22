@@ -1,3 +1,5 @@
+import { cn } from "@/lib/cn";
+
 export default function SmallPill({
     brand,
     children
@@ -6,7 +8,7 @@ export default function SmallPill({
     children: React.ReactNode;
 }) {
     return (
-        <span className="rounded-full px-2.5 py-0.5 text-xs font-semibold bg-brand-soft text-brand-dark bg-surface text-mute">
+        <span className={cn("rounded-full px-2.5 py-0.5 text-xs font-semibold", brand ? "bg-brand-soft text-brand-dark" : "bg-surface text-mute")}>
             {children}
         </span>
     )
