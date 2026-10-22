@@ -1,11 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRef, useState, useEffect } from "react";
 import {
   ArrowLeft,
   BookOpen,
+  Check,
   ChevronLeft,
   ChevronRight,
   CircleCheck,
@@ -13,44 +13,65 @@ import {
   Info,
   Minus,
   Plus, ChevronDown,
-  MessageCircle, Download, Loader2
+  MessageCircle, Download
 } from "lucide-react";
-import type { Clause, LeaseAnalysis } from "@/lib/types";
+
+import type { Analysis, Clause } from "@/lib/notice-types";
 import { STATUS, STATUS_ORDER } from "@/lib/status";
 import { cn } from "@/lib/cn";
+import { errorMessage, getPreferences, setClauseReviewed } from "@/lib/api";
+import ClauseChat from "@/components/lease/ClauseChat";
+import { downloadReport } from "./lease/DownloadReport";
 import PageTour from "@/components/PageTour";
 import { REVIEW_TOUR } from "@/lib/tours";
 
-export default function ReviewWorkspace({ analysis }: { analysis: LeaseAnalysis }) {
-  const { clauses } = analysis;
-
+export default function ReviewWorkspace({ analysis }: { analysis: Analysis }) {
+  const [clauses, setClauses] = useState<Clause[]>(analysis.clauses);
   const issues = [...clauses.filter((c) => c.status === "red"), ...clauses.filter((c) => c.status === "amber")];
   const firstClause = issues[0] ?? clauses[0];
-  const [downloading, setDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState("");
+  const [actionError, setActionError] = useState("");
   const [showChat, setShowChat] = useState(false);
-  const [selected, setSelected] = useState<Clause | null>(firstClause ?? null);
+  const [selectedId, setSelectedId] = useState<string | null>(firstClause?.id ?? null);
   const [page, setPage] = useState(firstClause?.page ?? 1);
   const [zoom, setZoom] = useState(100);
+  const [detailed, setDetailed] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
 
+  const selected = clauses.find((c) => c.id === selectedId) ?? null;
+  const pageCount = Math.max(analysis.pageCount || 1, ...clauses.map((c) => c.page || 1));
   const clausesOnPage = clauses.filter((c) => c.page === page);
   const countOf = (status: Clause["status"]) => clauses.filter((c) => c.status === status).length;
 
-  async function handleDownload() {
-    setDownloading(true);
+  useEffect(() => {
+    getPreferences()
+      .then((prefs) => setDetailed(prefs.explanationDetail === "detailed"))
+      .catch(() => undefined);
+  }, []);
+
+  function handleDownload() {
     setDownloadError("");
     try {
-      // await downloadReport(analysis.id, analysis.fileName);
+      downloadReport(analysis, clauses);
     } catch {
       setDownloadError("The report couldn't be downloaded. Try again.");
-    } finally {
-      setDownloading(false);
+    }
+  }
+
+  async function toggleReviewed(clause: Clause) {
+    const reviewed = !clause.reviewed;
+    setActionError("");
+    setClauses((prev) => prev.map((c) => (c.id === clause.id ? { ...c, reviewed } : c)));
+    try {
+      await setClauseReviewed(analysis.id, clause.id, reviewed);
+    } catch (err) {
+      setClauses((prev) => prev.map((c) => (c.id === clause.id ? { ...c, reviewed: !reviewed } : c)));
+      setActionError(errorMessage(err, "That change didn't save. Try again."));
     }
   }
 
   function selectClause(clause: Clause) {
-    setSelected(clause);
+    setSelectedId(clause.id);
     setPage(clause.page);
     if (window.innerWidth < 1024) {
       panelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -87,9 +108,9 @@ export default function ReviewWorkspace({ analysis }: { analysis: LeaseAnalysis 
                 <ChevronLeft size={18} />
               </IconButton>
               <span className="min-w-24 text-center text-sm font-semibold">
-                Page {page} of {analysis.pageCount}
+                Page {page} of {pageCount}
               </span>
-              <IconButton label="Next page" disabled={page === analysis.pageCount} onClick={() => setPage(page + 1)}>
+              <IconButton label="Next page" disabled={page >= pageCount} onClick={() => setPage(page + 1)}>
                 <ChevronRight size={18} />
               </IconButton>
             </div>
@@ -105,15 +126,16 @@ export default function ReviewWorkspace({ analysis }: { analysis: LeaseAnalysis 
             </div>
 
             <button
-                data-tour="download-report"
-                onClick={handleDownload}
-                disabled={downloading}
-                className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-xl border border-line bg-white px-3.5 text-sm font-semibold text-brand-dark transition hover:border-brand hover:bg-brand-soft disabled:cursor-wait disabled:opacity-60"
-              >
-                {downloading ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
-                {downloading ? "Preparing…" : "Download report"}
-              </button>
+              data-tour="download-report"
+              onClick={handleDownload}
+              className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-xl border border-line bg-white px-3.5 text-sm font-semibold text-brand-dark transition hover:border-brand hover:bg-brand-soft"
+            >
+              <Download size={16} />
+              Download report
+            </button>
           </div>
+
+          {downloadError && <p role="alert" className="border-b border-line bg-bad-bg px-4 py-2 text-sm text-bad">{downloadError}</p>}
 
           <div className="overflow-auto p-3 sm:p-8">
             <article
@@ -126,7 +148,10 @@ export default function ReviewWorkspace({ analysis }: { analysis: LeaseAnalysis 
               </header>
 
               <div className="flex-1 space-y-6 pl-8 sm:pl-10">
-                {clausesOnPage.length === 0 && (
+                {clauses.length === 0 && (
+                  <p className="italic text-mute">No clauses were found in this document.</p>
+                )}
+                {clauses.length > 0 && clausesOnPage.length === 0 && (
                   <p className="italic text-mute">This page continues the clause from the previous page.</p>
                 )}
 
@@ -141,7 +166,7 @@ export default function ReviewWorkspace({ analysis }: { analysis: LeaseAnalysis 
               </div>
 
               <footer className="mt-10 text-center font-sans text-xs text-mute">
-                {page} / {analysis.pageCount}
+                {page} / {pageCount}
               </footer>
             </article>
           </div>
@@ -153,8 +178,18 @@ export default function ReviewWorkspace({ analysis }: { analysis: LeaseAnalysis 
           aria-label="Clause details"
           className="scroll-mt-6 lg:sticky lg:top-6 lg:self-start"
         >
+          {actionError && (
+            <p role="alert" className="mb-3 rounded-xl border border-bad-line bg-bad-bg p-3 text-sm text-bad">{actionError}</p>
+          )}
           {selected ? (
-            <ClausePanel clause={selected} issues={issues} onSelect={selectClause} onAsk={() => setShowChat(true)} />
+            <ClausePanel key={selected.id}
+              clause={selected}
+              issues={issues}
+              detailed={detailed}
+              onSelect={selectClause}
+              onAsk={() => setShowChat(true)}
+              onToggleReviewed={() => toggleReviewed(selected)}
+            />
           ) : (
             <div className="rounded-3xl border border-line bg-white p-8 text-center text-mute">
               Select a clause in the lease to see what it means.
@@ -162,6 +197,10 @@ export default function ReviewWorkspace({ analysis }: { analysis: LeaseAnalysis 
           )}
         </aside>
       </div>
+
+      {showChat && selected && (
+        <ClauseChat key={selected.id} analysisId={analysis.id} clause={selected} onClose={() => setShowChat(false)} />
+      )}
 
       <p className="mt-8 flex items-center justify-center gap-2 text-center text-sm text-mute">
         <Info size={16} className="shrink-0" />
@@ -254,8 +293,9 @@ function LeaseClause({
           isSelected ? "bg-brand-soft/70 outline-2 outline-brand" : "hover:bg-surface",
         )}
       >
-        <span className="mb-1 block font-bold">
+        <span className="mb-1 flex items-center gap-2 font-bold">
           {clause.number}. {clause.title}
+          {clause.reviewed && <Check size={15} className="text-ok" aria-label="Reviewed" />}
         </span>
         <span className={cn("box-decoration-clone px-0.5", style.mark)}>{clause.text}</span>
       </button>
@@ -267,13 +307,17 @@ function LeaseClause({
 function ClausePanel({
   clause,
   issues,
+  detailed,
   onSelect,
-  onAsk
+  onAsk,
+  onToggleReviewed,
 }: {
   clause: Clause;
   issues: Clause[];
+  detailed: boolean;
   onSelect: (clause: Clause) => void;
   onAsk: () => void;
+  onToggleReviewed: () => void;
 }) {
   const style = STATUS[clause.status];
   const issueIndex = issues.findIndex((c) => c.id === clause.id);
@@ -290,6 +334,11 @@ function ClausePanel({
         <h2 className="mt-2 font-display text-2xl font-semibold text-brand-dark">
           {clause.number}. {clause.title}
         </h2>
+        {clause.confidence !== "high" && (
+          <p className="mt-1 text-xs text-mute">
+            ClauseGuard is {clause.confidence === "medium" ? "fairly" : "not very"} confident about this result — double-check it.
+          </p>
+        )}
       </div>
 
       <div className="max-h-[calc(100vh-17rem)] space-y-6 overflow-auto px-6 py-6">
@@ -300,25 +349,29 @@ function ClausePanel({
           <p className="mt-1 leading-relaxed text-mute">{clause.explanation}</p>
         </div>
 
-        <details key={clause.id} open className="group rounded-2xl bg-brand-soft/70">
-          <summary className="flex cursor-pointer list-none items-center gap-2 p-4 font-semibold text-brand-dark [&::-webkit-details-marker]:hidden">
-            <ChevronDown size={18} className="shrink-0 -rotate-90 transition-transform group-open:rotate-0" />
-            Why ClauseGuard flagged this
-          </summary>
-          <p className="px-4 pb-4 pl-10 leading-relaxed text-ink">{clause.whyItMatters}</p>
-        </details>
+        {clause.reason && (
+          <details open={detailed || clause.status === "red"} className="group rounded-2xl bg-brand-soft/70">
+            <summary className="flex cursor-pointer list-none items-center gap-2 p-4 font-semibold text-brand-dark [&::-webkit-details-marker]:hidden">
+              <ChevronDown size={18} className="shrink-0 -rotate-90 transition-transform group-open:rotate-0" />
+              Why ClauseGuard flagged this
+            </summary>
+            <p className="px-4 pb-4 pl-10 leading-relaxed text-ink">{clause.reason}</p>
+          </details>
+        )}
 
-        <div>
-          <h3 className="font-semibold text-ink">What you can do</h3>
-          <ul className="mt-2 space-y-2">
-            {clause.nextSteps.map((step) => (
-              <li key={step} className="flex gap-3 rounded-xl bg-surface p-3 text-sm leading-relaxed">
-                <CircleCheck size={18} className="mt-0.5 shrink-0 text-brand" />
-                {step}
-              </li>
-            ))}
-          </ul>
-        </div>
+        {clause.nextSteps.length > 0 && (
+          <div>
+            <h3 className="font-semibold text-ink">What you can do</h3>
+            <ul className="mt-2 space-y-2">
+              {clause.nextSteps.map((step) => (
+                <li key={step} className="flex gap-3 rounded-xl bg-surface p-3 text-sm leading-relaxed">
+                  <CircleCheck size={18} className="mt-0.5 shrink-0 text-brand" />
+                  {step}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {clause.sources.length > 0 && (
           <div>
@@ -326,29 +379,46 @@ function ClausePanel({
               <BookOpen size={17} className="text-mute" />
               Sources
             </h3>
-            <ul className="mt-2 space-y-1 pb-4">
-              {clause.sources.map((source) => (
-                <li key={source.title}>
-                  <a
-                    href={source.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-start gap-1.5 text-sm font-medium text-brand hover:underline"
-                  >
-                    {source.title}
-                    <ExternalLink size={14} className="mt-0.5 shrink-0" />
-                  </a>
+            <ul className="mt-2 space-y-2">
+              {clause.sources.map((source, i) => (
+                <li key={`${source.title}-${i}`} className="text-sm">
+                  {source.url ? (
+                    <a
+                      href={source.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-start gap-1.5 font-medium text-brand hover:underline"
+                    >
+                      {source.title}
+                      <ExternalLink size={14} className="mt-0.5 shrink-0" />
+                    </a>
+                  ) : (
+                    <span className="font-medium text-ink">{source.title}</span>
+                  )}
+                  {source.note && <span className="block text-mute">{source.note}</span>}
                 </li>
               ))}
             </ul>
-
-            <div className="flex flex-col gap-2 border-t border-line pt-4">
-              <button type="button" onClick={onAsk} className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2">
-                <MessageCircle size={16} aria-hidden />Ask a question about this clause
-              </button>
-            </div>
           </div>
         )}
+
+        <div className="flex flex-col gap-2 border-t border-line pt-4">
+          <button type="button" onClick={onAsk} className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2">
+            <MessageCircle size={16} aria-hidden />Ask a question about this clause
+          </button>
+          <button
+            type="button"
+            onClick={onToggleReviewed}
+            aria-pressed={clause.reviewed}
+            className={cn(
+              "flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold transition-colors",
+              clause.reviewed ? "border-ok-line bg-ok-bg text-ok" : "border-line bg-white text-brand-dark hover:bg-surface",
+            )}
+          >
+            <Check size={16} aria-hidden />
+            {clause.reviewed ? "Reviewed" : "Mark as reviewed"}
+          </button>
+        </div>
       </div>
 
       {issues.length > 0 && (
