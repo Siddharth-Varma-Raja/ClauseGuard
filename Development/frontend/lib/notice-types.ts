@@ -7,8 +7,8 @@ export type Confidence = "high" | "medium" | "low";
 export type Source = {
   kind: string;
   title: string;
-  url?: string;
-  note?: string;
+  url?: string | null;
+  note?: string | null;
 };
 
 export type Clause = {
@@ -43,6 +43,17 @@ export type Analysis = AnalysisSummary & {
   clauses: Clause[];
 };
 
+export type UploadLeaseResponse = {
+  id: string;
+  message: string;
+  fileName: string;
+  fileSizeBytes: number;
+  status: string;
+  s3Key?: string | null;
+  charCount?: number | null;
+  counts?: StatusCounts | null;
+};
+
 export type ChatMessage = {
   role: "user" | "assistant";
   text: string;
@@ -56,7 +67,7 @@ export type NoticeCheck = {
   status: "pass" | "warn" | "fail" | "info";
   title: string;
   detail: string;
-  source?: string;
+  source?: string | null;
 };
 
 export type NoticeSummary = {
@@ -73,12 +84,16 @@ export type Notice = NoticeSummary & {
   nextSteps: string[];
 };
 
+export type NoticeAnswers = Record<string, string | number | boolean>;
+
 export type NoticeInput = {
   type: NoticeType;
-  answers: Record<string, string | boolean>;
+  answers: NoticeAnswers;
 };
 
 export type EventKind = "event" | "deadline" | "rent";
+
+export type EventSource = "user" | "lease" | "notice";
 
 export type TimelineEvent = {
   id: string;
@@ -87,6 +102,7 @@ export type TimelineEvent = {
   kind: EventKind;
   note: string;
   done: boolean;
+  source?: EventSource;
 };
 
 export type NewTimelineEvent = Pick<TimelineEvent, "title" | "date" | "kind" | "note">;
@@ -94,4 +110,20 @@ export type NewTimelineEvent = Pick<TimelineEvent, "title" | "date" | "kind" | "
 export type Preferences = {
   explanationDetail: "simple" | "detailed";
   remindersEnabled: boolean;
+};
+
+export type UserProfile = {
+  id: string;
+  firebaseUid: string;
+  email: string;
+  displayName: string | null;
+  phoneNumber: string | null;
+  role: string;
+  isActive: boolean;
+  createdAt: string;
+};
+
+export type GdprExport = {
+  user: Record<string, unknown>;
+  exportedAt: string;
 };
