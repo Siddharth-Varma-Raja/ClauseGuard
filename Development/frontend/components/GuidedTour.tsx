@@ -7,7 +7,7 @@ import { cn } from "@/lib/cn";
 
 type Box = { top: number; left: number; width: number; height: number };
 
-const PADDING = 8; 
+const PADDING = 8;
 const GAP = 14;
 const MASK_COLOUR = "rgb(8 28 33 / 0.62)";
 
@@ -25,7 +25,7 @@ function markTourSeen(tourId: string) {
   try {
     localStorage.setItem(storageKey(tourId), "yes");
   } catch {
-    // ignore: the tour will just show again next time
+    // the tour will just show again next time
   }
 }
 
@@ -68,7 +68,7 @@ export default function GuidedTour({
     }
 
     const frame = requestAnimationFrame(measure);
-    window.addEventListener("scroll", measure, true); 
+    window.addEventListener("scroll", measure, true);
     window.addEventListener("resize", measure);
 
     return () => {
