@@ -2,7 +2,7 @@ import { CalendarClock } from "lucide-react";
 
 export default function EmptyState({ onAdd, className }: { onAdd: () => void; className?: string }) {
     return (
-        <div className="mt-6 rounded-2xl border border-line bg-white p-6 text-center">
+        <div data-tour="event-list" className="mt-6 rounded-2xl border border-line bg-white p-6 text-center">
             <div className="mx-auto grid size-14 place-items-center rounded-2xl bg-brand-soft text-brand">
                 <CalendarClock size={25} />
             </div>

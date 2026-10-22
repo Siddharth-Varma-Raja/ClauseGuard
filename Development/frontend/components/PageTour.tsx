@@ -21,8 +21,8 @@ export default function PageTour({ tourId, steps, floating = false }: { tourId: 
         onClick={() => setOpen(true)}
         className={
           floating
-            ? "fixed bottom-6 right-6 z-40 inline-flex min-h-11 items-center gap-2 rounded-full border border-line bg-white px-4 text-sm font-semibold text-brand-dark shadow-lg hover:bg-brand-soft"
-            : "inline-flex min-h-11 items-center gap-2 rounded-full border border-line bg-white px-4 text-sm font-semibold text-brand-dark shadow-sm hover:bg-brand-soft"
+            ? "fixed bottom-6 right-6 z-50 inline-flex min-h-11 items-center gap-2 rounded-full border border-line bg-white px-4 text-sm font-semibold text-brand-dark shadow-lg hover:bg-brand-soft"
+            : "relative z-50 inline-flex min-h-11 items-center gap-2 rounded-full border border-line bg-white px-4 text-sm font-semibold text-brand-dark shadow-sm hover:bg-brand-soft"
         }
       >
         <CircleHelp size={17} className="text-brand" />
