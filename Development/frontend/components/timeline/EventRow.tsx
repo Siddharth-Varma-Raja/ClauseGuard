@@ -1,4 +1,5 @@
-import { TimelineEvent, EventSource, EventKind } from "@/lib/types";
+import type { EventKind, EventSource, TimelineEvent } from "@/lib/notice-types";
+import { cn } from "@/lib/cn";
 import { Trash2, Undo2, Check } from "lucide-react";
 import Card from "../ui/Card";
 import SmallPill from "./SmallPill";
@@ -18,13 +19,11 @@ const KIND: Record<EventKind, { label: string; pill: string }> = {
 export default function EventRow({
     event,
     today,
-    past,
     onToggleDone,
     onDelete
 }: {
     event: TimelineEvent,
     today: string,
-    past: boolean,
     onToggleDone: () => void,
     onDelete: () => void
 }) {
@@ -32,7 +31,8 @@ export default function EventRow({
     const day = date.getDate();
     const month = date.toLocaleString("en-IE", { month: "short" });
     const year = date.getFullYear();
-    const source = SOURCE[event.source];
+    const source = event.source ? SOURCE[event.source] : null;
+    const kind = KIND[event.kind] ?? KIND.event;
     return (
         <li className="relative flex gap-3">
             <div className="z-10 grid size-14 shrink-0 place-items-center sm:size-[72px] rounded-2xl border border-line bg-white text-center shadow-soft">
@@ -45,14 +45,14 @@ export default function EventRow({
             <Card className="flex min-w-0 flex-1 items-start gap-2 p-3 sm:gap-3 sm:p-4">
                 <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                        <span className="rounded-full border px-2.5 py-0.5 text-xs font-bold">
-                            {KIND[event.kind].label}
+                        <span className={cn("rounded-full border px-2.5 py-0.5 text-xs font-bold", kind.pill)}>
+                            {kind.label}
                         </span>
                         {event.done && <SmallPill>Done</SmallPill>}
                         {!event.done && event.date < today && <SmallPill>Passed</SmallPill>}
                         {source && <SmallPill brand>{source}</SmallPill>}
                     </div>
-                    <p className="mt-1.5 font-semibold line-through decoration-mute">{event.title}</p>
+                    <p className={cn("mt-1.5 font-semibold", event.done && "text-mute line-through decoration-mute")}>{event.title}</p>
                     {event.note && <p className="text-mute">{event.note}</p>}
                 </div>
 
