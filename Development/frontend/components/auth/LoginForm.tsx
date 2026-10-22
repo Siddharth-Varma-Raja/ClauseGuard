@@ -9,11 +9,14 @@ import { useRouter } from "next/navigation";
 import { signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { FirebaseError } from "firebase/app";
+import Alert from "@/components/ui/Alert";
 
 export default function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
   const [islogin, setIslogin] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -21,33 +24,36 @@ export default function LoginForm() {
   const router = useRouter();
 
   async function handleSubmit(e: React.FormEvent) {
-  e.preventDefault();
-  setSubmitting(true);  
-  try {
-    if (islogin) {
-      await signInWithEmailAndPassword(auth, email, password);
-      router.replace("/dashboard");
-    } else {
-      await sendPasswordResetEmail(auth, email);
-      alert("Reset link sent. Check your email.");
-      setSubmitting(false);
-      setIslogin(true);
-    }
-  } catch (err) {
-      if (err instanceof FirebaseError && err.code === "auth/invalid-credential") {
-        alert("Incorrect email or password");
+    e.preventDefault();
+    setError("");
+    setSuccess("");
+    setSubmitting(true);  
+    try {
+      if (islogin) {
+        await signInWithEmailAndPassword(auth, email, password);
+        router.replace("/dashboard");
       } else {
-        alert("Something went wrong. Please try again.");
+        await sendPasswordResetEmail(auth, email);
+        setSuccess("Reset link sent. Check your email.");
+        setSubmitting(false);
+        setIslogin(true);
+      }
+    } catch (err) {
+      if (err instanceof FirebaseError && (err.code === "auth/invalid-credential" || err.code === "auth/wrong-password" || err.code === "auth/user-not-found")) {
+        setError("Incorrect email or password");
+      } else if (err instanceof FirebaseError && err.code === "auth/too-many-requests") {
+        setError("Too many attempts. Please try again later.");
+      } else {
+        setError("Something went wrong. Please try again.");
+      }
+      setSubmitting(false);
+    }
   }
-  setSubmitting(false);
-  }
-}
 
   return (
     <div className="flex min-h-screen items-center justify-center p-4">
 
       {islogin ? (
-        // Login Form
         <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
 
           <div className="mb-6">
@@ -58,6 +64,18 @@ export default function LoginForm() {
               Sign in to access your dashboard
             </p>
           </div>
+
+          {error && (
+            <div className="mb-4">
+              <Alert tone="error">{error}</Alert>
+            </div>
+          )}
+
+          {success && (
+            <div className="mb-4">
+              <Alert tone="success">{success}</Alert>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
@@ -101,7 +119,11 @@ export default function LoginForm() {
               <div className="mt-1 text-right">
                 <button
                   type="button"
-                  onClick={() => setIslogin(false)}
+                  onClick={() => {
+                    setIslogin(false);
+                    setError("");
+                    setSuccess("");
+                  }}
                   className="text-xs text-brand-dark font-bold hover:underline cursor-pointer"
                 >
                   Forgot password?
@@ -125,7 +147,6 @@ export default function LoginForm() {
           </p>
         </div>
       ) : (
-        // Forgot Password Form
         <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
 
           <div className="mb-6">
@@ -136,6 +157,12 @@ export default function LoginForm() {
               Enter your email address and we will send you instructions to reset your password.
             </p>
           </div>
+
+          {error && (
+            <div className="mb-4">
+              <Alert tone="error">{error}</Alert>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
@@ -166,7 +193,15 @@ export default function LoginForm() {
               variant="secondary"
               size="lg"
               className="w-full"
-              onClick={(e) => { e.preventDefault();setSubmitting(false); setEmail(""); setPassword(""); setIslogin(true); }}
+              onClick={(e) => {
+                e.preventDefault();
+                setSubmitting(false);
+                setEmail("");
+                setPassword("");
+                setError("");
+                setSuccess("");
+                setIslogin(true);
+              }}
             >
               Back to sign in
             </Button>

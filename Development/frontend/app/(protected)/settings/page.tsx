@@ -2,14 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Download, Loader2, Trash2 } from "lucide-react";
+import { Download, KeyRound, Loader2, Trash2 } from "lucide-react";
 import BackLink from "@/components/ui/BackLink";
 import Card from "@/components/ui/Card";
 import Alert from "@/components/ui/Alert";
 import LoadingState from "@/components/ui/LoadingState";
 import ErrorState from "@/components/ui/ErrorState";
 import { Button } from "@/components/ui/Button";
-import { signOut } from "firebase/auth";
+import { EmailAuthProvider, reauthenticateWithCredential, signOut, updatePassword } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import {
   deleteAllAnalyses,
@@ -33,6 +33,14 @@ export default function SettingsPage() {
   const [busy, setBusy] = useState<"" | "export" | "leases" | "account">("");
   const [message, setMessage] = useState<{ tone: "success" | "error"; text: string } | null>(null);
   const [confirmText, setConfirmText] = useState("");
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
+  const [showPasswords, setShowPasswords] = useState(false);
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordMessage, setPasswordMessage] = useState<{ tone: "success" | "error"; text: string } | null>(null);
+
+  const isNewPasswordValid = newPassword.length >= 8 && /[A-Z]/.test(newPassword) && /[0-9]/.test(newPassword);
 
   useEffect(() => {
     let cancelled = false;
@@ -117,6 +125,51 @@ export default function SettingsPage() {
     }
   }
 
+  async function handleChangePassword(e: React.FormEvent) {
+    e.preventDefault();
+    setPasswordMessage(null);
+
+    if (!isNewPasswordValid) {
+      setPasswordMessage({
+        tone: "error",
+        text: "New password must be at least 8 characters and include an uppercase letter and a number.",
+      });
+      return;
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      setPasswordMessage({ tone: "error", text: "New passwords do not match." });
+      return;
+    }
+
+    const user = auth.currentUser;
+    if (!user || !user.email) {
+      setPasswordMessage({ tone: "error", text: "User not logged in." });
+      return;
+    }
+
+    setPasswordLoading(true);
+    try {
+      const credential = EmailAuthProvider.credential(user.email, currentPassword);
+      await reauthenticateWithCredential(user, credential);
+      await updatePassword(user, newPassword);
+
+      setPasswordMessage({ tone: "success", text: "Password changed successfully." });
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmNewPassword("");
+    } catch (err: unknown) {
+      const code = (err as { code?: string })?.code;
+      if (code === "auth/invalid-credential" || code === "auth/wrong-password") {
+        setPasswordMessage({ tone: "error", text: "Current password is incorrect." });
+      } else {
+        setPasswordMessage({ tone: "error", text: "Failed to update password. Please try again." });
+      }
+    } finally {
+      setPasswordLoading(false);
+    }
+  }
+
   return (
     <main className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6 sm:py-10">
       <BackLink href="/dashboard" label="Back to dashboard" />
@@ -158,6 +211,75 @@ export default function SettingsPage() {
           </Card>
 
           <Card className="p-5 sm:p-6">
+            <div className="flex items-center gap-2">
+              <KeyRound size={20} className="text-brand" />
+              <h2 className="text-lg font-semibold text-brand-dark">Change password</h2>
+            </div>
+            <p className="mt-1 text-sm text-mute">Update the password used to sign in to your account.</p>
+
+            {passwordMessage && (
+              <div className="mt-4">
+                <Alert tone={passwordMessage.tone}>{passwordMessage.text}</Alert>
+              </div>
+            )}
+
+            <form onSubmit={handleChangePassword} className="mt-4 space-y-3 max-w-md">
+              <div>
+                <label className="block text-sm font-medium text-slate-700">Current password</label>
+                <input
+                  type={showPasswords ? "text" : "password"}
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  required
+                  className="mt-1 w-full rounded-xl border border-line px-3 py-2 text-sm outline-none focus:border-brand"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700">New password</label>
+                <input
+                  type={showPasswords ? "text" : "password"}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="At least 8 characters (uppercase & number)"
+                  required
+                  className="mt-1 w-full rounded-xl border border-line px-3 py-2 text-sm outline-none focus:border-brand"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700">Confirm new password</label>
+                <input
+                  type={showPasswords ? "text" : "password"}
+                  value={confirmNewPassword}
+                  onChange={(e) => setConfirmNewPassword(e.target.value)}
+                  required
+                  className="mt-1 w-full rounded-xl border border-line px-3 py-2 text-sm outline-none focus:border-brand"
+                />
+              </div>
+
+              <label className="flex items-center gap-2 text-xs text-mute cursor-pointer pt-1">
+                <input
+                  type="checkbox"
+                  checked={showPasswords}
+                  onChange={(e) => setShowPasswords(e.target.checked)}
+                  className="accent-brand"
+                />
+                Show passwords
+              </label>
+
+              <div className="pt-2">
+                <Button
+                  type="submit"
+                  disabled={passwordLoading || !currentPassword || !newPassword || !confirmNewPassword}
+                >
+                  {passwordLoading ? "Updating…" : "Update password"}
+                </Button>
+              </div>
+            </form>
+          </Card>
+
+          <Card className="p-5 sm:p-6">
             <div className="flex items-center justify-between gap-3">
               <h2 className="text-lg font-semibold text-brand-dark">Preferences</h2>
               {saving && <Loader2 size={18} className="animate-spin text-brand" aria-label="Saving" />}
@@ -189,7 +311,7 @@ export default function SettingsPage() {
               </div>
             </fieldset>
 
-            <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl bg-surface p-3.5 text-sm">
+            {/* <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl bg-surface p-3.5 text-sm">
               <input
                 type="checkbox"
                 checked={prefs.remindersEnabled}
@@ -200,12 +322,12 @@ export default function SettingsPage() {
                 <span className="font-medium">Deadline reminders</span>
                 <span className="mt-0.5 block text-mute">Remind me about upcoming dates on my tenancy timeline.</span>
               </span>
-            </label>
+            </label> */}
           </Card>
 
           <Card className="p-5 sm:p-6">
             <h2 className="text-lg font-semibold text-brand-dark">Your data</h2>
-            <p className="mt-1 text-sm text-mute">Under GDPR you can download or delete the data ClauseGuard holds about you.</p>
+            <p className="mt-1 text-sm text-mute">You can download or delete the data ClauseGuard holds about you.</p>
             <div className="mt-4 flex flex-wrap gap-3">
               <Button variant="secondary" onClick={handleExport} disabled={busy !== ""}>
                 {busy === "export" ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
@@ -221,7 +343,7 @@ export default function SettingsPage() {
           <Card className="border-bad-line p-5 sm:p-6">
             <h2 className="text-lg font-semibold text-bad">Delete account</h2>
             <p className="mt-1 text-sm text-mute">
-              This deletes your leases, notice checks, timeline and preferences, and closes your account. It can&apos;t be undone.
+              This deletes your leases, notice checks, timeline and preferences, and closes your account. It can't be undone.
             </p>
             <label htmlFor="confirm-delete" className="mt-4 block text-sm font-medium">
               Type <strong>DELETE</strong> to confirm
