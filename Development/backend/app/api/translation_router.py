@@ -61,6 +61,7 @@ from app.schemas.translation import (
     UploadLeaseResponse,
     UserProfileResponse,
 )
+from app.services.analysis.persist import save_analysis
 from app.services.document.pipeline import PipelineError, run_upload_pipeline
 from app.services.document.s3 import delete_from_s3
 from app.services.notice_checker import check_notice_rules
@@ -334,68 +335,20 @@ async def upload_lease(
             detail="An error occurred while processing the document.",
         )
 
-    # Initialize standard review analysis for the document
-    review = DocumentReview(
-        document_id=doc.id,
-        total_clauses=3,
-        likely_unenforceable_count=1,
-        needs_review_count=1,
-        compliant_count=1,
-        informational_count=0,
-        property_address="Sample Property, Dublin",
-        monthly_rent_cents=210000,
-        deposit_cents=210000,
-        tenancy_start="2026-04-01",
-        term_months=12,
-        page_count=3,
-        review_status=ReviewStatus.COMPLETED,
-        reviewed_at=datetime.now(timezone.utc),
-    )
-    db.add(review)
-    await db.flush()
-
-    # Add sample parsed clauses so frontend displays immediate review results
-    c1 = ClauseReview(
-        review_id=review.id,
-        clause_number=1,
-        clause_title="Right of Entry Without Notice",
-        clause_text="The landlord reserves the right to enter the property at any time without notice for inspection.",
-        risk_level=RiskLevel.LIKELY_UNENFORCEABLE,
-        color_code="red",
-        plain_english="Irish law guarantees peaceful occupation. Landlords must give at least 24 hours written notice before entry, except in emergencies.",
-        flagging_reason="Violates Section 12(1)(a) of Residential Tenancies Act 2004.",
-        suggested_steps=json.dumps(["Request clause be amended to mandate 24 hours written notice.", "Consult RTB peaceful occupation guidelines."]),
-        page=1,
-        confidence="high",
-    )
-    c2 = ClauseReview(
-        review_id=review.id,
-        clause_number=2,
-        clause_title="Rent Review Frequency",
-        clause_text="The landlord may review and increase the rent every 6 months in line with market values.",
-        risk_level=RiskLevel.NEEDS_REVIEW,
-        color_code="amber",
-        plain_english="In Rent Pressure Zones, rent cannot be increased more often than once every 12 months, and increases are capped at 2% / HICP.",
-        flagging_reason="Conflicts with 12-month statutory interval under Section 20.",
-        suggested_steps=json.dumps(["Ensure rent increases comply with RTB calculator.", "Verify 90 days written notice is given."]),
-        page=2,
-        confidence="high",
-    )
-    c3 = ClauseReview(
-        review_id=review.id,
-        clause_number=3,
-        clause_title="Tenancy Term and Duration",
-        clause_text="The tenancy shall commence on 1 April 2026 for a fixed period of 12 months.",
-        risk_level=RiskLevel.COMPLIANT,
-        color_code="green",
-        plain_english="Standard fixed-term agreement giving both parties certainty under Part 4 rights.",
-        flagging_reason=None,
-        suggested_steps=json.dumps([]),
-        page=1,
-        confidence="high",
-    )
-    db.add_all([c1, c2, c3])
-    await db.commit()
+    # Analyse the redacted lease text (language stream + rules engine) and store the result.
+    try:
+        review = await save_analysis(db, doc.id, pipeline_result["redacted_text"])
+        await db.commit()
+    except Exception as exc:
+        logger.exception(f"Analysis failed: {exc}")
+        await db.rollback()
+        doc.status = DocumentStatus.FAILED
+        doc.pipeline_error = f"analysis: {exc}"
+        await db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="The lease was uploaded but could not be analysed.",
+        )
 
     return UploadLeaseResponse(
         id=doc.id,
