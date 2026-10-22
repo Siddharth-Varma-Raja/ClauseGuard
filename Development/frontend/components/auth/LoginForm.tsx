@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 
 import { useRouter } from "next/navigation";
 import { signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
@@ -12,6 +13,7 @@ import { FirebaseError } from "firebase/app";
 export default function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   const [islogin, setIslogin] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -77,15 +79,24 @@ export default function LoginForm() {
               <label className="mb-1 block text-sm font-medium text-slate-700">
                 Password
               </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter your password"
-                autoComplete="current-password"
-                required
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter your password"
+                  autoComplete="current-password"
+                  required
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 pr-10 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-slate-400 hover:text-slate-600"
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
 
               <div className="mt-1 text-right">
                 <button
