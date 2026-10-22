@@ -1,10 +1,12 @@
 import Card from "@/components/ui/Card";
-import type { TimelineEvent, TimelineResponse } from "@/lib/types";
+import type { TimelineEvent } from "@/lib/notice-types";
 import { daysUntil, euro, fmtDate, relativeDays } from "@/lib/format";
+
+export type RentInfo = { amount: number; from: string } | null;
 
 type SummaryProps = {
     events: TimelineEvent[];
-    rent: TimelineResponse["rent"] | undefined;
+    rent: RentInfo;
     today: string;
 };
 
