@@ -21,6 +21,7 @@ import uuid
 from app.services.document.extractor import extract_text
 from app.services.document.redactor import RedactionError, redact
 from app.services.document.s3 import S3UploadError, upload_text_to_s3
+from document_checker.diff_engine import TemplateDiffEngine
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +33,7 @@ class PipelineError(Exception):
     Attributes
     ----------
     step : str
-        Which step failed: ``"extraction"``, ``"redaction"``, or ``"upload"``.
+        Which step failed: ``"extraction"``, ``"lease_validation"``, ``"redaction"``, or ``"upload"``.
     """
 
     def __init__(self, message: str, step: str) -> None:
@@ -42,45 +43,20 @@ class PipelineError(Exception):
 
 def run_upload_pipeline(
     file_bytes: bytes,
-    original_filename: str,
+    user_id: str,
     content_type: str,
     s3_key_prefix: str = "documents/",
 ) -> dict:
     """
-    Run the full Extract → Redact → Upload pipeline for a document.
-
-    Supports both PDF files and image files (JPEG, PNG, TIFF, etc.).
-
-    Parameters
-    ----------
-    file_bytes:
-        Raw bytes of the uploaded file.
-    original_filename:
-        Original file name from the upload (used to derive the S3 key).
-    content_type:
-        MIME type of the uploaded file (e.g. ``"application/pdf"``
-        or ``"image/jpeg"``).
-    s3_key_prefix:
-        Optional S3 "folder" prefix.  Defaults to ``"documents/"``.
-
-    Returns
-    -------
-    dict
-        ``{"s3_uri": str, "s3_key": str, "char_count": int}``
-
-    Raises
-    ------
-    PipelineError
-        If any step fails, with ``step`` set to indicate which one.
+    Run the full Extract → Validate Lease → Redact → Upload pipeline.
     """
-    stem = original_filename.rsplit(".", 1)[0]            # strip extension
-    unique_id = uuid.uuid4().hex[:8]
-    s3_key = f"{s3_key_prefix}{stem}_{unique_id}.txt"
+    unique_id = str(uuid.uuid4())
+    s3_key = f"{s3_key_prefix}{user_id}/{unique_id}.txt"
 
     # ── Step 1: Extract ───────────────────────────────────────────────
     logger.info(
-        "[pipeline] Starting extraction for '%s' (type=%s).",
-        original_filename,
+        "[pipeline] Starting extraction for user_id='%s' (type=%s).",
+        user_id,
         content_type,
     )
     try:
@@ -91,7 +67,31 @@ def run_upload_pipeline(
 
     logger.info("[pipeline] Extraction complete — %d chars.", len(raw_text))
 
-    # ── Step 2: Redact ────────────────────────────────────────────────
+    # ── Step 2: Validate Lease with Template Diff Engine ──────────────
+    logger.info("[pipeline] Validating document with TemplateDiffEngine.")
+    diff_engine = TemplateDiffEngine()
+    is_lease, confidence, matched_terms = diff_engine.is_lease(raw_text)
+
+    if not is_lease:
+        logger.warning(
+            "[pipeline] Document rejected: Not a recognized lease (confidence=%.2f, terms=%s)",
+            confidence,
+            matched_terms,
+        )
+        raise PipelineError(
+            "Uploaded file does not appear to be a residential lease agreement. "
+            "Please upload a document containing standard tenancy clauses.",
+            step="lease_validation",
+        )
+
+    deviations = diff_engine.compare_to_baseline(raw_text)
+    logger.info(
+        "[pipeline] Verified as lease (confidence=%.2f, %d deviations from RTB baseline).",
+        confidence,
+        len(deviations),
+    )
+
+    # ── Step 3: Redact ────────────────────────────────────────────────
     logger.info("[pipeline] Starting redaction.")
     try:
         redacted_text = redact(raw_text)

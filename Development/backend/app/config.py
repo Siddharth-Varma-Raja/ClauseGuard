@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     database_url: str = "mysql+aiomysql://root:root@localhost:3306/clauseguard"
     database_url_sync: str = "mysql+pymysql://root:root@localhost:3306/clauseguard"
 
-    allowed_origins: str = "http://localhost:5173,http://localhost:3000"
+    allowed_origins: str = "http://localhost:5173,http://localhost:3000,https://clause-guard-ten-chi.vercel.app"
 
     rate_limit_auth: str = "10/minute"
     rate_limit_api: str = "60/minute"
@@ -19,6 +19,12 @@ class Settings(BaseSettings):
     aws_access_key_id: str = ""
     aws_secret_access_key: str = ""
     s3_bucket_name: str = "clauseguard-bucket"
+
+    # ── Firebase Web API Key (for dev token generator) ────────────────────────
+    firebase_web_api_key: str = ""
+
+    # ── Gemini API Key (for chatbot) ──────────────────────────────────────────
+    gemini_api_key: str = ""
 
     @property
     def cors_origins(self) -> list[str]:
