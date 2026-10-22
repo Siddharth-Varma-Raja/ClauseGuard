@@ -13,7 +13,7 @@ export default function AuthLayout({
       <RedirectIfSignedIn />
       <aside className="hidden flex-1 flex-col justify-between bg-brand-dark p-10 text-white lg:flex xl:p-16">
         <Link href="/" className="w-fit">
-          <Logo />
+          <Logo light/>
         </Link>
 
         <div className="max-w-xl">
