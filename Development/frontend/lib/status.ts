@@ -1,65 +1,58 @@
-import { CircleCheck, Info, ShieldAlert, TriangleAlert, type LucideIcon } from "lucide-react";
-import type { Status, StatusCounts } from "./types";
+import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
+import { Status } from "./notice-types";
 
-type StatusStyle = {
-  label: string;
-  risk: string;
-  Icon: LucideIcon;
-  badge: string; 
-  solid: string; 
-  highlight: string; 
-  colour: string; 
-};
-
-export const STATUS: Record<Status, StatusStyle> = {
+export const STATUS = {
   red: {
-    label: "Likely unenforceable",
+    label: "Likely unfair",
+    whyTitle: "Why ClauseGuard flagged this",
     risk: "High",
-    Icon: ShieldAlert,
-    badge: "border-bad-line bg-bad-bg text-bad",
+    hint: "This clause may be unfair or unlawful.",
+    Icon: CircleAlert,
+    text: "text-bad",
+    soft: "bg-bad-bg",
+    border: "border-bad-solid",
     solid: "bg-bad-solid",
-    highlight: "border-bad-solid bg-bad-bg",
-    colour: "#d92d20",
+    mark: "bg-bad-solid/15",
+    hover: "hover:bg-bad-bg",
   },
   amber: {
-    label: "Needs review",
+    label: "Worth checking",
+    whyTitle: "Why ClauseGuard flagged this",
     risk: "Medium",
+    hint: "This clause needs further checking.",
     Icon: TriangleAlert,
-    badge: "border-warn-line bg-warn-bg text-warn",
+    text: "text-warn",
+    soft: "bg-warn-bg",
+    border: "border-warn-solid",
     solid: "bg-warn-solid",
-    highlight: "border-warn-solid bg-warn-bg",
-    colour: "#e5a100",
+    mark: "bg-warn-solid/25",
+    hover: "hover:bg-warn-bg",
   },
   green: {
-    label: "Compliant",
+    label: "Looks fine",
+    whyTitle: "Why ClauseGuard flagged this",
     risk: "Low",
+    hint: "No obvious issue was identified.",
     Icon: CircleCheck,
-    badge: "border-ok-line bg-ok-bg text-ok",
+    text: "text-ok",
+    soft: "bg-ok-bg",
+    border: "border-ok-solid",
     solid: "bg-ok-solid",
-    highlight: "border-ok-solid bg-ok-bg",
-    colour: "#1f9d55",
+    mark: "",
+    hover: "hover:bg-ok-bg",
   },
   grey: {
     label: "Informational",
+    whyTitle: "Why ClauseGuard flagged this",
     risk: "Not assessed",
+    hint: "This clause provides additional information.",
     Icon: Info,
-    badge: "border-neu-line bg-neu-bg text-neu",
+    text: "text-neu",
+    soft: "bg-neu-bg",
     solid: "bg-neu-solid",
-    highlight: "border-neu-solid bg-neu-bg",
-    colour: "#7a8794",
+    mark: "",
+    hover: "hover:bg-neu-bg",
   },
-};
+} as const;
 
 export const STATUS_ORDER: Status[] = ["red", "amber", "green", "grey"];
-
-export function overallStatus(counts: StatusCounts): { status: Status; label: string } {
-  if (counts.red > 0) return { status: "red", label: "High attention required" };
-  if (counts.amber > 0) return { status: "amber", label: "Review suggested" };
-  return { status: "green", label: "No issues found" };
-}
-
-export function countStatuses(statuses: Status[]): StatusCounts {
-  const counts: StatusCounts = { red: 0, amber: 0, green: 0, grey: 0 };
-  statuses.forEach((status) => counts[status]++);
-  return counts;
-}

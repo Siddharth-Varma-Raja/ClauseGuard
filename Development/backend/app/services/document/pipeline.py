@@ -116,4 +116,5 @@ def run_upload_pipeline(
         "s3_uri": s3_uri,
         "s3_key": s3_key,
         "char_count": len(redacted_text),
+        "redacted_text": redacted_text,   # in memory only; used by the analysis step, never stored
     }

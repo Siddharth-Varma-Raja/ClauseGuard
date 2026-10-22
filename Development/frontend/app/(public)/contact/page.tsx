@@ -15,5 +15,9 @@ const SECTIONS = [
 ];
 
 export default function Contact() {
-  return <LegalDocument title="Contact Us" updated="10 October 2026" sections={SECTIONS} />;
+  return (
+    <>
+      <LegalDocument title="Contact Us" updated="10 October 2026" sections={SECTIONS} />
+    </>
+  );
 }
