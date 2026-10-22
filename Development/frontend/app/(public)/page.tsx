@@ -9,6 +9,8 @@ import {
   Lock,
  } from "lucide-react";
 import RedirectIfSignedIn from "@/components/auth/RedirectIfSignedIn";
+import PageTour from "@/components/PageTour";
+import { HOME_TOUR } from "@/lib/tours";
 
 const steps = [
   {
@@ -56,13 +58,16 @@ export default function LandingPage() {
     <main>
       <RedirectIfSignedIn />
 
-      <section className="bg-brand-dark text-white">
-        <div className="mx-auto grid max-w-6xl items-center gap-12 px-4 py-16 sm:px-6 lg:grid-cols-2 lg:py-24">
+      <section data-tour="hero" className="bg-brand-dark text-white">
+        <div className="mx-auto grid max-w-6xl items-center gap-12 px-4 py-16">
           <div>
-            <p className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-2 text-sm font-semibold">
-              <Lock size={16} />
-              For tenants in Ireland
-            </p>
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
+              <p className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-2 text-sm font-semibold">
+                <Lock size={16} />
+                For tenants in Ireland
+              </p>
+              <PageTour tourId="hero" steps={HOME_TOUR} />
+            </div>
 
             <h1 className="mt-5 font-display text-4xl font-semibold leading-tight sm:text-5xl">
               Understand your lease before you agree.
@@ -75,6 +80,7 @@ export default function LandingPage() {
             <div className="mt-8 flex flex-wrap gap-3">
               <Link
                 href="/register"
+                data-tour="get-started"
                 className="inline-flex min-h-12 items-center gap-2 rounded-xl bg-white px-6 py-3 font-semibold text-brand-dark hover:bg-brand-soft"
               >
                 Get started <ArrowRight size={18} />
@@ -94,6 +100,7 @@ export default function LandingPage() {
       </section>
 
       <section
+        data-tour="how-it-works"
         className="mx-auto max-w-6xl px-4 py-16 sm:px-6"
       >
         <h2
