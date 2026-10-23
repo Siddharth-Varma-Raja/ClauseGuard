@@ -506,6 +506,7 @@ function ClausePanel({
         <button
           type="button"
           onClick={onAsk}
+          disabled={true}
           className="flex min-h-10 flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl bg-brand px-3 text-sm font-semibold text-white transition-colors hover:bg-brand-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
         >
           <MessageCircle size={16} aria-hidden />Ask about this clause
