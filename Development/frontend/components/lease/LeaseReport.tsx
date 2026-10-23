@@ -99,7 +99,9 @@ function ClauseRow({ analysisId, clause, open, onToggle }: { analysisId: string;
           </span>
           <ChevronDown size={18} className={cn("shrink-0 text-mute transition-transform print:hidden", open && "rotate-180")} />
         </button>
-        <StatusBadge status={clause.status} size="sm" />
+        <div className="flex shrink-0 sm:w-48">
+          <StatusBadge status={clause.status} size="sm" />
+        </div>
         <span className="w-36 text-sm text-mute">
           Risk: <strong className="text-ink">{style.risk}</strong>
         </span>
