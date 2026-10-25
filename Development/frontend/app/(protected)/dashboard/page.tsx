@@ -63,14 +63,23 @@ export default function Dashboard() {
         <PageTour tourId="dashboard" steps={DASHBOARD_TOUR} />
       </div>
 
-      <div className="mt-8 grid gap-5 grid-cols-2">
-        <div data-tour="validate-lease" className="bg-brand-dark p-8 text-white relative overflow-hidden rounded-3xl flex flex-row col-span-2 items-center justify-between gap-8">
+      <div className="mt-8 grid gap-5 sm:grid-cols-2">
+        <div data-tour="validate-lease" className="relative flex flex-col gap-8 overflow-hidden rounded-3xl bg-brand-dark p-8 text-white sm:col-span-2 sm:p-10 md:flex-row md:items-center md:justify-between">
           <div className="relative max-w-lg">
-            <span className="grid rounded-2xl bg-white/10 size-14 place-items-center"><FileSearchCorner /></span>
-            <h2 className="text-3xl mt-5 font-semibold font-display">Validate New Lease</h2>
-            <p className="text-md mt-2 text-white/80">Upload a draft lease and check important clauses before signing.</p>
+            <span className="grid size-14 place-items-center rounded-2xl bg-white/10"><FileSearchCorner /></span>
+            <h2 className="mt-5 font-display text-3xl font-semibold">Check your lease before you sign</h2>
+            <p className="mt-2 text-white/80">Upload your lease and ClauseGuard checks every clause against Irish tenancy law.</p>
           </div>
-          <Link href="/lease/new" className="bg-white text-brand-dark px-6 py-3.5 rounded-xl font-semibold relative inline-flex items-center gap-2 font-display shadow-2xl">Get Started <ArrowRight size={18} /></Link>
+
+          <div className="relative flex shrink-0 flex-col items-center gap-2">
+            <Link
+              href="/lease/new"
+              className="inline-flex min-h-16 w-full items-center justify-center gap-3 rounded-2xl bg-white px-10 py-5 text-xl font-semibold text-brand-dark shadow-2xl transition hover:-translate-y-0.5 hover:bg-brand-soft md:w-auto"
+            >
+              <Upload size={26} aria-hidden />
+              Upload lease
+            </Link>
+          </div>
         </div>
 
         {CARDS.map(({ Icon, title, description, href, tour }) => (
@@ -109,7 +118,7 @@ export default function Dashboard() {
               </p>
               <Link href="/lease/new" className="font-semibold mt-6 inline-flex gap-2 items-center bg-brand text-white rounded-xl px-6 py-3">
                 <Upload size={20} />
-                Upload your first lease
+                Upload lease
               </Link>
             </div>
           ) : (
