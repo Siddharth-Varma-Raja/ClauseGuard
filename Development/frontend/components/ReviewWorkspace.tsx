@@ -50,15 +50,13 @@ export default function ReviewWorkspace({ analysis }: { analysis: Analysis }) {
     function fit() {
       if (!grid) return;
       if (window.innerWidth < 1024) {
-        grid.style.height = ""; // phones/tablets: normal page scrolling
+        grid.style.height = "";
         return;
       }
       grid.style.height = `${MIN_HEIGHT}px`;
       const top = grid.getBoundingClientRect().top + window.scrollY;
-      // What must still fit under the panes: the rest of this page (the disclaimer)…
       const root = grid.parentElement;
       let below = root ? root.getBoundingClientRect().bottom - grid.getBoundingClientRect().bottom : 0;
-      // …plus the bottom padding/borders of the layout around it (e.g. <main className="p-8">).
       for (let el = root?.parentElement; el && el !== document.documentElement; el = el.parentElement) {
         const style = getComputedStyle(el);
         below += parseFloat(style.paddingBottom) + parseFloat(style.borderBottomWidth);
@@ -550,4 +548,4 @@ function IconButton({
       {children}
     </button>
   );
-}
+}   
