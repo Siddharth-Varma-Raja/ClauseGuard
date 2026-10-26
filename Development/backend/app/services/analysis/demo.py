@@ -24,7 +24,8 @@ from rules_engine import ClauseInput, Engine, LeaseContext
 CLASSIFIER_NAME = "keyword-baseline-v0"
 
 # Classifier topic -> topic name used by rules in rules_engine/rules/rules.yaml
-RULE_TOPIC = {"deposit": "deposit", "termination": "termination", "access": "access"}
+RULE_TOPIC = {"deposit": "deposit", "termination": "termination", "access": "access",
+              "rent_review": "rent_review"}
 
 # The keyword baseline is weak (it counts the word "notice" in almost every clause), so each rule
 # topic can ALSO be reached by its own trigger words. A clause may therefore be checked against
@@ -33,6 +34,9 @@ TRIGGERS = {
     "deposit": re.compile(r"\bdeposit\b", re.I),
     "access": re.compile(r"\b(?:enter|entry|inspect|inspection)\b", re.I),
     "termination": re.compile(r"\b(?:terminat\w*|end the tenancy|ending the tenancy)\b", re.I),
+        "rent_review": re.compile(
+        r"\brent\b[^.]{0,60}\b(?:review|reviewed|revised|revision|increase|increased)\b"
+        r"|\b(?:review|revise|revision|increase)\w*\b[^.]{0,40}\brent\b", re.I),
 }
 SEVERITY = {"breaks_law": 3, "against_guidance": 2, "needs_review": 1, "looks_fine": 0}
 
