@@ -5,14 +5,10 @@ ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
 # ── System dependencies ────────────────────────────────────────────────────────
-# tesseract-ocr  → OCR engine for scanned lease PDFs
-# poppler-utils  → pdftoppm for converting PDF pages → images
 # libmagic1      → MIME-type sniffing for python-magic (upload validation)
 # build-essential → compile native Python extensions
 # curl           → healthcheck probes
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    tesseract-ocr \
-    poppler-utils \
     libmagic1 \
     build-essential \
     curl \
@@ -24,9 +20,6 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
-
-# Download spaCy NLP model for PII entity recognition & redaction
-RUN python -m spacy download en_core_web_sm
 
 # ── Application code ──────────────────────────────────────────────────────────
 COPY . .
