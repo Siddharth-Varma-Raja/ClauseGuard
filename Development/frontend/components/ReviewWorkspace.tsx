@@ -14,7 +14,7 @@ import {
   Info,
   Minus,
   Plus, ChevronDown,
-  MessageCircle, Download
+  MessageCircle, Download, List, FileText
 } from "lucide-react";
 
 import { overallStatus, STATUS as RISK } from "@/lib/notice-status";
@@ -24,7 +24,9 @@ import { cn } from "@/lib/cn";
 import { errorMessage, getPreferences, setClauseReviewed } from "@/lib/api";
 import ClauseChat from "@/components/lease/ClauseChat";
 import PageTour from "@/components/PageTour";
-import { REVIEW_TOUR } from "@/lib/tours";
+import { REVIEW_LEASE_TOUR, REVIEW_TOUR } from "@/lib/tours";
+import ReviewSummary from "@/components/review/ReviewSummary";
+import { loadViewPreference, saveViewPreference, type ReviewView } from "@/lib/viewPreference";
 
 export default function ReviewWorkspace({ analysis }: { analysis: Analysis }) {
   const [clauses, setClauses] = useState<Clause[]>(analysis.clauses);
@@ -32,10 +34,12 @@ export default function ReviewWorkspace({ analysis }: { analysis: Analysis }) {
   const firstClause = issues[0] ?? clauses[0];
   const [actionError, setActionError] = useState("");
   const [showChat, setShowChat] = useState(false);
-  const [initialClause] = useState(() => {
+  const [wantedClause] = useState(() => {
     const wanted = typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("clause");
-    return clauses.find((c) => c.id === wanted) ?? firstClause;
+    return clauses.find((c) => c.id === wanted) ?? null;
   });
+  const initialClause = wantedClause ?? firstClause;
+  const [view, setView] = useState<ReviewView>(() => (wantedClause ? "lease" : loadViewPreference()));
   const [selectedId, setSelectedId] = useState<string | null>(initialClause?.id ?? null);
   const [page, setPage] = useState(initialClause?.page ?? 1);
   const [zoom, setZoom] = useState(100);
@@ -66,7 +70,7 @@ export default function ReviewWorkspace({ analysis }: { analysis: Analysis }) {
     fit();
     window.addEventListener("resize", fit);
     return () => window.removeEventListener("resize", fit);
-  }, []);
+  }, [view]);
 
   const selected = clauses.find((c) => c.id === selectedId) ?? null;
   const pageCount = Math.max(analysis.pageCount || 1, ...clauses.map((c) => c.page || 1));
@@ -103,6 +107,20 @@ export default function ReviewWorkspace({ analysis }: { analysis: Analysis }) {
     }
   }
 
+  function changeView(next: ReviewView) {
+    setView(next);
+    saveViewPreference(next);
+  }
+
+  function openInLease(clause: Clause) {
+    changeView("lease");
+    setSelectedId(clause.id);
+    setPage(clause.page);
+    requestAnimationFrame(() =>
+      document.getElementById("lease-view")?.scrollIntoView({ behavior: "smooth", block: "start" }),
+    );
+  }
+
   function selectClause(clause: Clause) {
     setSelectedId(clause.id);
     setPage(clause.page);
@@ -127,7 +145,11 @@ export default function ReviewWorkspace({ analysis }: { analysis: Analysis }) {
             <h1 className="truncate font-display text-xl font-semibold text-brand-dark">{analysis.fileName}</h1>
           </div>
         </div>
-        <PageTour tourId="review" steps={REVIEW_TOUR} />
+        {view === "summary" ? (
+          <PageTour key="summary" tourId="review" steps={REVIEW_TOUR} />
+        ) : (
+          <PageTour key="lease" tourId="review-lease" steps={REVIEW_LEASE_TOUR} />
+        )}
       </div>
 
       <SummaryBar
@@ -136,103 +158,115 @@ export default function ReviewWorkspace({ analysis }: { analysis: Analysis }) {
         activeStatus={selected?.status ?? null}
         issuesReviewed={issues.filter((c) => c.reviewed).length}
         issuesTotal={issues.length}
-        onJump={jumpTo}
+        showJump={view === "lease"}
+        onJump={(status) => {
+          if (view === "summary") changeView("lease");
+          jumpTo(status);
+        }}
       />
 
-      <div ref={gridRef} className="mt-3 grid gap-4 lg:grid-cols-[minmax(0,1fr)_400px] lg:grid-rows-[minmax(0,1fr)] xl:grid-cols-[minmax(0,1fr)_460px]">
-        <section
-          data-tour="annotated-lease"
-          aria-label="Annotated lease"
-          className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-3xl border border-line bg-[#e7ecee]"
-        >
-          <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-line bg-white px-4 py-2">
-            <div className="flex items-center gap-1">
-              <IconButton label="Previous page" disabled={page === 1} onClick={() => setPage(page - 1)}>
-                <ChevronLeft size={18} />
-              </IconButton>
-              <span className="min-w-24 text-center text-sm font-semibold">
-                Page {page} of {pageCount}
-              </span>
-              <IconButton label="Next page" disabled={page >= pageCount} onClick={() => setPage(page + 1)}>
-                <ChevronRight size={18} />
-              </IconButton>
-            </div>
+      <ViewSwitch view={view} onChange={changeView} />
 
-            <div className="flex items-center gap-1">
-              <IconButton label="Zoom out" disabled={zoom <= 80} onClick={() => setZoom(zoom - 10)}>
-                <Minus size={16} />
-              </IconButton>
-              <span className="w-12 text-center text-sm font-semibold">{zoom}%</span>
-              <IconButton label="Zoom in" disabled={zoom >= 140} onClick={() => setZoom(zoom + 10)}>
-                <Plus size={16} />
-              </IconButton>
-            </div>
+      {view === "summary" && <ReviewSummary analysis={analysis} clauses={clauses} onOpenClause={openInLease} />}
 
-          </div>
-
-          <div className="min-h-0 flex-1 overflow-auto p-3 sm:p-6">
-            <article
-              className="mx-auto flex min-h-[560px] max-w-[680px] flex-col bg-white px-6 py-8 font-serif text-[#1d2a30] shadow-[0_1px_2px_rgb(0_0_0/0.06),0_12px_32px_-8px_rgb(10_59_67/0.25)] sm:px-14 sm:py-12"
-              style={{ fontSize: `${(15 * zoom) / 100}px`, lineHeight: 1.75 }}
-            >
-              <header className="mb-8 flex items-baseline justify-between border-b border-[#d9e0e3] pb-3 font-sans text-xs text-mute">
-                <span>Residential Tenancy Agreement</span>
-                <span className="truncate pl-4">{analysis.fileName}</span>
-              </header>
-
-              <div className="flex-1 space-y-6 pl-8 sm:pl-10">
-                {clauses.length === 0 && (
-                  <p className="italic text-mute">No clauses were found in this document.</p>
-                )}
-                {clauses.length > 0 && clausesOnPage.length === 0 && (
-                  <p className="italic text-mute">This page continues the clause from the previous page.</p>
-                )}
-
-                {clausesOnPage.map((clause) => (
-                  <LeaseClause
-                    key={clause.id}
-                    clause={clause}
-                    isSelected={selected?.id === clause.id}
-                    onSelect={() => selectClause(clause)}
-                  />
-                ))}
+      {view === "lease" && (
+        <div id="lease-view" ref={gridRef} className="mt-3 grid gap-4 lg:grid-cols-[minmax(0,1fr)_400px] lg:grid-rows-[minmax(0,1fr)] xl:grid-cols-[minmax(0,1fr)_460px]">
+          <section
+            data-tour="annotated-lease"
+            aria-label="Annotated lease"
+            className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-3xl border border-line bg-[#e7ecee]"
+          >
+            <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-line bg-white px-4 py-2">
+              <div className="flex items-center gap-1">
+                <IconButton label="Previous page" disabled={page === 1} onClick={() => setPage(page - 1)}>
+                  <ChevronLeft size={18} />
+                </IconButton>
+                <span className="min-w-24 text-center text-sm font-semibold">
+                  Page {page} of {pageCount}
+                </span>
+                <IconButton label="Next page" disabled={page >= pageCount} onClick={() => setPage(page + 1)}>
+                  <ChevronRight size={18} />
+                </IconButton>
               </div>
 
-              <footer className="mt-10 text-center font-sans text-xs text-mute">
-                {page} / {pageCount}
-              </footer>
-            </article>
-          </div>
-        </section>
+              <div className="flex items-center gap-1">
+                <IconButton label="Zoom out" disabled={zoom <= 80} onClick={() => setZoom(zoom - 10)}>
+                  <Minus size={16} />
+                </IconButton>
+                <span className="w-12 text-center text-sm font-semibold">{zoom}%</span>
+                <IconButton label="Zoom in" disabled={zoom >= 140} onClick={() => setZoom(zoom + 10)}>
+                  <Plus size={16} />
+                </IconButton>
+              </div>
 
-        <aside
-          ref={panelRef}
-          data-tour="clause-details"
-          aria-label="Clause details"
-          className="flex min-h-0 scroll-mt-6 flex-col lg:overflow-hidden"
-        >
-          {actionError && (
-            <p role="alert" className="mb-3 rounded-xl border border-bad-line bg-bad-bg p-3 text-sm text-bad">{actionError}</p>
-          )}
-          {selected ? (
-            <ClausePanel
-              key={selected.id}
-              clause={selected}
-              issues={issues}
-              detailed={detailed}
-              onSelect={selectClause}
-              onAsk={() => setShowChat(true)}
-              onToggleReviewed={() => toggleReviewed(selected)}
-            />
-          ) : (
-            <div className="rounded-3xl border border-line bg-white p-8 text-center text-mute">
-              Select a clause in the lease to see what it means.
             </div>
-          )}
-        </aside>
-      </div>
 
-      {showChat && selected && (
+            <div className="flex min-h-0 flex-1 gap-3 p-3 sm:p-6 sm:pr-3">
+              <div className="min-h-0 min-w-0 flex-1 overflow-auto">
+                <article
+                  className="mx-auto flex min-h-[560px] max-w-[680px] flex-col bg-white px-6 py-8 font-serif text-[#1d2a30] shadow-[0_1px_2px_rgb(0_0_0/0.06),0_12px_32px_-8px_rgb(10_59_67/0.25)] sm:px-14 sm:py-12"
+                  style={{ fontSize: `${(15 * zoom) / 100}px`, lineHeight: 1.75 }}
+                >
+                  <header className="mb-8 flex items-baseline justify-between border-b border-[#d9e0e3] pb-3 font-sans text-xs text-mute">
+                    <span>Residential Tenancy Agreement</span>
+                    <span className="truncate pl-4">{analysis.fileName}</span>
+                  </header>
+
+                  <div className="flex-1 space-y-6 pl-8 sm:pl-10">
+                    {clauses.length === 0 && (
+                      <p className="italic text-mute">No clauses were found in this document.</p>
+                    )}
+                    {clauses.length > 0 && clausesOnPage.length === 0 && (
+                      <p className="italic text-mute">This page continues the clause from the previous page.</p>
+                    )}
+
+                    {clausesOnPage.map((clause) => (
+                      <LeaseClause
+                        key={clause.id}
+                        clause={clause}
+                        isSelected={selected?.id === clause.id}
+                        onSelect={() => selectClause(clause)}
+                      />
+                    ))}
+                  </div>
+
+                  <footer className="mt-10 text-center font-sans text-xs text-mute">
+                    {page} / {pageCount}
+                  </footer>
+                </article>
+              </div>
+            </div>
+          </section>
+
+          <aside
+            ref={panelRef}
+            data-tour="clause-details"
+            aria-label="Clause details"
+            className="flex min-h-0 scroll-mt-6 flex-col lg:overflow-hidden"
+          >
+            {actionError && (
+              <p role="alert" className="mb-3 rounded-xl border border-bad-line bg-bad-bg p-3 text-sm text-bad">{actionError}</p>
+            )}
+            {selected ? (
+              <ClausePanel
+                key={selected.id}
+                clause={selected}
+                issues={issues}
+                detailed={detailed}
+                onSelect={selectClause}
+                onAsk={() => setShowChat(true)}
+                onToggleReviewed={() => toggleReviewed(selected)}
+              />
+            ) : (
+              <div className="rounded-3xl border border-line bg-white p-8 text-center text-mute">
+                Select a clause in the lease to see what it means.
+              </div>
+            )}
+          </aside>
+        </div>
+      )}
+
+      {showChat && selected && view === "lease" && (
         <ClauseChat key={selected.id} analysisId={analysis.id} clause={selected} onClose={() => setShowChat(false)} />
       )}
 
@@ -250,6 +284,7 @@ function SummaryBar({
   activeStatus,
   issuesReviewed,
   issuesTotal,
+  showJump,
   onJump,
 }: {
   reportHref: string;
@@ -257,6 +292,7 @@ function SummaryBar({
   activeStatus: Clause["status"] | null;
   issuesReviewed: number;
   issuesTotal: number;
+  showJump: boolean;
   onJump: (status: Clause["status"]) => void;
 }) {
   const verdict = overallStatus(counts);
@@ -276,26 +312,28 @@ function SummaryBar({
           {verdict.label}
         </span>
 
-        <div role="group" aria-label="Jump to clauses by rating" className="flex flex-wrap items-center gap-1.5">
-          {STATUS_ORDER.map((s) => (
-            <button
-              key={s}
-              type="button"
-              onClick={() => onJump(s)}
-              disabled={counts[s] === 0}
-              title={counts[s] ? `Jump to the next “${STATUS[s].label.toLowerCase()}” clause` : undefined}
-              aria-pressed={activeStatus === s}
-              className={cn(
-                "inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors disabled:cursor-default disabled:opacity-40",
-                activeStatus === s ? "border-brand-dark bg-brand-dark text-white" : cn("border-line bg-white text-ink", STATUS[s].hover),
-              )}
-            >
-              <span className={cn("size-2 rounded-full", STATUS[s].solid)} aria-hidden />
-              <span className="font-semibold">{counts[s]}</span>
-              {STATUS[s].label.toLowerCase()}
-            </button>
-          ))}
-        </div>
+        {showJump && (
+          <div role="group" aria-label="Jump to clauses by rating" className="flex flex-wrap items-center gap-1.5">
+            {STATUS_ORDER.map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => onJump(s)}
+                disabled={counts[s] === 0}
+                title={counts[s] ? `Jump to the next “${STATUS[s].label.toLowerCase()}” clause` : undefined}
+                aria-pressed={activeStatus === s}
+                className={cn(
+                  "inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors disabled:cursor-default disabled:opacity-40",
+                  activeStatus === s ? "border-brand-dark bg-brand-dark text-white" : cn("border-line bg-white text-ink", STATUS[s].hover),
+                )}
+              >
+                <span className={cn("size-2 rounded-full", STATUS[s].solid)} aria-hidden />
+                <span className="font-semibold">{counts[s]}</span>
+                {STATUS[s].label.toLowerCase()}
+              </button>
+            ))}
+          </div>
+        )}
 
         <div className="ml-auto flex items-center gap-4">
           {issuesTotal > 0 && (
@@ -326,6 +364,41 @@ function SummaryBar({
         </div>
       )}
     </section>
+  );
+}
+
+function ViewSwitch({ view, onChange }: { view: ReviewView; onChange: (view: ReviewView) => void }) {
+  const options: { value: ReviewView; label: string; Icon: typeof List }[] = [
+    { value: "summary", label: "Summary", Icon: List },
+    { value: "lease", label: "Lease viewer", Icon: FileText },
+  ];
+
+  return (
+    <div data-tour="view-switch" className="mt-3 flex flex-wrap items-center justify-between gap-2">
+      <div role="radiogroup" aria-label="How to show the lease" className="inline-flex rounded-xl border border-line bg-white p-1 shadow-soft">
+        {options.map(({ value, label, Icon }) => (
+          <button
+            key={value}
+            type="button"
+            role="radio"
+            aria-checked={view === value}
+            onClick={() => onChange(value)}
+            className={cn(
+              "inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-lg px-3.5 text-sm font-semibold transition-colors",
+              view === value ? "bg-brand-dark text-white" : "text-brand-dark hover:bg-surface",
+            )}
+          >
+            <Icon size={15} aria-hidden />
+            {label}
+          </button>
+        ))}
+      </div>
+      <p className="text-xs text-mute">
+        {view === "summary"
+          ? "An overview of every clause. Select one to open it in the lease."
+          : "The full lease with colour-coded clauses. Use the markers to jump around."}
+      </p>
+    </div>
   );
 }
 
@@ -431,6 +504,9 @@ function ClausePanel({
         <h2 className="mt-1 line-clamp-2 font-display text-lg font-semibold leading-snug text-brand-dark" title={clause.title}>
           {clause.number}. {clause.title}
         </h2>
+        <p className="mt-0.5 text-xs font-medium text-mute">
+          Clause {clause.number}, page {clause.page} of the lease
+        </p>
         {clause.confidence !== "high" && (
           <p className="mt-0.5 text-xs text-mute">
             ClauseGuard is {clause.confidence === "medium" ? "fairly" : "not very"} confident about this result — double-check it.
@@ -548,4 +624,4 @@ function IconButton({
       {children}
     </button>
   );
-}   
+}
