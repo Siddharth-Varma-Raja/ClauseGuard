@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRef, useState, useEffect } from "react";
 import {
   ArrowLeft,
+  ArrowRight,
   BookOpen,
   Check,
   ChevronLeft,
@@ -13,30 +14,63 @@ import {
   Info,
   Minus,
   Plus, ChevronDown,
-  MessageCircle, Download
+  MessageCircle, Download, List, FileText
 } from "lucide-react";
 
+import { overallStatus, STATUS as RISK } from "@/lib/notice-status";
 import type { Analysis, Clause } from "@/lib/notice-types";
 import { STATUS, STATUS_ORDER } from "@/lib/status";
 import { cn } from "@/lib/cn";
 import { errorMessage, getPreferences, setClauseReviewed } from "@/lib/api";
 import ClauseChat from "@/components/lease/ClauseChat";
-import { downloadReport } from "./lease/DownloadReport";
 import PageTour from "@/components/PageTour";
-import { REVIEW_TOUR } from "@/lib/tours";
+import { REVIEW_LEASE_TOUR, REVIEW_TOUR } from "@/lib/tours";
+import ReviewSummary from "@/components/review/ReviewSummary";
+import { loadViewPreference, saveViewPreference, type ReviewView } from "@/lib/viewPreference";
 
 export default function ReviewWorkspace({ analysis }: { analysis: Analysis }) {
   const [clauses, setClauses] = useState<Clause[]>(analysis.clauses);
   const issues = [...clauses.filter((c) => c.status === "red"), ...clauses.filter((c) => c.status === "amber")];
   const firstClause = issues[0] ?? clauses[0];
-  const [downloadError, setDownloadError] = useState("");
   const [actionError, setActionError] = useState("");
   const [showChat, setShowChat] = useState(false);
-  const [selectedId, setSelectedId] = useState<string | null>(firstClause?.id ?? null);
-  const [page, setPage] = useState(firstClause?.page ?? 1);
+  const [wantedClause] = useState(() => {
+    const wanted = typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("clause");
+    return clauses.find((c) => c.id === wanted) ?? null;
+  });
+  const initialClause = wantedClause ?? firstClause;
+  const [view, setView] = useState<ReviewView>(() => (wantedClause ? "lease" : loadViewPreference()));
+  const [selectedId, setSelectedId] = useState<string | null>(initialClause?.id ?? null);
+  const [page, setPage] = useState(initialClause?.page ?? 1);
   const [zoom, setZoom] = useState(100);
   const [detailed, setDetailed] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const grid = gridRef.current;
+    if (!grid) return;
+    const MIN_HEIGHT = 360;
+    function fit() {
+      if (!grid) return;
+      if (window.innerWidth < 1024) {
+        grid.style.height = "";
+        return;
+      }
+      grid.style.height = `${MIN_HEIGHT}px`;
+      const top = grid.getBoundingClientRect().top + window.scrollY;
+      const root = grid.parentElement;
+      let below = root ? root.getBoundingClientRect().bottom - grid.getBoundingClientRect().bottom : 0;
+      for (let el = root?.parentElement; el && el !== document.documentElement; el = el.parentElement) {
+        const style = getComputedStyle(el);
+        below += parseFloat(style.paddingBottom) + parseFloat(style.borderBottomWidth);
+      }
+      grid.style.height = `${Math.max(MIN_HEIGHT, Math.floor(window.innerHeight - top - below))}px`;
+    }
+    fit();
+    window.addEventListener("resize", fit);
+    return () => window.removeEventListener("resize", fit);
+  }, [view]);
 
   const selected = clauses.find((c) => c.id === selectedId) ?? null;
   const pageCount = Math.max(analysis.pageCount || 1, ...clauses.map((c) => c.page || 1));
@@ -49,13 +83,16 @@ export default function ReviewWorkspace({ analysis }: { analysis: Analysis }) {
       .catch(() => undefined);
   }, []);
 
-  function handleDownload() {
-    setDownloadError("");
-    try {
-      downloadReport(analysis, clauses);
-    } catch {
-      setDownloadError("The report couldn't be downloaded. Try again.");
-    }
+  useEffect(() => {
+    if (!selectedId) return;
+    document.getElementById(`clause-${selectedId}`)?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [selectedId, page]);
+
+  function jumpTo(status: Clause["status"]) {
+    const matching = clauses.filter((c) => c.status === status);
+    if (matching.length === 0) return;
+    const at = matching.findIndex((c) => c.id === selectedId);
+    selectClause(matching[(at + 1) % matching.length]);
   }
 
   async function toggleReviewed(clause: Clause) {
@@ -70,6 +107,20 @@ export default function ReviewWorkspace({ analysis }: { analysis: Analysis }) {
     }
   }
 
+  function changeView(next: ReviewView) {
+    setView(next);
+    saveViewPreference(next);
+  }
+
+  function openInLease(clause: Clause) {
+    changeView("lease");
+    setSelectedId(clause.id);
+    setPage(clause.page);
+    requestAnimationFrame(() =>
+      document.getElementById("lease-view")?.scrollIntoView({ behavior: "smooth", block: "start" }),
+    );
+  }
+
   function selectClause(clause: Clause) {
     setSelectedId(clause.id);
     setPage(clause.page);
@@ -80,129 +131,146 @@ export default function ReviewWorkspace({ analysis }: { analysis: Analysis }) {
 
   return (
     <div className="mx-auto max-w-[1400px]">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
-        <Link href="/lease" className="inline-flex min-h-11 items-center gap-2 rounded-lg text-brand hover:underline">
-          <ArrowLeft size={18} />
-          Back to my leases
-        </Link>
-        <PageTour tourId="review" steps={REVIEW_TOUR} />
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <div className="flex min-w-0 items-center gap-3">
+          <Link
+            href="/lease"
+            aria-label="Back to my leases"
+            className="grid size-9 shrink-0 place-items-center rounded-full border border-line bg-white text-brand-dark hover:bg-brand-soft"
+          >
+            <ArrowLeft size={17} />
+          </Link>
+          <div className="min-w-0">
+            <p className="text-xs font-medium uppercase tracking-wide text-mute">Lease review</p>
+            <h1 className="truncate font-display text-xl font-semibold text-brand-dark">{analysis.fileName}</h1>
+          </div>
+        </div>
+        {view === "summary" ? (
+          <PageTour key="summary" tourId="review" steps={REVIEW_TOUR} />
+        ) : (
+          <PageTour key="lease" tourId="review-lease" steps={REVIEW_LEASE_TOUR} />
+        )}
       </div>
 
-      <h1 className="font-display text-3xl font-semibold text-brand-dark">Lease Review</h1>
-
-      <VerdictBanner
-        fileName={analysis.fileName}
-        total={clauses.length}
+      <SummaryBar
+        reportHref={`/lease/${analysis.id}/report`}
         counts={{ red: countOf("red"), amber: countOf("amber"), green: countOf("green"), grey: countOf("grey") }}
+        activeStatus={selected?.status ?? null}
+        issuesReviewed={issues.filter((c) => c.reviewed).length}
+        issuesTotal={issues.length}
+        showJump={view === "lease"}
+        onJump={(status) => {
+          if (view === "summary") changeView("lease");
+          jumpTo(status);
+        }}
       />
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_400px]">
-        <section
-          data-tour="annotated-lease"
-          aria-label="Annotated lease"
-          className="min-w-0 overflow-hidden rounded-3xl border border-line bg-[#e7ecee]"
-        >
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line bg-white px-4 py-3">
-            <div className="flex items-center gap-1">
-              <IconButton label="Previous page" disabled={page === 1} onClick={() => setPage(page - 1)}>
-                <ChevronLeft size={18} />
-              </IconButton>
-              <span className="min-w-24 text-center text-sm font-semibold">
-                Page {page} of {pageCount}
-              </span>
-              <IconButton label="Next page" disabled={page >= pageCount} onClick={() => setPage(page + 1)}>
-                <ChevronRight size={18} />
-              </IconButton>
-            </div>
+      <ViewSwitch view={view} onChange={changeView} />
 
-            <div className="flex items-center gap-1">
-              <IconButton label="Zoom out" disabled={zoom <= 80} onClick={() => setZoom(zoom - 10)}>
-                <Minus size={16} />
-              </IconButton>
-              <span className="w-12 text-center text-sm font-semibold">{zoom}%</span>
-              <IconButton label="Zoom in" disabled={zoom >= 140} onClick={() => setZoom(zoom + 10)}>
-                <Plus size={16} />
-              </IconButton>
-            </div>
+      {view === "summary" && <ReviewSummary analysis={analysis} clauses={clauses} onOpenClause={openInLease} />}
 
-            <button
-              data-tour="download-report"
-              onClick={handleDownload}
-              className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-xl border border-line bg-white px-3.5 text-sm font-semibold text-brand-dark transition hover:border-brand hover:bg-brand-soft"
-            >
-              <Download size={16} />
-              Download report
-            </button>
-          </div>
-
-          {downloadError && <p role="alert" className="border-b border-line bg-bad-bg px-4 py-2 text-sm text-bad">{downloadError}</p>}
-
-          <div className="overflow-auto p-3 sm:p-8">
-            <article
-              className="mx-auto flex min-h-[560px] max-w-[680px] flex-col bg-white px-6 py-8 font-serif text-[#1d2a30] shadow-[0_1px_2px_rgb(0_0_0/0.06),0_12px_32px_-8px_rgb(10_59_67/0.25)] sm:px-14 sm:py-12"
-              style={{ fontSize: `${(15 * zoom) / 100}px`, lineHeight: 1.75 }}
-            >
-              <header className="mb-8 flex items-baseline justify-between border-b border-[#d9e0e3] pb-3 font-sans text-xs text-mute">
-                <span>Residential Tenancy Agreement</span>
-                <span className="truncate pl-4">{analysis.fileName}</span>
-              </header>
-
-              <div className="flex-1 space-y-6 pl-8 sm:pl-10">
-                {clauses.length === 0 && (
-                  <p className="italic text-mute">No clauses were found in this document.</p>
-                )}
-                {clauses.length > 0 && clausesOnPage.length === 0 && (
-                  <p className="italic text-mute">This page continues the clause from the previous page.</p>
-                )}
-
-                {clausesOnPage.map((clause) => (
-                  <LeaseClause
-                    key={clause.id}
-                    clause={clause}
-                    isSelected={selected?.id === clause.id}
-                    onSelect={() => selectClause(clause)}
-                  />
-                ))}
+      {view === "lease" && (
+        <div id="lease-view" ref={gridRef} className="mt-3 grid gap-4 lg:grid-cols-[minmax(0,1fr)_400px] lg:grid-rows-[minmax(0,1fr)] xl:grid-cols-[minmax(0,1fr)_460px]">
+          <section
+            data-tour="annotated-lease"
+            aria-label="Annotated lease"
+            className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-3xl border border-line bg-[#e7ecee]"
+          >
+            <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-line bg-white px-4 py-2">
+              <div className="flex items-center gap-1">
+                <IconButton label="Previous page" disabled={page === 1} onClick={() => setPage(page - 1)}>
+                  <ChevronLeft size={18} />
+                </IconButton>
+                <span className="min-w-24 text-center text-sm font-semibold">
+                  Page {page} of {pageCount}
+                </span>
+                <IconButton label="Next page" disabled={page >= pageCount} onClick={() => setPage(page + 1)}>
+                  <ChevronRight size={18} />
+                </IconButton>
               </div>
 
-              <footer className="mt-10 text-center font-sans text-xs text-mute">
-                {page} / {pageCount}
-              </footer>
-            </article>
-          </div>
-        </section>
+              <div className="flex items-center gap-1">
+                <IconButton label="Zoom out" disabled={zoom <= 80} onClick={() => setZoom(zoom - 10)}>
+                  <Minus size={16} />
+                </IconButton>
+                <span className="w-12 text-center text-sm font-semibold">{zoom}%</span>
+                <IconButton label="Zoom in" disabled={zoom >= 140} onClick={() => setZoom(zoom + 10)}>
+                  <Plus size={16} />
+                </IconButton>
+              </div>
 
-        <aside
-          ref={panelRef}
-          data-tour="clause-details"
-          aria-label="Clause details"
-          className="scroll-mt-6 lg:sticky lg:top-6 lg:self-start"
-        >
-          {actionError && (
-            <p role="alert" className="mb-3 rounded-xl border border-bad-line bg-bad-bg p-3 text-sm text-bad">{actionError}</p>
-          )}
-          {selected ? (
-            <ClausePanel key={selected.id}
-              clause={selected}
-              issues={issues}
-              detailed={detailed}
-              onSelect={selectClause}
-              onAsk={() => setShowChat(true)}
-              onToggleReviewed={() => toggleReviewed(selected)}
-            />
-          ) : (
-            <div className="rounded-3xl border border-line bg-white p-8 text-center text-mute">
-              Select a clause in the lease to see what it means.
             </div>
-          )}
-        </aside>
-      </div>
 
-      {showChat && selected && (
+            <div className="flex min-h-0 flex-1 gap-3 p-3 sm:p-6 sm:pr-3">
+              <div className="min-h-0 min-w-0 flex-1 overflow-auto">
+                <article
+                  className="mx-auto flex min-h-[560px] max-w-[680px] flex-col bg-white px-6 py-8 font-serif text-[#1d2a30] shadow-[0_1px_2px_rgb(0_0_0/0.06),0_12px_32px_-8px_rgb(10_59_67/0.25)] sm:px-14 sm:py-12"
+                  style={{ fontSize: `${(15 * zoom) / 100}px`, lineHeight: 1.75 }}
+                >
+                  <header className="mb-8 flex items-baseline justify-between border-b border-[#d9e0e3] pb-3 font-sans text-xs text-mute">
+                    <span>Residential Tenancy Agreement</span>
+                    <span className="truncate pl-4">{analysis.fileName}</span>
+                  </header>
+
+                  <div className="flex-1 space-y-6 pl-8 sm:pl-10">
+                    {clauses.length === 0 && (
+                      <p className="italic text-mute">No clauses were found in this document.</p>
+                    )}
+                    {clauses.length > 0 && clausesOnPage.length === 0 && (
+                      <p className="italic text-mute">This page continues the clause from the previous page.</p>
+                    )}
+
+                    {clausesOnPage.map((clause) => (
+                      <LeaseClause
+                        key={clause.id}
+                        clause={clause}
+                        isSelected={selected?.id === clause.id}
+                        onSelect={() => selectClause(clause)}
+                      />
+                    ))}
+                  </div>
+
+                  <footer className="mt-10 text-center font-sans text-xs text-mute">
+                    {page} / {pageCount}
+                  </footer>
+                </article>
+              </div>
+            </div>
+          </section>
+
+          <aside
+            ref={panelRef}
+            data-tour="clause-details"
+            aria-label="Clause details"
+            className="flex min-h-0 scroll-mt-6 flex-col lg:overflow-hidden"
+          >
+            {actionError && (
+              <p role="alert" className="mb-3 rounded-xl border border-bad-line bg-bad-bg p-3 text-sm text-bad">{actionError}</p>
+            )}
+            {selected ? (
+              <ClausePanel
+                key={selected.id}
+                clause={selected}
+                issues={issues}
+                detailed={detailed}
+                onSelect={selectClause}
+                onAsk={() => setShowChat(true)}
+                onToggleReviewed={() => toggleReviewed(selected)}
+              />
+            ) : (
+              <div className="rounded-3xl border border-line bg-white p-8 text-center text-mute">
+                Select a clause in the lease to see what it means.
+              </div>
+            )}
+          </aside>
+        </div>
+      )}
+
+      {showChat && selected && view === "lease" && (
         <ClauseChat key={selected.id} analysisId={analysis.id} clause={selected} onClose={() => setShowChat(false)} />
       )}
 
-      <p className="mt-8 flex items-center justify-center gap-2 text-center text-sm text-mute">
+      <p className="mt-3 flex items-center justify-center gap-2 text-center text-xs text-mute">
         <Info size={16} className="shrink-0" />
         ClauseGuard gives automated, informational analysis. It is not legal advice.
       </p>
@@ -210,57 +278,129 @@ export default function ReviewWorkspace({ analysis }: { analysis: Analysis }) {
   );
 }
 
-function VerdictBanner({
-  fileName,
-  total,
+function SummaryBar({
+  reportHref,
   counts,
+  activeStatus,
+  issuesReviewed,
+  issuesTotal,
+  showJump,
+  onJump,
 }: {
-  fileName: string;
-  total: number;
+  reportHref: string;
   counts: Record<Clause["status"], number>;
+  activeStatus: Clause["status"] | null;
+  issuesReviewed: number;
+  issuesTotal: number;
+  showJump: boolean;
+  onJump: (status: Clause["status"]) => void;
 }) {
-  const problems = counts.red + counts.amber;
-
-  let headline = "No problems found in this lease";
-  if (counts.red > 0) {
-    headline = `${counts.red} ${counts.red === 1 ? "clause looks" : "clauses look"} unfair`;
-  } else if (counts.amber > 0) {
-    headline = `${counts.amber} ${counts.amber === 1 ? "clause is" : "clauses are"} worth checking`;
-  }
-
-  const subline =
-    problems > 0
-      ? `We checked ${total} clauses. Talk to your landlord about the highlighted ones before you sign.`
-      : `We checked ${total} clauses. It's still worth reading the full lease before you sign.`;
+  const verdict = overallStatus(counts);
+  const VerdictIcon = RISK[verdict.status].Icon;
+  const total = counts.red + counts.amber + counts.green + counts.grey;
+  const pct = issuesTotal ? Math.round((issuesReviewed / issuesTotal) * 100) : 100;
 
   return (
-    <section data-tour="verdict-banner" className="mt-4 rounded-3xl bg-brand-dark p-6 text-white sm:p-8">
-      <p className="text-sm text-white/70">{fileName}</p>
-      <h1 className="mt-1 font-display text-3xl font-semibold sm:text-4xl">{headline}</h1>
-      <p className="mt-2 max-w-2xl text-white/80">{subline}</p>
+    <section
+      data-tour="verdict-banner"
+      aria-label="Lease summary"
+      className="mt-3 overflow-hidden rounded-2xl border border-line bg-white/95 shadow-soft backdrop-blur"
+    >
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-3 py-2.5 sm:px-4">
+        <span className={cn("inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-sm font-semibold", RISK[verdict.status].badge)}>
+          <VerdictIcon size={15} aria-hidden />
+          {verdict.label}
+        </span>
 
-      <div className="mt-6 flex h-2.5 gap-1 overflow-hidden rounded-full" aria-hidden>
-        {STATUS_ORDER.map(
-          (s) =>
-            counts[s] > 0 && (
-              <div key={s} className={cn("rounded-full", STATUS[s].solid)} style={{ flexGrow: counts[s] }} />
-            ),
+        {showJump && (
+          <div role="group" aria-label="Jump to clauses by rating" className="flex flex-wrap items-center gap-1.5">
+            {STATUS_ORDER.map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => onJump(s)}
+                disabled={counts[s] === 0}
+                title={counts[s] ? `Jump to the next “${STATUS[s].label.toLowerCase()}” clause` : undefined}
+                aria-pressed={activeStatus === s}
+                className={cn(
+                  "inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors disabled:cursor-default disabled:opacity-40",
+                  activeStatus === s ? "border-brand-dark bg-brand-dark text-white" : cn("border-line bg-white text-ink", STATUS[s].hover),
+                )}
+              >
+                <span className={cn("size-2 rounded-full", STATUS[s].solid)} aria-hidden />
+                <span className="font-semibold">{counts[s]}</span>
+                {STATUS[s].label.toLowerCase()}
+              </button>
+            ))}
+          </div>
         )}
+
+        <div className="ml-auto flex items-center gap-4">
+          {issuesTotal > 0 && (
+            <div className="hidden items-center gap-2 md:flex" title="Flagged clauses you have marked as reviewed">
+              <div className="h-1.5 w-20 overflow-hidden rounded-full bg-line">
+                <div className="h-full rounded-full bg-brand transition-all" style={{ width: `${pct}%` }} />
+              </div>
+              <span className="whitespace-nowrap text-xs text-mute">
+                <strong className="text-ink">{issuesReviewed}</strong>/{issuesTotal} reviewed
+              </span>
+            </div>
+          )}
+          <Link
+            href={reportHref}
+            data-tour="view-full-report"
+            className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-xl bg-brand-dark px-3.5 text-sm font-semibold text-white hover:bg-brand"
+          >
+            <Download size={15} aria-hidden />
+            Full report
+            <ArrowRight size={15} aria-hidden />
+          </Link>
+        </div>
       </div>
 
-      <ul className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-sm">
-        {STATUS_ORDER.map((s) => (
-          <li key={s} className="flex items-center gap-2">
-            <span className={cn("size-2.5 rounded-full", STATUS[s].solid)} />
-            <span className="font-semibold">{counts[s]}</span>
-            <span className="text-white/75">{STATUS[s].label.toLowerCase()}</span>
-          </li>
-        ))}
-      </ul>
+      {total > 0 && (
+        <div className="flex h-1" aria-hidden>
+          {STATUS_ORDER.map((s) => counts[s] > 0 && <div key={s} className={STATUS[s].solid} style={{ flexGrow: counts[s] }} />)}
+        </div>
+      )}
     </section>
   );
 }
 
+function ViewSwitch({ view, onChange }: { view: ReviewView; onChange: (view: ReviewView) => void }) {
+  const options: { value: ReviewView; label: string; Icon: typeof List }[] = [
+    { value: "summary", label: "Summary", Icon: List },
+    { value: "lease", label: "Lease viewer", Icon: FileText },
+  ];
+
+  return (
+    <div data-tour="view-switch" className="mt-3 flex flex-wrap items-center justify-between gap-2">
+      <div role="radiogroup" aria-label="How to show the lease" className="inline-flex rounded-xl border border-line bg-white p-1 shadow-soft">
+        {options.map(({ value, label, Icon }) => (
+          <button
+            key={value}
+            type="button"
+            role="radio"
+            aria-checked={view === value}
+            onClick={() => onChange(value)}
+            className={cn(
+              "inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-lg px-3.5 text-sm font-semibold transition-colors",
+              view === value ? "bg-brand-dark text-white" : "text-brand-dark hover:bg-surface",
+            )}
+          >
+            <Icon size={15} aria-hidden />
+            {label}
+          </button>
+        ))}
+      </div>
+      <p className="text-xs text-mute">
+        {view === "summary"
+          ? "An overview of every clause. Select one to open it in the lease."
+          : "The full lease with colour-coded clauses. Use the markers to jump around."}
+      </p>
+    </div>
+  );
+}
 
 function LeaseClause({
   clause,
@@ -273,8 +413,9 @@ function LeaseClause({
 }) {
   const style = STATUS[clause.status];
 
+
   return (
-    <div className="relative">
+    <div id={`clause-${clause.id}`} className="relative scroll-my-6">
       <span
         className={cn(
           "absolute -left-8 top-1 grid size-6 place-items-center rounded-full text-white sm:-left-10",
@@ -324,34 +465,66 @@ function ClausePanel({
   const previousIssue = issueIndex > 0 ? issues[issueIndex - 1] : null;
   const nextIssue = issueIndex === -1 ? issues[0] : issues[issueIndex + 1];
 
+  const issueLabel = issueIndex === -1 ? `${issues.length} issues` : `Issue ${issueIndex + 1} of ${issues.length}`;
+
   return (
-    <div className="overflow-hidden rounded-3xl border border-line bg-white shadow-soft">
-      <div className={cn("px-6 pb-5 pt-6", style.soft)}>
-        <p className={cn("flex items-center gap-2 text-sm font-semibold", style.text)}>
-          <style.Icon size={17} />
-          {style.label}
-        </p>
-        <h2 className="mt-2 font-display text-2xl font-semibold text-brand-dark">
+    <div className="flex max-h-full min-h-0 flex-col overflow-hidden rounded-3xl border border-line bg-white shadow-soft">
+      <div className={cn("shrink-0 px-5 pb-3 pt-3", style.soft)}>
+        <div className="flex items-center justify-between gap-2">
+          <p className={cn("flex items-center gap-1.5 text-sm font-semibold", style.text)}>
+            <style.Icon size={16} />
+            {style.label}
+          </p>
+          {issues.length > 0 && (
+            <div className="flex items-center gap-0.5" aria-label="Flagged clauses">
+              <button
+                type="button"
+                onClick={() => previousIssue && onSelect(previousIssue)}
+                disabled={!previousIssue}
+                aria-label="Previous issue"
+                title="Previous issue"
+                className="grid size-8 cursor-pointer place-items-center rounded-full text-brand-dark hover:bg-white/70 disabled:cursor-not-allowed disabled:opacity-30"
+              >
+                <ChevronLeft size={17} />
+              </button>
+              <span className="min-w-[5.5rem] text-center text-xs font-medium text-mute">{issueLabel}</span>
+              <button
+                type="button"
+                onClick={() => nextIssue && onSelect(nextIssue)}
+                disabled={!nextIssue}
+                aria-label="Next issue"
+                title="Next issue"
+                className="grid size-8 cursor-pointer place-items-center rounded-full bg-brand text-white hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-30"
+              >
+                <ChevronRight size={17} />
+              </button>
+            </div>
+          )}
+        </div>
+        <h2 className="mt-1 line-clamp-2 font-display text-lg font-semibold leading-snug text-brand-dark" title={clause.title}>
           {clause.number}. {clause.title}
         </h2>
+        <p className="mt-0.5 text-xs font-medium text-mute">
+          Clause {clause.number}, page {clause.page} of the lease
+        </p>
         {clause.confidence !== "high" && (
-          <p className="mt-1 text-xs text-mute">
+          <p className="mt-0.5 text-xs text-mute">
             ClauseGuard is {clause.confidence === "medium" ? "fairly" : "not very"} confident about this result — double-check it.
           </p>
         )}
       </div>
 
-      <div className="max-h-[calc(100vh-17rem)] space-y-6 overflow-auto px-6 py-6">
-        <blockquote className="border-l-2 border-line pl-4 font-serif italic text-mute">“{clause.text}”</blockquote>
+      <div className="min-h-0 flex-1 space-y-5 overflow-auto px-5 py-4 text-[15px]">
+        <blockquote className="border-l-2 border-line pl-4 font-serif italic text-mute lg:hidden">“{clause.text}”</blockquote>
 
         <div>
-          <h3 className="font-semibold text-ink">What it means</h3>
-          <p className="mt-1 leading-relaxed text-mute">{clause.explanation}</p>
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-mute">What it means</h3>
+          <p className="mt-1.5 leading-relaxed text-ink">{clause.explanation}</p>
         </div>
 
         {clause.reason && (
           <details open={detailed || clause.status === "red"} className="group rounded-2xl bg-brand-soft/70">
-            <summary className="flex cursor-pointer list-none items-center gap-2 p-4 font-semibold text-brand-dark [&::-webkit-details-marker]:hidden">
+            <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 font-semibold text-brand-dark [&::-webkit-details-marker]:hidden">
               <ChevronDown size={18} className="shrink-0 -rotate-90 transition-transform group-open:rotate-0" />
               Why ClauseGuard flagged this
             </summary>
@@ -361,10 +534,10 @@ function ClausePanel({
 
         {clause.nextSteps.length > 0 && (
           <div>
-            <h3 className="font-semibold text-ink">What you can do</h3>
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-mute">What you can do</h3>
             <ul className="mt-2 space-y-2">
               {clause.nextSteps.map((step) => (
-                <li key={step} className="flex gap-3 rounded-xl bg-surface p-3 text-sm leading-relaxed">
+                <li key={step} className="flex gap-2.5 rounded-xl bg-surface px-3 py-2.5 leading-relaxed text-ink">
                   <CircleCheck size={18} className="mt-0.5 shrink-0 text-brand" />
                   {step}
                 </li>
@@ -375,8 +548,8 @@ function ClausePanel({
 
         {clause.sources.length > 0 && (
           <div>
-            <h3 className="flex items-center gap-2 font-semibold text-ink">
-              <BookOpen size={17} className="text-mute" />
+            <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-mute">
+              <BookOpen size={15} />
               Sources
             </h3>
             <ul className="mt-2 space-y-2">
@@ -401,49 +574,30 @@ function ClausePanel({
             </ul>
           </div>
         )}
-
-        <div className="flex flex-col gap-2 border-t border-line pt-4">
-          <button type="button" onClick={onAsk} className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2">
-            <MessageCircle size={16} aria-hidden />Ask a question about this clause
-          </button>
-          <button
-            type="button"
-            onClick={onToggleReviewed}
-            aria-pressed={clause.reviewed}
-            className={cn(
-              "flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold transition-colors",
-              clause.reviewed ? "border-ok-line bg-ok-bg text-ok" : "border-line bg-white text-brand-dark hover:bg-surface",
-            )}
-          >
-            <Check size={16} aria-hidden />
-            {clause.reviewed ? "Reviewed" : "Mark as reviewed"}
-          </button>
-        </div>
       </div>
 
-      {issues.length > 0 && (
-        <div className="flex items-center justify-between gap-2 border-t border-line px-4 py-3">
-          <button
-            onClick={() => previousIssue && onSelect(previousIssue)}
-            disabled={!previousIssue}
-            className="inline-flex min-h-10 cursor-pointer items-center gap-1 rounded-xl px-3 text-sm font-semibold text-brand hover:bg-brand-soft disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <ChevronLeft size={16} />
-            Previous
-          </button>
-          <span className="text-sm text-mute">
-            {issueIndex === -1 ? `${issues.length} issues` : `Issue ${issueIndex + 1} of ${issues.length}`}
-          </span>
-          <button
-            onClick={() => nextIssue && onSelect(nextIssue)}
-            disabled={!nextIssue}
-            className="inline-flex min-h-10 cursor-pointer items-center gap-1 rounded-xl bg-brand px-3 text-sm font-semibold text-white hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            Next issue
-            <ChevronRight size={16} />
-          </button>
-        </div>
-      )}
+      <div className="flex shrink-0 gap-2 border-t border-line bg-white px-4 py-3">
+        <button
+          type="button"
+          onClick={onAsk}
+          disabled={true}
+          className="flex min-h-10 flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl bg-brand px-3 text-sm font-semibold text-white transition-colors hover:bg-brand-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+        >
+          <MessageCircle size={16} aria-hidden />Ask about this clause
+        </button>
+        <button
+          type="button"
+          onClick={onToggleReviewed}
+          aria-pressed={clause.reviewed}
+          className={cn(
+            "flex min-h-10 cursor-pointer items-center justify-center gap-1.5 rounded-xl border px-3 text-sm font-semibold transition-colors",
+            clause.reviewed ? "border-ok-line bg-ok-bg text-ok" : "border-line bg-white text-brand-dark hover:bg-surface",
+          )}
+        >
+          <Check size={16} aria-hidden />
+          {clause.reviewed ? "Reviewed" : "Mark reviewed"}
+        </button>
+      </div>
     </div>
   );
 }

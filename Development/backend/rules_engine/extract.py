@@ -67,8 +67,14 @@ NO_NOTICE = [
 ENTRY_WORDS = r"\b(?:enter|entry|inspect|inspection|access)\b"
 
 
+
+NOT_ACCESS = r"(?:arrears|forfeit|re-?enter|re-?entry|liquidation|bankrupt|insolven)"
+
 def entry_without_notice(text: str) -> bool:
     # Entry in an emergency without notice is normal and allowed, so do not flag it.
     if re.search(r"emergenc", text, re.I):
+        return False
+    # Forfeiture or re-entry on default is about ending the tenancy, so do not flag it as access.
+    if re.search(NOT_ACCESS, text, re.I):
         return False
     return bool(re.search(ENTRY_WORDS, text, re.I)) and any(re.search(p, text, re.I) for p in NO_NOTICE)
