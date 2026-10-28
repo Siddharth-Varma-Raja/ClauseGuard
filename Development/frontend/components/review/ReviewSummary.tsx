@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useState, useSyncExternalStore, useRef, useEffect } from "react";
-import { ArrowRight, Check, FileText, X, CircleCheck } from "lucide-react";
+import { ArrowRight, Check, FileText, X, CircleCheck, ChevronLeft, ChevronRight } from "lucide-react";
 import type { Analysis, Clause, Status } from "@/lib/notice-types";
 import KeyLeaseDetails from "@/components/review/KeyLeaseDetails";
 import { STATUS, STATUS_ORDER } from "@/lib/status";
@@ -93,6 +93,30 @@ function ClauseList({
   const columns = useIsTwoColumns() ? 2 : 1;
   const [openId, setOpenId] = useState<string | null>(null);
   const [closingId, setClosingId] = useState<string | null>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState<number>(loadPerPage);
+  const size = perPage === undefined || perPage === 0 ? clauses.length : perPage;
+  const pageCount = Math.max(1, Math.ceil(clauses.length / size));
+  const current = Math.min(page, pageCount);
+  const first = (current - 1) * size;
+  const visible = clauses.slice(first, first + size);
+
+  function goToPage(next: number) {
+    setPage(next);
+    setOpenId(null);
+    setClosingId(null);
+    listRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function changePerPage(next: number) {
+    setPerPage(next);
+    savePerPage(next);
+    setPage(next === 0 ? 1 : Math.floor(first / next) + 1);
+    setOpenId(null);
+    setClosingId(null);
+  }
 
   function toggle(id: string) {
     if (openId === id) {
@@ -105,15 +129,15 @@ function ClauseList({
   }
 
   const rows: Clause[][] = [];
-  for (let i = 0; i < clauses.length; i += columns) {
-    rows.push(clauses.slice(i, i + columns));
+  for (let i = 0; i < visible.length; i += columns) {
+    rows.push(visible.slice(i, i + columns));
   }
   const style = STATUS[status];
   return (
-    <div data-tour="clause-cards">
+    <div data-tour="clause-cards" ref={listRef} className="scroll-mt-4">
       <h3 className={cn("flex items-center gap-2 px-1 font-semibold", style.text)}>
         <style.Icon size={18} />
-        {style.label}({clauses.length})
+        {style.label} ({clauses.length})
       </h3>
       <p className="mt-1 px-1 text-sm text-mute">
         Select <span className="font-semibold text-brand-dark">+</span> on a clause to read it here, without leaving
@@ -152,8 +176,103 @@ function ClauseList({
           );
         })}
       </ul>
+      {pageCount > 1 && <Pagination page={current} pageCount={pageCount} onChange={goToPage} />}
     </div>
   );
+}
+
+const PER_PAGE_OPTIONS = [6, 12, 24];
+const PER_PAGE_KEY = "clauseguard-clauses-per-page"
+
+function loadPerPage() {
+  const saved = localStorage.getItem(PER_PAGE_KEY);
+  if (saved === "all") {
+    return 0;
+  }
+  if (PER_PAGE_OPTIONS.includes(Number(saved))) {
+    return Number(saved);
+  } else {
+    return 6;
+  }
+}
+
+
+function savePerPage(value: number) {
+  localStorage.setItem(PER_PAGE_KEY, value === 0 ? "all" : String(value));
+}
+
+function pageNumbers(page: number, pageCount: number): (number | "...")[] {
+  const pages: (number | "...")[] = [];
+  if (pageCount <= 7) {
+    for (let i = 1; i <= pageCount; i++) {
+      pages.push(i);
+    }
+    return pages;
+  }
+
+  pages.push(1);
+  if (page > 4) {
+    pages.push("...");
+  }
+  let start = page - 1;
+  let end = page + 1;
+
+  if (start < 2) {
+    start = 2;
+  }
+  if (end > pageCount - 1) {
+    end = pageCount - 1;
+  }
+  for (let i = start; i <= end; i++) {
+    pages.push(i);
+  }
+  if (end < pageCount - 1) {
+    pages.push("...");
+  }
+  pages.push(pageCount);
+  return pages;
+}
+
+function Pagination({
+  page,
+  pageCount,
+  onChange,
+}: {
+  page: number;
+  pageCount: number;
+  onChange: (page: number) => void;
+}) {
+  const arrow = "inline-flex min-h-10 cursor-pointer items-center gap-1 rounded-full border border-line bg-white px-3 text-sm font-semibold text-brand-dark transition-colors hover:border-brand hover:bg-brand-soft disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-line disabled:hover:bg-white";
+
+  return (
+    <nav className="mt-5 flex items-center justify-center gap-2">
+      <button type="button" className={arrow} onClick={() => onChange(page - 1)} disabled={page === 1}>
+        <ChevronLeft size={18} />
+        Previous
+      </button>
+
+      {pageNumbers(page, pageCount).map((n, i) => {
+        if (n === "...") {
+          return <span key={`gap-${i}`}>...</span>;
+        } else {
+          return (
+            <button key={n} type="button"
+              className={cn("grid size-10 place-items-center text-sm rounded-full font-semibold",
+                n === page ? "bg-brand-dark text-white" : "text-brand-dark hover:bg-brand-soft"
+              )}
+            >
+              {n}
+            </button>
+          )
+        }
+      })}
+
+      <button type="button" className={arrow} onClick={() => onChange(page + 1)} disabled={page === pageCount}>
+        Next
+        <ChevronRight size={18} />
+      </button>
+    </nav>
+  )
 }
 
 function ClauseCard({
