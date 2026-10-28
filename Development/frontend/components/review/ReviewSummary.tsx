@@ -120,7 +120,7 @@ function ClauseList({
         this page.
       </p>
 
-      <ul className="mt-3 grid gap-3">
+      <ul className="mt-3 grid gap-3 md:grid-cols-2">
         {rows.map((row, r) => {
           const openHere = row.find((c) => c.id === openId);
           const closingHere = row.find((c) => c.id === closingId && c.id !== openId);
