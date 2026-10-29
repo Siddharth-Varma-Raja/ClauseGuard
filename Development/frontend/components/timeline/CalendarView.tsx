@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ChevronLeft, ChevronRight, Plus, Check, Undo2, Trash2 } from "lucide-react";
 import type { TimelineEvent, EventKind } from "@/lib/notice-types";
 import Card from "../ui/Card";
+import AddEventForm from "./AddEventForm";
 import { cn } from "@/lib/cn";
 import { fmtDate } from "@/lib/format";
 
@@ -12,7 +13,8 @@ type CalendarViewProps = {
   today: string;
   onToggleDone: (event: TimelineEvent) => void;
   onDelete: (event: TimelineEvent) => void;
-  onAddForDate: (dateIso: string) => void;
+  onAddForDate?: (dateIso: string) => void;
+  onEventAdded?: (event: TimelineEvent) => void;
 };
 
 const KIND_DOT: Record<EventKind, string> = {
@@ -41,12 +43,14 @@ export default function CalendarView({
   onToggleDone,
   onDelete,
   onAddForDate,
+  onEventAdded,
 }: CalendarViewProps) {
   const [displayedDate, setDisplayedDate] = useState(() => {
     const [y, m] = today.split("-").map(Number);
     return new Date(y, m - 1, 1);
   });
   const [selectedDate, setSelectedDate] = useState<string>(today);
+  const [isAdding, setIsAdding] = useState(false);
 
   const year = displayedDate.getFullYear();
   const month = displayedDate.getMonth();
@@ -64,51 +68,58 @@ export default function CalendarView({
     setDisplayedDate(new Date(year, month + 1, 1));
   }
 
-  function goToday() {
-    const [ty, tm] = today.split("-").map(Number);
-    setDisplayedDate(new Date(ty, tm - 1, 1));
+  function goToToday() {
+    const [y, m] = today.split("-").map(Number);
+    setDisplayedDate(new Date(y, m - 1, 1));
     setSelectedDate(today);
+    setIsAdding(false);
   }
 
-  const firstDayOfWeek = (new Date(year, month, 1).getDay() + 6) % 7;
+  const firstDayOfMonth = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const daysInPrevMonth = new Date(year, month, 0).getDate();
 
-  const calendarCells: { dayNumber: number; iso: string; currentMonth: boolean }[] = [];
+  const startOffset = (firstDayOfMonth + 6) % 7;
 
-  for (let i = firstDayOfWeek - 1; i >= 0; i--) {
-    const d = daysInPrevMonth - i;
-    const prevMonthDate = new Date(year, month - 1, d);
+  const calendarCells: {
+    iso: string;
+    dayNumber: number;
+    currentMonth: boolean;
+  }[] = [];
+
+  for (let i = startOffset - 1; i >= 0; i--) {
+    const day = daysInPrevMonth - i;
+    const prevMonthDate = new Date(year, month - 1, day);
     calendarCells.push({
-      dayNumber: d,
-      iso: toIso(prevMonthDate.getFullYear(), prevMonthDate.getMonth(), d),
+      iso: toIso(prevMonthDate.getFullYear(), prevMonthDate.getMonth(), day),
+      dayNumber: day,
       currentMonth: false,
     });
   }
 
   for (let d = 1; d <= daysInMonth; d++) {
     calendarCells.push({
-      dayNumber: d,
       iso: toIso(year, month, d),
+      dayNumber: d,
       currentMonth: true,
     });
   }
 
-  const remaining = (7 - (calendarCells.length % 7)) % 7;
-  for (let d = 1; d <= remaining; d++) {
+  const remainingCells = 42 - calendarCells.length;
+  for (let d = 1; d <= remainingCells; d++) {
     const nextMonthDate = new Date(year, month + 1, d);
     calendarCells.push({
-      dayNumber: d,
       iso: toIso(nextMonthDate.getFullYear(), nextMonthDate.getMonth(), d),
+      dayNumber: d,
       currentMonth: false,
     });
   }
 
   const eventsByDate = new Map<string, TimelineEvent[]>();
-  for (const event of events) {
-    const list = eventsByDate.get(event.date) ?? [];
-    list.push(event);
-    eventsByDate.set(event.date, list);
+  for (const e of events) {
+    const existing = eventsByDate.get(e.date) ?? [];
+    existing.push(e);
+    eventsByDate.set(e.date, existing);
   }
 
   const selectedEvents = eventsByDate.get(selectedDate) ?? [];
@@ -116,33 +127,33 @@ export default function CalendarView({
   return (
     <div className="mt-6 space-y-6">
       <Card className="p-4 sm:p-6">
-        <div className="flex flex-wrap items-center justify-between gap-3 pb-4">
-          <div className="flex items-center gap-2">
-            <h2 className="font-display text-xl font-semibold text-brand-dark sm:text-2xl">
-              {monthName}
-            </h2>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <h2 className="text-lg sm:text-xl font-semibold text-brand-dark">{monthName}</h2>
             <button
-              onClick={goToday}
-              className="rounded-lg border border-line bg-surface px-2.5 py-1 text-xs font-semibold text-brand-dark hover:bg-brand-soft"
+              type="button"
+              onClick={goToToday}
+              className="rounded-lg border border-line px-2.5 py-1 text-xs font-semibold text-brand hover:bg-surface"
             >
               Today
             </button>
           </div>
-
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1">
             <button
+              type="button"
               onClick={prevMonth}
               aria-label="Previous month"
-              className="flex size-9 items-center justify-center rounded-lg border border-line text-brand-dark hover:bg-surface"
+              className="rounded-lg p-2 text-mute hover:bg-surface hover:text-ink"
             >
-              <ChevronLeft size={18} />
+              <ChevronLeft size={20} />
             </button>
             <button
+              type="button"
               onClick={nextMonth}
               aria-label="Next month"
-              className="flex size-9 items-center justify-center rounded-lg border border-line text-brand-dark hover:bg-surface"
+              className="rounded-lg p-2 text-mute hover:bg-surface hover:text-ink"
             >
-              <ChevronRight size={18} />
+              <ChevronRight size={20} />
             </button>
           </div>
         </div>
@@ -168,7 +179,10 @@ export default function CalendarView({
               <button
                 key={cell.iso}
                 type="button"
-                onClick={() => setSelectedDate(cell.iso)}
+                onClick={() => {
+                  setSelectedDate(cell.iso);
+                  setIsAdding(false);
+                }}
                 className={cn(
                   "relative flex min-h-[50px] sm:min-h-[64px] flex-col items-center justify-between rounded-xl border p-1 sm:p-2 transition focus-visible:outline-2 focus-visible:outline-brand",
                   cell.currentMonth ? "bg-white text-slate-800" : "bg-slate-50/60 text-slate-400 border-transparent",
@@ -228,15 +242,32 @@ export default function CalendarView({
           </div>
           <button
             type="button"
-            onClick={() => onAddForDate(selectedDate)}
+            onClick={() => {
+              setIsAdding((prev) => !prev);
+              onAddForDate?.(selectedDate);
+            }}
             className="inline-flex min-h-10 items-center gap-1.5 rounded-lg bg-brand px-3 py-1.5 text-xs sm:text-sm font-semibold text-white hover:bg-brand-dark"
           >
             <Plus size={16} />
-            Add for this date
+            {isAdding ? "Close" : "Add for this date"}
           </button>
         </div>
 
-        {selectedEvents.length === 0 ? (
+        {isAdding && (
+          <div className="my-4">
+            <AddEventForm
+              key={selectedDate}
+              initialDate={selectedDate}
+              onSaved={(event) => {
+                setIsAdding(false);
+                onEventAdded?.(event);
+              }}
+              onCancel={() => setIsAdding(false)}
+            />
+          </div>
+        )}
+
+        {selectedEvents.length === 0 && !isAdding ? (
           <div className="py-6 text-center">
             <p className="text-sm text-mute">No events on {fmtDate(selectedDate)}.</p>
           </div>
