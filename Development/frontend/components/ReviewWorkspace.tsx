@@ -14,14 +14,14 @@ import {
   Info,
   Minus,
   Plus, ChevronDown,
-  MessageCircle, Download, List, FileText
+  MessageCircleQuestion, Download, List, FileText
 } from "lucide-react";
 
 import type { Analysis, Clause } from "@/lib/notice-types";
 import { STATUS, STATUS_ORDER } from "@/lib/status";
 import { cn } from "@/lib/cn";
 import { errorMessage, getPreferences, setClauseReviewed } from "@/lib/api";
-import ClauseChat from "@/components/lease/ClauseChat";
+import AskClauseGuard from "@/components/lease/AskClauseGuard";
 import PageTour from "@/components/PageTour";
 import { REVIEW_LEASE_TOUR, REVIEW_TOUR } from "@/lib/tours";
 import ReviewSummary from "@/components/review/ReviewSummary";
@@ -33,7 +33,12 @@ export default function ReviewWorkspace({ analysis }: { analysis: Analysis }) {
   const issues = [...clauses.filter((c) => c.status === "red"), ...clauses.filter((c) => c.status === "amber")];
   const firstClause = issues[0] ?? clauses[0];
   const [actionError, setActionError] = useState("");
-  const [showChat, setShowChat] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatClause, setChatClause] = useState<Clause | null>(null);
+  function askAbout(clause: Clause) {
+    setChatClause(clause);
+    setChatOpen(true);
+  }
   const [wantedClause] = useState(() => {
     const wanted = typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("clause");
     return clauses.find((c) => c.id === wanted) ?? null;
@@ -173,7 +178,7 @@ export default function ReviewWorkspace({ analysis }: { analysis: Analysis }) {
         />
       </div>
 
-      {view === "summary" && <ReviewSummary analysis={analysis} clauses={clauses} onOpenClause={openInLease} />}
+      {view === "summary" && <ReviewSummary analysis={analysis} clauses={clauses} onOpenClause={openInLease} onAskClause={askAbout} />}
 
       {view === "lease" && (
         <div id="lease-view" ref={gridRef} className="mt-3 grid gap-4 lg:grid-cols-[minmax(0,1fr)_400px] lg:grid-rows-[minmax(0,1fr)] xl:grid-cols-[minmax(0,1fr)_460px]">
@@ -267,7 +272,7 @@ export default function ReviewWorkspace({ analysis }: { analysis: Analysis }) {
                 issues={issues}
                 detailed={detailed}
                 onSelect={selectClause}
-                onAsk={() => setShowChat(true)}
+                onAsk={() => askAbout(selected)}
                 onToggleReviewed={() => toggleReviewed(selected)}
               />
             ) : (
@@ -279,9 +284,13 @@ export default function ReviewWorkspace({ analysis }: { analysis: Analysis }) {
         </div>
       )}
 
-      {showChat && selected && view === "lease" && (
-        <ClauseChat key={selected.id} analysisId={analysis.id} clause={selected} onClose={() => setShowChat(false)} />
-      )}
+      <AskClauseGuard
+        analysisId={analysis.id}
+        open={chatOpen}
+        reference={chatClause}
+        onOpenChange={setChatOpen}
+        onClearReference={() => setChatClause(null)}
+      />
 
       <p className="mt-3 flex items-center justify-center gap-2 text-center text-xs text-mute">
         <Info size={16} className="shrink-0" />
@@ -589,10 +598,9 @@ function ClausePanel({
         <button
           type="button"
           onClick={onAsk}
-          disabled={true}
           className="flex min-h-10 flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl bg-brand px-3 text-sm font-semibold text-white transition-colors hover:bg-brand-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
         >
-          <MessageCircle size={16} aria-hidden />Ask about this clause
+          <MessageCircleQuestion size={16} aria-hidden />Ask about this clause
         </button>
         <button
           type="button"
