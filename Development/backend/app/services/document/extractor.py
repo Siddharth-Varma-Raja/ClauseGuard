@@ -43,10 +43,15 @@ def extract_text(file_bytes: bytes, content_type: str) -> str:
 
     project_id = os.environ.get("GCP_PROJECT_ID")
     location = os.environ.get("GCP_LOCATION", "eu")
-    processor_id = os.environ.get("DOC_AI_PROCESSOR_ID")
+    processor_id = os.environ.get("DOC_AI_PROCESSOR_ID") or os.environ.get("GCP_PROCESSOR_ID")
 
     if not all([project_id, location, processor_id]):
-        logger.error("Missing Document AI environment variables.")
+        logger.error(
+            "Missing Document AI env vars: GCP_PROJECT_ID=%s, GCP_LOCATION=%s, processor_id=%s",
+            project_id,
+            location,
+            processor_id,
+        )
         raise ValueError("Server configuration error for document extraction.")
 
     logger.info("Sending document to GCP Document AI (Content-Type: %s)", content_type)
