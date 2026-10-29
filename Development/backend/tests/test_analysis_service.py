@@ -33,3 +33,15 @@ def test_reason_shows_matched_phrase():
     reason = r["clauses"][0]["reason"]
     assert "Matched:" in reason
     assert "without prior notice" in reason
+
+
+def test_forfeiture_clause_is_not_flagged_as_entry():
+    # Real-world wording: "at any time" is about rent in arrears, "enter" is re-entry after default.
+    text = (
+        "It is hereby agreed that if the rent reserved shall at any time be in arrears "
+        "for fourteen days, or if the Tenant shall be in breach of any covenant, "
+        "it shall be lawful for the Landlord to enter upon the demised premises "
+        "and hold the same as if this Agreement had not been made."
+    )
+    r = analyse_text(text)
+    assert r["clauses"][0]["status"] != "amber"
