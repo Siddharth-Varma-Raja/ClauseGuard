@@ -79,19 +79,34 @@ export const HOME_TOUR: TourStep[] = [
 export const REVIEW_TOUR: TourStep[] = [
   {
     target: "verdict-banner",
-    title: "Overall summary",
-    text: "Get an instant summary of your lease, showing any clauses that look unfair or need your attention.",
+    title: "Your overall result",
+    text: "This is the overall rating for your lease. The bar shows how many flagged clauses you have reviewed so far.",
   },
   {
-    target: "annotated-lease",
-    title: "Annotated lease",
-    text: "Browse your agreement with colour-coded flags highlighting unfair terms and clauses to question.",
+    target: "rating-tiles",
+    title: "Clauses by rating",
+    text: "Every clause is sorted into one of your four ratings. Select one to see all clauses with that rating.",
   },
   {
-    target: "clause-details",
-    title: "Clause breakdown",
-    text: "Read what each clause means in plain English, why it was flagged under Irish tenancy rules, and what you can do.",
+    target: "key-details",
+    title: "Key lease details",
+    text: "Important terms from your lease, extracted and explained.",
   },
+  {
+    target: "clause-cards",
+    title: "Clauses to look at",
+    text: "Each card shows the clause in plain English and the page it is on, so you can tell your landlord exactly where to look. Select a card to open it in the lease.",
+  },
+  {
+    target: "view-switch",
+    title: "Summary or full lease",
+    text: "Switch to the full lease to read it pagr by page.",
+  },
+  {
+    target: "view-full-report",
+    title: "Full report",
+    text: "Export your review as a PDF or print it to share with your landlord.",
+  }
 ];
 
 export const TIMELINE_TOUR: TourStep[] = [
@@ -134,3 +149,21 @@ export const NOTICES_TOUR: TourStep[] = [
     text: "Find your earlier notice checks here. Open a completed check to view its results again.",
   },
 ]
+
+export const REVIEW_LEASE_TOUR: TourStep[] = [
+  {
+    target: "annotated-lease",
+    title: "Your lease, page by page",
+    text: "Each clause is highlighted in the colour of its rating. Select a clause to see what it means.",
+  },
+  {
+    target: "scroll-markers",
+    title: "Issue markers",
+    text: "Each coloured line on this scroll bar is an issue on this page. Select a line to jump straight to that clause.",
+  },
+  {
+    target: "clause-details",
+    title: "Clause explained",
+    text: "What the clause means in plain English, why it was flagged under Irish tenancy law, and what you can do.",
+  },
+];
