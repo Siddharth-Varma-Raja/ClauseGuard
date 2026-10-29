@@ -1,3 +1,19 @@
+import os
+from pathlib import Path
+from dotenv import load_dotenv
+
+# Ensure .env is explicitly loaded into os.environ
+load_dotenv()
+
+# If GOOGLE_APPLICATION_CREDENTIALS is set to a relative path, resolve to absolute path
+if "GOOGLE_APPLICATION_CREDENTIALS" in os.environ:
+    _cred_path = Path(os.environ["GOOGLE_APPLICATION_CREDENTIALS"])
+    if not _cred_path.is_absolute():
+        _backend_dir = Path(__file__).resolve().parent.parent
+        _resolved = _backend_dir / _cred_path
+        if _resolved.exists():
+            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = str(_resolved)
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -6,10 +22,17 @@ class Settings(BaseSettings):
 
     firebase_credentials_json: str = "./firebase-service-account.json"
 
+    # ── GCP / Document AI & DLP ───────────────────────────────────────────────
+    gcp_project_id: str = ""
+    gcp_location: str = "eu"
+    doc_ai_processor_id: str = ""
+    gcp_processor_id: str = ""
+    google_application_credentials: str = ""
+
     database_url: str = "mysql+aiomysql://root:root@localhost:3306/clauseguard"
     database_url_sync: str = "mysql+pymysql://root:root@localhost:3306/clauseguard"
 
-    allowed_origins: str = "http://localhost:5173,http://localhost:3000,https://clause-guard-ten-chi.vercel.app"
+    allowed_origins: str = "http://localhost:5173,http://localhost:3000,https://clause-guard-ten-chi.vercel.app,https://www.clauseguard.ie,https://clauseguard.ie"
 
     rate_limit_auth: str = "10/minute"
     rate_limit_api: str = "60/minute"
