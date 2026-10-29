@@ -44,7 +44,7 @@ export const UPLOAD_TOUR: TourStep[] = [
   {
     target: "drop-zone",
     title: "Drop your lease",
-    text: "Drag a PDF, DOCX of your rental agreement here, or click to pick one of them from your files.",
+    text: "Drag a PDF or DOCX of your rental agreement here, or click to pick one of them from your files.",
   },
   {
     target: "check-button",
@@ -79,19 +79,34 @@ export const HOME_TOUR: TourStep[] = [
 export const REVIEW_TOUR: TourStep[] = [
   {
     target: "verdict-banner",
-    title: "Overall summary",
-    text: "Get an instant summary of your lease, showing any clauses that look unfair or need your attention.",
+    title: "Your overall result",
+    text: "This is the overall rating for your lease. The bar shows how many flagged clauses you have reviewed so far.",
   },
   {
-    target: "annotated-lease",
-    title: "Annotated lease",
-    text: "Browse your agreement with colour-coded flags highlighting unfair terms and clauses to question.",
+    target: "rating-tiles",
+    title: "Clauses by rating",
+    text: "Every clause is sorted into one of your four ratings. Select one to see all clauses with that rating.",
   },
   {
-    target: "clause-details",
-    title: "Clause breakdown",
-    text: "Read what each clause means in plain English, why it was flagged under Irish tenancy rules, and what you can do.",
+    target: "key-details",
+    title: "Key lease details",
+    text: "Important terms from your lease, extracted and explained.",
   },
+  {
+    target: "clause-cards",
+    title: "Clauses to look at",
+    text: "Each card shows the clause in plain English and the page it is on, so you can tell your landlord exactly where to look. Select a card to open it in the lease.",
+  },
+  {
+    target: "view-switch",
+    title: "Summary or full lease",
+    text: "Switch to the full lease to read it page by page.",
+  },
+  {
+    target: "view-full-report",
+    title: "Full report",
+    text: "Export your review as a PDF or print it to share with your landlord.",
+  }
 ];
 
 export const TIMELINE_TOUR: TourStep[] = [
@@ -112,25 +127,89 @@ export const TIMELINE_TOUR: TourStep[] = [
   },
 ]
 
-export const NOTICES_TOUR: TourStep[] = [
+export const NOTICES_UPLOAD_TOUR: TourStep[] = [
   {
     target: "notice-intro",
     title: "Check a notice",
-    text: "Answer a few questions about a notice from your landlord. ClauseGuard will check the details against Irish tenancy rules.",
+    text: "Check a notice from your landlord against Irish tenancy rules such as a rent increase, a notice of termination or an inspection request.",
   },
   {
-    target: "notice-type",
-    title: "Choose your notice type",
-    text: "Select the option that matches your situation, such as a rent increase, notice of termination, or property inspection.",
+    target: "notice-mode",
+    title: "Upload or answer questions",
+    text: "Uplaod the letter for fastest check or choose Quick Form to answer few questions instead.",
   },
   {
-    target: "notice-continue",
-    title: "Continue to the questions",
-    text: "Once you have selected the type of notice, click Continue to enter the relevant dates and details.",
+    target: "notice-start",
+    title: "Upload your notice",
+    text: "Upload PDF or a photo of the letter from your landlord. Then fill in the dates and details.",
   },
   {
     target: "previous-checks",
     title: "Previous checks",
-    text: "Find your earlier notice checks here. Open a completed check to view its results again.",
+    text: "Find your earlier notice checks here. Open one to see its results again.",
   },
 ]
+
+export const NOTICES_FORM_TOUR: TourStep[] = [
+  {
+    target: "notice-intro",
+    title: "Check a notice",
+    text: "Check a notice from your landlord against Irish tenancy rules such as rent increase, a notice of termination or an inspection request.",
+  },
+  {
+    target: "notice-mode",
+    title: "Upload or answer questions",
+    text: "Answer few questions here or switch to Upload Notice Letter to upload the letter instead.",
+  },
+  {
+    target: "notice-start",
+    title: "Choose your notice type",
+    text: "Pick the type of notice you received, then press Continue to enter the dates and details.",
+  },
+  {
+    target: "previous-checks",
+    title: "Previous checks",
+    text: "Find your earlier notice checks here. Open one to see its results again.",
+  },
+]
+
+export const NOTICE_DETAILS_TOUR: TourStep[] = [
+  {
+    target: "notice-intro",
+    title: "Check a notice",
+    text: "Check a notice from your landlord against Irish tenancy rules such as a rent increase, a notice of termination or an inspection request.",
+  },
+  {
+    target: "notice-mode",
+    title: "Upload or answer questions",
+    text: "You're using the Quick Form. You can switch to Upload Notice Letter to upload the letter instead.",
+  },
+  {
+    target: "notice-start",
+    title: "Fill in the details",
+    text: "Enter the dates from your notice and tick everything that applies, then press Check notice.",
+  },
+  {
+    target: "previous-checks",
+    title: "Previous checks",
+    text: "Find your earlier notice checks here. Open one to see its results again.",
+  },
+]
+
+export const REVIEW_LEASE_TOUR: TourStep[] = [
+  {
+    target: "annotated-lease",
+    title: "Your lease, page by page",
+    text: "Each clause is highlighted in the colour of its rating. Select a clause to see what it means.",
+  },
+  {
+    target: "scroll-markers",
+    title: "Issue markers",
+    text: "Each coloured line on this scroll bar is an issue on this page. Select a line to jump straight to that clause.",
+  },
+  {
+    target: "clause-details",
+    title: "Clause explained",
+    text: "What the clause means in plain English, why it was flagged under Irish tenancy law, and what you can do.",
+  },
+];

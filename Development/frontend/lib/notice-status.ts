@@ -13,7 +13,7 @@ type StatusStyle = {
 
 export const STATUS: Record<Status, StatusStyle> = {
   red: {
-    label: "Likely unenforceable",
+    label: "High Risk",
     risk: "High",
     Icon: ShieldAlert,
     badge: "border-bad-line bg-bad-bg text-bad",
@@ -22,7 +22,7 @@ export const STATUS: Record<Status, StatusStyle> = {
     colour: "#d92d20",
   },
   amber: {
-    label: "Needs review",
+    label: "Medium Risk",
     risk: "Medium",
     Icon: TriangleAlert,
     badge: "border-warn-line bg-warn-bg text-warn",
@@ -31,7 +31,7 @@ export const STATUS: Record<Status, StatusStyle> = {
     colour: "#e5a100",
   },
   green: {
-    label: "Compliant",
+    label: "Low Risk",
     risk: "Low",
     Icon: CircleCheck,
     badge: "border-ok-line bg-ok-bg text-ok",
@@ -40,7 +40,7 @@ export const STATUS: Record<Status, StatusStyle> = {
     colour: "#1f9d55",
   },
   grey: {
-    label: "Informational",
+    label: "informational",
     risk: "Not assessed",
     Icon: Info,
     badge: "border-neu-line bg-neu-bg text-neu",
