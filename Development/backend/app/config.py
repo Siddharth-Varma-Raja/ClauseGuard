@@ -32,7 +32,13 @@ class Settings(BaseSettings):
     database_url: str = "mysql+aiomysql://root:root@localhost:3306/clauseguard"
     database_url_sync: str = "mysql+pymysql://root:root@localhost:3306/clauseguard"
 
-    allowed_origins: str = "http://localhost:5173,http://localhost:3000,https://clause-guard-ten-chi.vercel.app"
+    allowed_origins: str = (
+        "http://localhost:5173,"
+        "http://localhost:3000,"
+        "https://clause-guard-ten-chi.vercel.app,"
+        "https://www.clauseguard.ie,"
+        "https://clauseguard.ie"
+    )
 
     rate_limit_auth: str = "10/minute"
     rate_limit_api: str = "60/minute"
