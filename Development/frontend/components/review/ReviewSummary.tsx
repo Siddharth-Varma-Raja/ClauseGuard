@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useState, useSyncExternalStore, useRef, useEffect } from "react";
-import { ArrowRight, Check, FileText, X, CircleCheck, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowRight, Check, ChevronDown, ChevronLeft, ChevronRight, CircleCheck, Copy, FileText, X } from "lucide-react";
 import type { Analysis, Clause, Status } from "@/lib/notice-types";
 import KeyLeaseDetails from "@/components/review/KeyLeaseDetails";
 import { STATUS, STATUS_ORDER } from "@/lib/status";
@@ -75,7 +75,7 @@ export default function ReviewSummary({
         <KeyLeaseDetails analysis={analysis} />
       </div>
 
-      <ClauseList key={active} status={active} clauses={shown} onOpenClause={onOpenClause} />
+      <ClauseList key={active} status={active} clauses={shown} allClauses={clauses} onOpenClause={onOpenClause} />
     </section>
   );
 }
@@ -84,10 +84,11 @@ const ANIMATION = 450;
 
 
 function ClauseList({
-  status, clauses, onOpenClause,
+  status, clauses, allClauses, onOpenClause,
 }: {
   status: Status;
   clauses: Clause[];
+  allClauses: Clause[];
   onOpenClause: (clause: Clause) => void;
 }) {
   const columns = useIsTwoColumns() ? 2 : 1;
@@ -95,9 +96,9 @@ function ClauseList({
   const [closingId, setClosingId] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
-  const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState<number>(loadPerPage);
-  const size = perPage === undefined || perPage === 0 ? clauses.length : perPage;
+  const [page, setPage] = useState(1);
+  const size = perPage === 0 ? clauses.length : perPage;
   const pageCount = Math.max(1, Math.ceil(clauses.length / size));
   const current = Math.min(page, pageCount);
   const first = (current - 1) * size;
@@ -134,7 +135,7 @@ function ClauseList({
   }
   const style = STATUS[status];
   return (
-    <div data-tour="clause-cards" ref={listRef} className="scroll-mt-4">
+    <div ref={listRef} data-tour="clause-cards" className="scroll-mt-4">
       <h3 className={cn("flex items-center gap-2 px-1 font-semibold", style.text)}>
         <style.Icon size={18} />
         {style.label} ({clauses.length})
@@ -144,7 +145,32 @@ function ClauseList({
         this page.
       </p>
 
-      <ul className="mt-3 grid gap-3 md:grid-cols-2">
+      {clauses.length > PER_PAGE_OPTIONS[0] && (
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 px-1">
+          <p className="text-sm text-mute" aria-live="polite">
+            Showing <strong className="font-semibold text-ink">{first + 1}–{first + visible.length}</strong> of{" "}
+            <strong className="font-semibold text-ink">{clauses.length}</strong> clauses
+          </p>
+          <label className="flex items-center gap-2 text-sm text-mute">
+            Show
+            <select
+              value={perPage}
+              onChange={(e) => changePerPage(Number(e.target.value))}
+              className="min-h-9 cursor-pointer rounded-xl border border-line bg-white px-3 font-semibold text-brand-dark shadow-soft hover:border-brand"
+            >
+              {PER_PAGE_OPTIONS.map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+              <option value={0}>All</option>
+            </select>
+            per page
+          </label>
+        </div>
+      )}
+
+      <ul key={`${current}-${perPage}`} className="mt-3 grid gap-3 md:grid-cols-2">
         {rows.map((row, r) => {
           const openHere = row.find((c) => c.id === openId);
           const closingHere = row.find((c) => c.id === closingId && c.id !== openId);
@@ -165,6 +191,7 @@ function ClauseList({
                 <DetailsPanel
                   key={`panel-${r}`}
                   clause={panelClause}
+                  allClauses={allClauses}
                   open={Boolean(openHere)}
                   arrowLeft={columns === 2 ? (column === 0 ? "25%" : "75%") : "2.75rem"}
                   onClose={() => toggle(panelClause.id)}
@@ -176,61 +203,35 @@ function ClauseList({
           );
         })}
       </ul>
+
       {pageCount > 1 && <Pagination page={current} pageCount={pageCount} onChange={goToPage} />}
     </div>
   );
 }
 
-const PER_PAGE_OPTIONS = [6, 12, 24];
-const PER_PAGE_KEY = "clauseguard-clauses-per-page"
+const PER_PAGE_OPTIONS = [6, 10, 20];
+const PER_PAGE_KEY = "clauseguard-clauses-per-page";
 
-function loadPerPage() {
-  const saved = localStorage.getItem(PER_PAGE_KEY);
-  if (saved === "all") {
-    return 0;
-  }
-  if (PER_PAGE_OPTIONS.includes(Number(saved))) {
-    return Number(saved);
-  } else {
-    return 6;
+function loadPerPage(): number {
+  try {
+    const saved = localStorage.getItem(PER_PAGE_KEY);
+    if (saved === "all") return 0;
+    return PER_PAGE_OPTIONS.includes(Number(saved)) ? Number(saved) : 10;
+  } catch {
+    return 10;
   }
 }
-
 
 function savePerPage(value: number) {
-  localStorage.setItem(PER_PAGE_KEY, value === 0 ? "all" : String(value));
+    localStorage.setItem(PER_PAGE_KEY, value === 0 ? "all" : String(value));
 }
 
-function pageNumbers(page: number, pageCount: number): (number | "...")[] {
-  const pages: (number | "...")[] = [];
-  if (pageCount <= 7) {
-    for (let i = 1; i <= pageCount; i++) {
-      pages.push(i);
-    }
-    return pages;
-  }
-
-  pages.push(1);
-  if (page > 4) {
-    pages.push("...");
-  }
-  let start = page - 1;
-  let end = page + 1;
-
-  if (start < 2) {
-    start = 2;
-  }
-  if (end > pageCount - 1) {
-    end = pageCount - 1;
-  }
-  for (let i = start; i <= end; i++) {
-    pages.push(i);
-  }
-  if (end < pageCount - 1) {
-    pages.push("...");
-  }
-  pages.push(pageCount);
-  return pages;
+function pageNumbers(page: number, pageCount: number): (number | "…")[] {
+  if (pageCount <= 7) return Array.from({ length: pageCount }, (_, i) => i + 1);
+  const start = Math.max(2, Math.min(page - 1, pageCount - 4));
+  const end = Math.min(pageCount - 1, Math.max(page + 1, 5));
+  const middle = Array.from({ length: end - start + 1 }, (_, i) => start + i);
+  return [1, ...(start > 2 ? ["…" as const] : []), ...middle, ...(end < pageCount - 1 ? ["…" as const] : []), pageCount];
 }
 
 function Pagination({
@@ -242,37 +243,44 @@ function Pagination({
   pageCount: number;
   onChange: (page: number) => void;
 }) {
-  const arrow = "inline-flex min-h-10 cursor-pointer items-center gap-1 rounded-full border border-line bg-white px-3 text-sm font-semibold text-brand-dark transition-colors hover:border-brand hover:bg-brand-soft disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-line disabled:hover:bg-white";
+  const arrow =
+    "inline-flex min-h-10 cursor-pointer items-center gap-1 rounded-full border border-line bg-white px-3 text-sm font-semibold text-brand-dark transition-colors hover:border-brand hover:bg-brand-soft disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-line disabled:hover:bg-white";
 
   return (
-    <nav className="mt-5 flex items-center justify-center gap-2">
-      <button type="button" className={arrow} onClick={() => onChange(page - 1)} disabled={page === 1}>
-        <ChevronLeft size={18} />
-        Previous
+    <nav aria-label="Clause pages" className="mt-5 flex items-center justify-center gap-1.5 sm:gap-2">
+      <button type="button" className={arrow} disabled={page === 1} onClick={() => onChange(page - 1)} aria-label="Previous page">
+        <ChevronLeft size={16} />
+        <span className="hidden sm:inline">Previous</span>
       </button>
 
-      {pageNumbers(page, pageCount).map((n, i) => {
-        if (n === "...") {
-          return <span key={`gap-${i}`}>...</span>;
-        } else {
-          return (
-            <button key={n} type="button"
-              className={cn("grid size-10 place-items-center text-sm rounded-full font-semibold",
-                n === page ? "bg-brand-dark text-white" : "text-brand-dark hover:bg-brand-soft"
-              )}
-            >
-              {n}
-            </button>
-          )
-        }
-      })}
+      {pageNumbers(page, pageCount).map((n, i) =>
+        n === "…" ? (
+          <span key={`gap-${i}`} className="w-6 text-center text-mute">
+            …
+          </span>
+        ) : (
+          <button
+            key={n}
+            type="button"
+            onClick={() => onChange(n)}
+            aria-label={`Page ${n}`}
+            aria-current={n === page ? "page" : undefined}
+            className={cn(
+              "grid size-10 cursor-pointer place-items-center rounded-full text-sm font-semibold transition-all duration-200",
+              n === page ? "scale-105 bg-brand-dark text-white shadow-soft" : "text-brand-dark hover:bg-brand-soft",
+            )}
+          >
+            {n}
+          </button>
+        ),
+      )}
 
-      <button type="button" className={arrow} onClick={() => onChange(page + 1)} disabled={page === pageCount}>
-        Next
-        <ChevronRight size={18} />
+      <button type="button" className={arrow} disabled={page === pageCount} onClick={() => onChange(page + 1)} aria-label="Next page">
+        <span className="hidden sm:inline">Next</span>
+        <ChevronRight size={16} />
       </button>
     </nav>
-  )
+  );
 }
 
 function ClauseCard({
@@ -349,6 +357,7 @@ function PlusMinus({ open }: { open: boolean }) {
 
 export function DetailsPanel({
   clause,
+  allClauses,
   open,
   arrowLeft,
   onClose,
@@ -356,6 +365,7 @@ export function DetailsPanel({
   onOpenInLease,
 }: {
   clause: Clause;
+  allClauses: Clause[];
   open: boolean;
   arrowLeft?: string;
   onClose: () => void;
@@ -365,6 +375,43 @@ export function DetailsPanel({
   const style = STATUS[clause.status];
   const ref = useRef<HTMLLIElement>(null);
   const [shown, setShown] = useState(false);
+  const [fullText, setFullText] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [shownClauseId, setShownClauseId] = useState(clause.id);
+  if (shownClauseId !== clause.id) {
+    setShownClauseId(clause.id);
+    setFullText(false);
+    setCopied(false);
+  }
+  const at = allClauses.findIndex((c) => c.id === clause.id);
+  const before = at > 0 ? allClauses[at - 1] : null;
+  const after = at >= 0 && at < allClauses.length - 1 ? allClauses[at + 1] : null;
+
+  const windowRef = useRef<HTMLDivElement>(null);
+  const currentRef = useRef<HTMLDivElement>(null);
+  const [overflows, setOverflows] = useState(false);
+  useEffect(() => {
+    const box = windowRef.current;
+    const current = currentRef.current;
+    if (!box || !current) return;
+    const observer = new ResizeObserver(() => {
+      const tooTall = current.offsetHeight > box.clientHeight - 24;
+      box.scrollTop = tooTall
+        ? current.offsetTop - 12
+        : current.offsetTop + current.offsetHeight / 2 - box.clientHeight / 2;
+      setOverflows(tooTall);
+    });
+    observer.observe(box);
+    observer.observe(current);
+    return () => observer.disconnect();
+  }, [clause.id, fullText]);
+  const reference = `Clause ${clause.number}, page ${clause.page} – ${clause.title}`;
+
+  async function copyReference() {
+      await navigator.clipboard.writeText(reference);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+  }
   const onClosedRef = useRef(onClosed);
   useEffect(() => {
     onClosedRef.current = onClosed;
@@ -422,7 +469,7 @@ export function DetailsPanel({
                 <X size={17} />
               </button>
 
-              <div className="space-y-3 md:pr-2">
+              <div className="flex flex-col gap-3 md:pr-2">
                 <div className={fade} style={step(0)}>
                   <p className={cn("flex items-center gap-1.5 text-sm font-semibold", style.text)}>
                     <style.Icon size={15} />
@@ -460,11 +507,23 @@ export function DetailsPanel({
                     </ul>
                   </div>
                 )}
+
+                <div className={cn(fade, "mt-auto flex flex-wrap gap-2 border-t border-line pt-4")} style={step(4)}>
+                  <button
+                    type="button"
+                    onClick={onOpenInLease}
+                    className="inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-xl bg-brand px-4 text-sm font-semibold text-white transition-colors hover:bg-brand-dark"
+                  >
+                    See it on page {clause.page} of the full lease
+                    <ArrowRight size={15} />
+                  </button>
+                </div>
               </div>
 
               <div
                 className={cn(
                   "flex min-w-0 flex-col transition-all duration-500 ease-out motion-reduce:transition-none md:pt-9",
+                  !fullText && "md:h-0 md:min-h-full",
                   shown ? "translate-x-0 opacity-100" : "translate-x-4 opacity-0",
                 )}
                 style={step(2)}
@@ -473,22 +532,63 @@ export function DetailsPanel({
                   <FileText size={13} />
                   From your lease, page {clause.page}
                 </h5>
-                <div className="mt-1.5 max-h-72 overflow-auto rounded-2xl border border-line bg-white p-4 font-serif leading-relaxed text-[#1d2a30] shadow-[0_1px_2px_rgb(0_0_0/0.05),0_8px_20px_-10px_rgb(10_59_67/0.25)]">
-                  <p className="mb-1 font-bold">
-                    {clause.number}. {clause.title}
-                  </p>
-                  <p>
-                    <span className={cn("box-decoration-clone px-0.5", style.mark)}>{clause.text}</span>
-                  </p>
+                <div className="mt-1.5 flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-line bg-white shadow-[0_1px_2px_rgb(0_0_0/0.05),0_8px_20px_-10px_rgb(10_59_67/0.25)]">
+                  <div className="relative min-h-0 flex-1">
+                    <div
+                      ref={windowRef}
+                      className={cn(
+                        "relative overflow-hidden px-4 font-serif leading-relaxed text-[#1d2a30]",
+                        fullText ? "py-4" : "h-64 md:h-full",
+                      )}
+                    >
+                      {!fullText && before && (
+                        <div className="select-none pt-4 text-sm text-mute/70" aria-hidden>
+                          <p className="mb-1 font-bold">
+                            {before.number}. {before.title}
+                          </p>
+                          <p>{before.text}</p>
+                        </div>
+                      )}
+
+                      <div ref={currentRef} className={cn("relative", !fullText && "py-4")}>
+                        <span aria-hidden className={cn("absolute -left-4 bottom-4 top-4 w-1 rounded-r-full", style.solid)} />
+                        <p className="mb-1 font-bold">
+                          {clause.number}. {clause.title}
+                        </p>
+                        <p>
+                          <span className={cn("box-decoration-clone px-0.5", style.mark)}>{clause.text}</span>
+                        </p>
+                      </div>
+
+                      {!fullText && after && (
+                        <div className="select-none pb-4 text-sm text-mute/70" aria-hidden>
+                          <p className="mb-1 font-bold">
+                            {after.number}. {after.title}
+                          </p>
+                          <p>{after.text}</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {!fullText && (
+                      <>
+                        <div className="pointer-events-none absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-white to-transparent" />
+                        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-white to-transparent" />
+                      </>
+                    )}
+                  </div>
+                  {(overflows || fullText) && (
+                    <button
+                      type="button"
+                      onClick={() => setFullText(!fullText)}
+                      aria-expanded={fullText}
+                      className="flex w-full shrink-0 cursor-pointer items-center justify-center gap-1 border-t border-line bg-surface/60 py-2.5 text-sm font-semibold text-brand transition-colors hover:bg-brand-soft"
+                    >
+                      {fullText ? "Show less" : "Show full clause"}
+                      <ChevronDown size={15} className={cn("transition-transform duration-300", fullText && "rotate-180")} />
+                    </button>
+                  )}
                 </div>
-                <button
-                  type="button"
-                  onClick={onOpenInLease}
-                  className="mt-3 inline-flex min-h-10 cursor-pointer items-center justify-center gap-1.5 self-start rounded-xl border border-brand px-4 text-sm font-semibold text-brand transition-colors hover:bg-brand-soft"
-                >
-                  See it on page {clause.page} of the full lease
-                  <ArrowRight size={15} />
-                </button>
               </div>
             </div>
           </section>
