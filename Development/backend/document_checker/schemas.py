@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field, ConfigDict
 from pydantic.alias_generators import to_camel
 from datetime import date
-from typing import Optional, List
+from typing import Optional, List, Any
 
 class NoticeSubmission(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
@@ -23,3 +23,11 @@ class ValidationResponse(BaseModel):
     is_valid: bool
     ocr_confidence: float
     detected_deviations: List[str]
+
+class ExtractionResponse(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+    
+    status: str
+    message: str
+    confidence_score: float
+    extracted_text: str
