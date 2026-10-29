@@ -44,7 +44,7 @@ export const UPLOAD_TOUR: TourStep[] = [
   {
     target: "drop-zone",
     title: "Drop your lease",
-    text: "Drag a PDF, DOCX of your rental agreement here, or click to pick one of them from your files.",
+    text: "Drag a PDF or DOCX of your rental agreement here, or click to pick one of them from your files.",
   },
   {
     target: "check-button",
@@ -100,7 +100,7 @@ export const REVIEW_TOUR: TourStep[] = [
   {
     target: "view-switch",
     title: "Summary or full lease",
-    text: "Switch to the full lease to read it pagr by page.",
+    text: "Switch to the full lease to read it page by page.",
   },
   {
     target: "view-full-report",
@@ -127,26 +127,72 @@ export const TIMELINE_TOUR: TourStep[] = [
   },
 ]
 
-export const NOTICES_TOUR: TourStep[] = [
+export const NOTICES_UPLOAD_TOUR: TourStep[] = [
   {
     target: "notice-intro",
     title: "Check a notice",
-    text: "Answer a few questions about a notice from your landlord. ClauseGuard will check the details against Irish tenancy rules.",
+    text: "Check a notice from your landlord against Irish tenancy rules such as a rent increase, a notice of termination or an inspection request.",
   },
   {
-    target: "notice-type",
-    title: "Choose your notice type",
-    text: "Select the option that matches your situation, such as a rent increase, notice of termination, or property inspection.",
+    target: "notice-mode",
+    title: "Upload or answer questions",
+    text: "Uplaod the letter for fastest check or choose Quick Form to answer few questions instead.",
   },
   {
-    target: "notice-continue",
-    title: "Continue to the questions",
-    text: "Once you have selected the type of notice, click Continue to enter the relevant dates and details.",
+    target: "notice-start",
+    title: "Upload your notice",
+    text: "Upload PDF or a photo of the letter from your landlord. Then fill in the dates and details.",
   },
   {
     target: "previous-checks",
     title: "Previous checks",
-    text: "Find your earlier notice checks here. Open a completed check to view its results again.",
+    text: "Find your earlier notice checks here. Open one to see its results again.",
+  },
+]
+
+export const NOTICES_FORM_TOUR: TourStep[] = [
+  {
+    target: "notice-intro",
+    title: "Check a notice",
+    text: "Check a notice from your landlord against Irish tenancy rules such as rent increase, a notice of termination or an inspection request.",
+  },
+  {
+    target: "notice-mode",
+    title: "Upload or answer questions",
+    text: "Answer few questions here or switch to Upload Notice Letter to upload the letter instead.",
+  },
+  {
+    target: "notice-start",
+    title: "Choose your notice type",
+    text: "Pick the type of notice you received, then press Continue to enter the dates and details.",
+  },
+  {
+    target: "previous-checks",
+    title: "Previous checks",
+    text: "Find your earlier notice checks here. Open one to see its results again.",
+  },
+]
+
+export const NOTICE_DETAILS_TOUR: TourStep[] = [
+  {
+    target: "notice-intro",
+    title: "Check a notice",
+    text: "Check a notice from your landlord against Irish tenancy rules such as a rent increase, a notice of termination or an inspection request.",
+  },
+  {
+    target: "notice-mode",
+    title: "Upload or answer questions",
+    text: "You're using the Quick Form. You can switch to Upload Notice Letter to upload the letter instead.",
+  },
+  {
+    target: "notice-start",
+    title: "Fill in the details",
+    text: "Enter the dates from your notice and tick everything that applies, then press Check notice.",
+  },
+  {
+    target: "previous-checks",
+    title: "Previous checks",
+    text: "Find your earlier notice checks here. Open one to see its results again.",
   },
 ]
 
