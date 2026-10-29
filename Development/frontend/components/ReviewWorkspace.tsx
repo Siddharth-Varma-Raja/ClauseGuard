@@ -113,7 +113,6 @@ export default function ReviewWorkspace({ analysis }: { analysis: Analysis }) {
 
   function changeView(next: ReviewView) {
     setView(next);
-    saveViewPreference(next);
   }
 
   function openInLease(clause: Clause) {

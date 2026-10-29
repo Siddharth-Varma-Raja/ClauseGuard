@@ -100,7 +100,9 @@ export default function TimelinePage() {
 
   function handleAddForDate(dateIso: string) {
     setInitialDate(dateIso);
-    setAdding(true);
+    if (viewMode === "list") {
+      setAdding(true);
+    }
   }
 
   function handleCloseAdd() {
@@ -153,6 +155,7 @@ export default function TimelinePage() {
 
           {adding && (
             <AddEventForm
+              key={initialDate ?? "top-form"}
               initialDate={initialDate}
               onSaved={handleSaved}
               onCancel={handleCloseAdd}
@@ -222,6 +225,7 @@ export default function TimelinePage() {
                   onToggleDone={toggleDone}
                   onDelete={remove}
                   onAddForDate={handleAddForDate}
+                  onEventAdded={handleSaved}
                 />
               ) : (
                 <ol className="relative mt-6 space-y-4 before:absolute before:bottom-4 before:left-[27px] before:top-4 before:w-px before:bg-line sm:before:left-[35px]">
