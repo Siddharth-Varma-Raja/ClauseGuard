@@ -140,7 +140,7 @@ def _clause_to_dict(clause, ctx: LeaseContext) -> dict[str, Any]:
 
     return {**base, "title": TITLES.get(best_topic, best_topic.title()), "status": best["uiStatus"],
             "explanation": best["explanation"],
-            "reason": f"Rule {best['rule_id']} ({best['basis']}, {best['rule_status']}). Topic guessed by {classifier}.",
+            "reason": f"Rule {best['rule_id']} ({best['basis']}, {best['rule_status']}). Topic guessed by {classifier}." + _evidence(clause.text, best_topic),
             "nextSteps": best["next_steps"],
             "sources": _sources(best["citation"], best["basis"], best["rule_status"])}
 
@@ -171,3 +171,20 @@ def analyse_text(text: str, file_name: str = "lease") -> dict[str, Any]:
         # extra fields the frontend can ignore; useful for the demo and the docs
         "engine": {"classifier": CLASSIFIER_NAME, "rulesStatus": "draft", "lawVersion": get_engine().law_version},
     }
+
+
+def _evidence(text: str, topic: str) -> str:
+    """Short quote of the words that triggered the rule, so the reason is specific to this clause."""
+    patterns = []
+    if topic == "access":
+        from rules_engine.extract import NO_NOTICE
+        patterns += [re.compile(p, re.I) for p in NO_NOTICE]
+    if topic in TRIGGERS:
+        patterns.append(TRIGGERS[topic])
+    for rx in patterns:
+        m = rx.search(text)
+        if m:
+            start, end = max(0, m.start() - 30), min(len(text), m.end() + 30)
+            snippet = " ".join(text[start:end].split())
+            return f' Matched: "...{snippet}...".'
+    return ""
