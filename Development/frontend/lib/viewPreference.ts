@@ -1,19 +1,23 @@
 export type ReviewView = "summary" | "lease";
 
-const KEY = "clauseguard-review-view";
+const KEY = "clauseguard-default-lease-view";
 
-export function loadViewPreference(): ReviewView {
+export function loadDefaultLeaseView(): ReviewView {
+  if (typeof window === "undefined") return "summary";
   try {
-    return localStorage.getItem(KEY) === "lease" ? "lease" : "summary";
+    const val = localStorage.getItem(KEY);
+    return val === "lease" ? "lease" : "summary";
   } catch {
     return "summary";
   }
 }
 
-export function saveViewPreference(view: ReviewView) {
+export function saveDefaultLeaseView(view: ReviewView) {
+  if (typeof window === "undefined") return;
   try {
     localStorage.setItem(KEY, view);
-  } catch {
-    // Nothing to do: the switch still works for this visit
-  }
+  } catch {}
 }
+
+export const loadViewPreference = loadDefaultLeaseView;
+export const saveViewPreference = saveDefaultLeaseView;

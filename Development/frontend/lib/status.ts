@@ -3,7 +3,7 @@ import { Status } from "./notice-types";
 
 export const STATUS = {
   red: {
-    label: "Likely unfair",
+    label: "High Risk",
     whyTitle: "Why ClauseGuard flagged this",
     risk: "High",
     hint: "This clause may be unfair or unlawful.",
@@ -16,7 +16,7 @@ export const STATUS = {
     hover: "hover:bg-bad-bg",
   },
   amber: {
-    label: "Worth checking",
+    label: "Medium Risk",
     whyTitle: "Why ClauseGuard flagged this",
     risk: "Medium",
     hint: "This clause needs further checking.",
@@ -29,7 +29,7 @@ export const STATUS = {
     hover: "hover:bg-warn-bg",
   },
   green: {
-    label: "Looks fine",
+    label: "Low Risk",
     whyTitle: "Why ClauseGuard flagged this",
     risk: "Low",
     hint: "No obvious issue was identified.",

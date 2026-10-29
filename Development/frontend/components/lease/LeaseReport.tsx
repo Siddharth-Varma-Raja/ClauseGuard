@@ -7,7 +7,6 @@ import { ArrowLeft, BookOpen, CalendarPlus, Check, ChevronDown, CircleCheck, Dow
 import Card from "@/components/ui/Card";
 import Alert from "@/components/ui/Alert";
 import StatusBadge from "@/components/ui/StatusBadge";
-import { downloadReport } from "@/components/lease/DownloadReport";
 import { STATUS, STATUS_ORDER, overallStatus } from "@/lib/notice-status";
 import { addEvent, errorMessage, getEvents } from "@/lib/api";
 import { cn } from "@/lib/cn";
