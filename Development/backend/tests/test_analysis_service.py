@@ -28,6 +28,11 @@ def test_emergency_entry_is_not_flagged():
     r = analyse_text("The Landlord may enter the property without notice in an emergency.")
     assert r["clauses"][0]["status"] != "amber"
 
+def test_reason_shows_matched_phrase():
+    r = analyse_text("The Landlord may enter the property at any time without prior notice.")
+    reason = r["clauses"][0]["reason"]
+    assert "Matched:" in reason
+    assert "without prior notice" in reason
 
 
 def test_forfeiture_clause_is_not_flagged_as_entry():
@@ -40,3 +45,22 @@ def test_forfeiture_clause_is_not_flagged_as_entry():
     )
     r = analyse_text(text)
     assert r["clauses"][0]["status"] != "amber"
+
+
+def test_six_monthly_rent_review_is_flagged():
+    r = analyse_text("The Landlord may review the rent every six months.")
+    c = r["clauses"][0]
+    assert c["title"] == "Rent review"
+    assert c["status"] == "amber"
+
+
+def test_annual_rent_review_is_fine():
+    r = analyse_text("The rent may be reviewed once every 12 months.")
+    c = r["clauses"][0]
+    assert c["title"] == "Rent review"
+    assert c["status"] == "green"
+
+
+def test_unclear_rent_review_is_grey():
+    r = analyse_text("The rent may be reviewed from time to time.")
+    assert r["clauses"][0]["status"] == "grey"

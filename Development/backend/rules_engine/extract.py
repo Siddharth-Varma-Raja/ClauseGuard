@@ -78,3 +78,25 @@ def entry_without_notice(text: str) -> bool:
     if re.search(NOT_ACCESS, text, re.I):
         return False
     return bool(re.search(ENTRY_WORDS, text, re.I)) and any(re.search(p, text, re.I) for p in NO_NOTICE)
+
+
+
+
+def rent_review_months(text: str) -> float | None:
+    """How often the clause lets the rent be reviewed, in months. None when not sure."""
+    if not (re.search(r"\brent\b", text, re.I)
+            and re.search(r"\b(?:review|reviewed|revised|revision|increase|increased)\b", text, re.I)):
+        return None
+    m = re.search(r"(?:every|each|once\s+(?:every|in\s+every|in\s+any))\s+(?:period\s+of\s+)?"
+                  + _NUM + r"[\s-]*(months?|years?)", text, re.I)
+    if m:
+        n, unit = _to_number(m.group(1)), m.group(2).lower()
+        return n * 12 if unit.startswith("year") else n
+    m = re.search(_NUM + r"[\s-]?monthly", text, re.I)
+    if m:
+        return _to_number(m.group(1))
+    if re.search(r"\b(?:half[\s-]?yearly|bi-?annual(?:ly)?|twice\s+(?:a|per)\s+year)\b", text, re.I):
+        return 6.0
+    if re.search(r"\b(?:annual(?:ly)?|yearly|every\s+year|once\s+a\s+year)\b", text, re.I):
+        return 12.0
+    return None
