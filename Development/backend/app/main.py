@@ -7,6 +7,7 @@ from slowapi.errors import RateLimitExceeded
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.translation_router import router as translation_router
+from app.api.lease_chat_router import router as lease_chat_router
 from app.api.v1.endpoints.auth import router as auth_router
 from app.api.v1.endpoints.dev_token import router as dev_router
 from app.config import settings
@@ -46,6 +47,7 @@ app.add_middleware(RequestLoggingMiddleware)
 # ── Routers (All mounted under /api, no /v1) ──────────────────────────────────
 app.include_router(auth_router, prefix="/api")
 app.include_router(translation_router, prefix="/api")
+app.include_router(lease_chat_router, prefix="/api")
 app.include_router(dev_router, prefix="/api")
 
 
