@@ -24,7 +24,8 @@ from rules_engine import ClauseInput, Engine, LeaseContext
 CLASSIFIER_NAME = "keyword-baseline-v0"
 
 # Classifier topic -> topic name used by rules in rules_engine/rules/rules.yaml
-RULE_TOPIC = {"deposit": "deposit", "termination": "termination", "access": "access"}
+RULE_TOPIC = {"deposit": "deposit", "termination": "termination", "access": "access",
+              "rent_review": "rent_review"}
 
 # The keyword baseline is weak (it counts the word "notice" in almost every clause), so each rule
 # topic can ALSO be reached by its own trigger words. A clause may therefore be checked against
@@ -33,6 +34,9 @@ TRIGGERS = {
     "deposit": re.compile(r"\bdeposit\b", re.I),
     "access": re.compile(r"\b(?:enter|entry|inspect|inspection)\b", re.I),
     "termination": re.compile(r"\b(?:terminat\w*|end the tenancy|ending the tenancy)\b", re.I),
+        "rent_review": re.compile(
+        r"\brent\b[^.]{0,60}\b(?:review|reviewed|revised|revision|increase|increased)\b"
+        r"|\b(?:review|revise|revision|increase)\w*\b[^.]{0,40}\brent\b", re.I),
 }
 SEVERITY = {"breaks_law": 3, "against_guidance": 2, "needs_review": 1, "looks_fine": 0}
 
@@ -136,7 +140,7 @@ def _clause_to_dict(clause, ctx: LeaseContext) -> dict[str, Any]:
 
     return {**base, "title": TITLES.get(best_topic, best_topic.title()), "status": best["uiStatus"],
             "explanation": best["explanation"],
-            "reason": f"Rule {best['rule_id']} ({best['basis']}, {best['rule_status']}). Topic guessed by {classifier}.",
+            "reason": f"Rule {best['rule_id']} ({best['basis']}, {best['rule_status']}). Topic guessed by {classifier}." + _evidence(clause.text, best_topic),
             "nextSteps": best["next_steps"],
             "sources": _sources(best["citation"], best["basis"], best["rule_status"])}
 
@@ -167,3 +171,20 @@ def analyse_text(text: str, file_name: str = "lease") -> dict[str, Any]:
         # extra fields the frontend can ignore; useful for the demo and the docs
         "engine": {"classifier": CLASSIFIER_NAME, "rulesStatus": "draft", "lawVersion": get_engine().law_version},
     }
+
+
+def _evidence(text: str, topic: str) -> str:
+    """Short quote of the words that triggered the rule, so the reason is specific to this clause."""
+    patterns = []
+    if topic == "access":
+        from rules_engine.extract import NO_NOTICE
+        patterns += [re.compile(p, re.I) for p in NO_NOTICE]
+    if topic in TRIGGERS:
+        patterns.append(TRIGGERS[topic])
+    for rx in patterns:
+        m = rx.search(text)
+        if m:
+            start, end = max(0, m.start() - 30), min(len(text), m.end() + 30)
+            snippet = " ".join(text[start:end].split())
+            return f' Matched: "...{snippet}...".'
+    return ""
