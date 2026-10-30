@@ -186,6 +186,14 @@ export async function askAboutClause(analysisId: string, clauseId: string, quest
   return result.answer;
 }
 
+export async function askAboutLease(analysisId: string, question: string, history: ChatMessage[]) {
+  const result = await request<{ answer: string }>(`/analyses/${id(analysisId)}/questions`, {
+    method: "POST",
+    body: JSON.stringify({ question, history }),
+  });
+  return result.answer;
+}
+
 export const getNotices = () => request<NoticeSummary[]>("/notices");
 export const getNotice = (noticeId: string) => getOrNull<Notice>(`/notices/${id(noticeId)}`);
 export const checkNotice = (input: NoticeInput) =>

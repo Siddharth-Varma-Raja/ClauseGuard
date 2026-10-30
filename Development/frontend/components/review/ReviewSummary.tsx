@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useState, useSyncExternalStore, useRef, useEffect } from "react";
-import { ArrowRight, Check, ChevronDown, ChevronLeft, ChevronRight, CircleCheck, Copy, FileText, X } from "lucide-react";
+import { ArrowRight, Check, ChevronDown, ChevronLeft, ChevronRight, CircleCheck, Copy, FileText, X, MessageCircleQuestion } from "lucide-react";
 import type { Analysis, Clause, Status } from "@/lib/notice-types";
 import KeyLeaseDetails from "@/components/review/KeyLeaseDetails";
 import { STATUS, STATUS_ORDER } from "@/lib/status";
@@ -18,10 +18,12 @@ export default function ReviewSummary({
   analysis,
   clauses,
   onOpenClause,
+  onAskClause,
 }: {
   analysis: Analysis;
   clauses: Clause[];
   onOpenClause: (clause: Clause) => void;
+  onAskClause: (clause: Clause) => void;
 }) {
   const countOf = (status: Status) => clauses.filter((c) => c.status === status).length;
   const [active, setActive] = useState<Status>(() => STATUS_ORDER.find((s) => countOf(s) > 0) ?? "red");
@@ -75,7 +77,7 @@ export default function ReviewSummary({
         <KeyLeaseDetails analysis={analysis} />
       </div>
 
-      <ClauseList key={active} status={active} clauses={shown} allClauses={clauses} onOpenClause={onOpenClause} />
+      <ClauseList key={active} status={active} clauses={shown} allClauses={clauses} onOpenClause={onOpenClause} onAskClause={onAskClause} />
     </section>
   );
 }
@@ -84,12 +86,13 @@ const ANIMATION = 450;
 
 
 function ClauseList({
-  status, clauses, allClauses, onOpenClause,
+  status, clauses, allClauses, onOpenClause, onAskClause,
 }: {
   status: Status;
   clauses: Clause[];
   allClauses: Clause[];
   onOpenClause: (clause: Clause) => void;
+  onAskClause: (clause: Clause) => void;
 }) {
   const columns = useIsTwoColumns() ? 2 : 1;
   const [openId, setOpenId] = useState<string | null>(null);
@@ -197,6 +200,7 @@ function ClauseList({
                   onClose={() => toggle(panelClause.id)}
                   onClosed={() => setClosingId((id) => (id === panelClause.id ? null : id))}
                   onOpenInLease={() => onOpenClause(panelClause)}
+                  onAsk={() => onAskClause(panelClause)}
                 />
               )}
             </Fragment>
@@ -363,6 +367,7 @@ export function DetailsPanel({
   onClose,
   onClosed,
   onOpenInLease,
+  onAsk,
 }: {
   clause: Clause;
   allClauses: Clause[];
@@ -371,6 +376,7 @@ export function DetailsPanel({
   onClose: () => void;
   onClosed?: () => void;
   onOpenInLease: () => void;
+  onAsk: () => void;
 }) {
   const style = STATUS[clause.status];
   const ref = useRef<HTMLLIElement>(null);
@@ -516,6 +522,15 @@ export function DetailsPanel({
                   >
                     See it on page {clause.page} of the full lease
                     <ArrowRight size={15} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onAsk}
+                    aria-label={`Ask ClauseGuard about clause ${clause.number}`}
+                    title="Ask ClauseGuard about this clause"
+                    className="grid size-10 shrink-0 cursor-pointer place-items-center rounded-xl border border-line bg-white text-brand-dark transition-colors hover:border-brand hover:bg-brand-soft"
+                  >
+                    <MessageCircleQuestion size={18} />
                   </button>
                 </div>
               </div>
