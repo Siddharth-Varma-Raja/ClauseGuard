@@ -78,3 +78,25 @@ rules:
       url: null
       verified_on: null
       verified_by: null
+
+  - id: RENT-001
+    topic: rent_review
+    status: draft
+    basis: guidance            # CONFIRM from the statute text: rent can be reviewed once in any 12 months
+    applies_from: null
+    applies_to: null
+    check: {type: rent_review_min_months, min_months: 12}
+    explain_fail_law: "The law limits how often rent can be reviewed. This clause allows a review about every {months} months."
+    explain_fail_guidance: "The RTB advises that rent can only be reviewed once in any 12 months. This clause allows a review about every {months} months."
+    explain_ok: "The clause does not allow the rent to be reviewed more often than once every 12 months."
+    explain_unsure: "We could not tell how often the rent can be reviewed. {reason}"
+    next_steps:
+      - "Ask the landlord to change the clause so that the rent is reviewed no more than once in any 12 months."
+      - "Check the current rent increase rules with the RTB before you agree."
+    citation:
+      name: "RTB: Rent reviews and increases"
+      act: "Residential Tenancies Act 2004, as amended"
+      section: "TO VERIFY"
+      url: null
+      verified_on: null
+      verified_by: null

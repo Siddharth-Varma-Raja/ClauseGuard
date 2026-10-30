@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 import { X } from "lucide-react";
 import Card from "../ui/Card";
@@ -5,26 +7,26 @@ import FormField from "./FormField";
 import { addEvent, errorMessage } from "@/lib/api";
 import type { EventKind, NewTimelineEvent, TimelineEvent } from "@/lib/notice-types";
 
-const EMPTY_FORM: NewTimelineEvent = {
-  title: "",
-  date: "",
-  kind: "event",
-  note: "",
-};
-
 const MAX_TITLE = 200;
 
 const inputClass = (error?: string) =>
   `w-full rounded-xl border bg-white px-3.5 py-2.5 text-[15px] ${error ? "border-bad-line" : "border-line"}`;
 
 export default function AddEventForm({
+  initialDate,
   onSaved,
   onCancel,
 }: {
+  initialDate?: string;
   onSaved: (event: TimelineEvent) => void;
   onCancel: () => void;
 }) {
-  const [form, setForm] = useState<NewTimelineEvent>(EMPTY_FORM);
+  const [form, setForm] = useState<NewTimelineEvent>({
+    title: "",
+    date: initialDate ?? "",
+    kind: "event",
+    note: "",
+  });
   const [errors, setErrors] = useState<{ title?: string; date?: string }>({});
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");

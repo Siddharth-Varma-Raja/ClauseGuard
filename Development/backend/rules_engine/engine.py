@@ -118,9 +118,15 @@ def _check_termination(clause, ctx, p):
         return "unsure", ex, "No notice period in the table covers this tenancy length."
     return ("fail" if days < required else "ok"), ex, None
 
+def _check_rent_review(clause, ctx, p):
+    months = extract.rent_review_months(clause.text)
+    ex = {"months": months, "limit_months": p["min_months"]}
+    if months is None:
+        return "unsure", ex, "We could not tell how often the rent can be reviewed."
+    return ("fail" if months < p["min_months"] - 1e-9 else "ok"), ex, None
 
 CHECKS = {"deposit_max_months": _check_deposit, "entry_without_notice": _check_entry,
-          "termination_notice_days": _check_termination}
+          "termination_notice_days": _check_termination, "rent_review_min_months": _check_rent_review}
 
 
 class Engine:
