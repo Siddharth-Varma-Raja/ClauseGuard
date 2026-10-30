@@ -21,6 +21,8 @@ import {
   updatePreferences,
 } from "@/lib/api";
 import type { Preferences, UserProfile } from "@/lib/notice-types";
+import { loadDefaultLeaseView, saveDefaultLeaseView, type ReviewView } from "@/lib/viewPreference";
+import { cn } from "@/lib/cn";
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -41,6 +43,11 @@ export default function SettingsPage() {
   const [passwordMessage, setPasswordMessage] = useState<{ tone: "success" | "error"; text: string } | null>(null);
 
   const isNewPasswordValid = newPassword.length >= 8 && /[A-Z]/.test(newPassword) && /[0-9]/.test(newPassword);
+  const [defaultView, setDefaultView] = useState<ReviewView>("summary");
+
+  useEffect(() => {
+    setDefaultView(loadDefaultLeaseView());
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -59,6 +66,15 @@ export default function SettingsPage() {
   function retry() {
     setLoadError("");
     setReloadKey((k) => k + 1);
+  }
+
+  function handleDefaultViewChange(view: ReviewView) {
+    setDefaultView(view);
+    saveDefaultLeaseView(view);
+    setMessage({
+      tone: "success",
+      text: `Default view updated: leases will now open in ${view === "summary" ? "Summary" : "Lease viewer"}.`,
+    });
   }
 
   async function savePreference(changes: Partial<Preferences>) {
@@ -282,47 +298,62 @@ export default function SettingsPage() {
           <Card className="p-5 sm:p-6">
             <div className="flex items-center justify-between gap-3">
               <h2 className="text-lg font-semibold text-brand-dark">Preferences</h2>
-              {saving && <Loader2 size={18} className="animate-spin text-brand" aria-label="Saving" />}
             </div>
 
             <fieldset className="mt-4">
-              <legend className="text-sm font-semibold text-ink">How much detail in lease explanations?</legend>
-              <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                {(
-                  [
-                    ["simple", "Simple", "Short, plain-English summaries."],
-                    ["detailed", "Detailed", "Also show why each clause was flagged."],
-                  ] as const
-                ).map(([value, label, hint]) => (
-                  <label key={value} className="flex cursor-pointer items-start gap-3 rounded-xl border border-line p-3 text-sm hover:bg-surface">
+              <legend className="text-sm font-semibold text-brand-dark">
+                When you open any lease, which view would you like to see first?
+              </legend>
+              <p className="mt-1 text-xs text-mute">
+                Choose the default screen shown whenever you open an uploaded lease. You can still switch views anytime while reviewing.
+              </p>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                {[
+                  {
+                    value: "summary" as const,
+                    label: "Summary",
+                    badge: "Default",
+                    hint: "Start with the overall score, key tenancy terms, and flagged clause cards.",
+                  },
+                  {
+                    value: "lease" as const,
+                    label: "Lease viewer",
+                    badge: null,
+                    hint: "Open directly into the page-by-page annotated lease document.",
+                  },
+                ].map(({ value, label, badge, hint }) => (
+                  <label
+                    key={value}
+                    className={cn(
+                      "flex cursor-pointer items-start gap-3 rounded-2xl border p-4 text-sm transition",
+                      defaultView === value
+                        ? "border-brand bg-brand-soft/40 shadow-xs"
+                        : "border-line bg-white hover:bg-surface"
+                    )}
+                  >
                     <input
                       type="radio"
-                      name="explanationDetail"
-                      checked={prefs.explanationDetail === value}
-                      onChange={() => savePreference({ explanationDetail: value })}
-                      className="mt-1 accent-brand"
+                      name="defaultLeaseView"
+                      value={value}
+                      checked={defaultView === value}
+                      onChange={() => handleDefaultViewChange(value)}
+                      className="mt-1 size-4 accent-brand shrink-0"
                     />
-                    <span>
-                      <span className="font-medium">{label}</span>
-                      <span className="block text-mute">{hint}</span>
-                    </span>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-brand-dark">{label}</span>
+                        {badge && (
+                          <span className="rounded-full bg-brand-soft px-2 py-0.5 text-[11px] font-semibold text-brand">
+                            {badge}
+                          </span>
+                        )}
+                      </div>
+                      <span className="mt-1 block text-xs leading-relaxed text-mute">{hint}</span>
+                    </div>
                   </label>
                 ))}
               </div>
             </fieldset>
-
-            {/* <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl bg-surface p-3.5 text-sm">
-              <input
-                type="checkbox"
-                checked={prefs.remindersEnabled}
-                onChange={(e) => savePreference({ remindersEnabled: e.target.checked })}
-                className="mt-0.5 size-5 shrink-0 accent-brand"
-              />
-              <span>
-                <span className="font-medium">Deadline reminders</span>
-                <span className="mt-0.5 block text-mute">Remind me about upcoming dates on my tenancy timeline.</span>
-              </span>
-            </label> */}
           </Card>
 
           <Card className="p-5 sm:p-6">
