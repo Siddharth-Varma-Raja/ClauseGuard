@@ -13,16 +13,16 @@ export default function KeyLeaseDetails({ analysis }: { analysis: Analysis }) {
   return (
     <div data-tour="key-details" className="flex min-w-0 flex-col rounded-3xl border border-line bg-white p-5 shadow-soft sm:p-6">
       <h3 className="flex items-center gap-2 font-semibold text-brand-dark">
-        <Landmark size={18} aria-hidden />
+        <Landmark size={18}  />
         Key lease details
       </h3>
       {analysis.propertyAddress ? (
         <p className="mt-1 flex items-center gap-1.5 text-sm text-mute">
-          <House size={14} className="shrink-0" aria-hidden />
+          <House size={14} className="shrink-0"  />
           {analysis.propertyAddress}
         </p>
       ) : (
-        <p className="mt-1 text-sm text-mute">The main facts ClauseGuard found in your lease.</p>
+        <p className="mt-1 text-sm text-mute">The main info ClauseGuard found in your lease.</p>
       )}
 
       <dl className="mt-5 grid grid-cols-2 gap-3">
@@ -44,21 +44,21 @@ export default function KeyLeaseDetails({ analysis }: { analysis: Analysis }) {
 
       {depositTooHigh && (
         <p className="mt-3 flex gap-2.5 rounded-2xl border border-warn-line bg-warn-bg p-3 text-sm leading-relaxed text-ink">
-          <TriangleAlert size={18} className="mt-0.5 shrink-0 text-warn" aria-hidden />
+          <TriangleAlert size={18} className="mt-0.5 shrink-0 text-warn"  />
           <span>
-            <strong className="font-semibold">The deposit is more than one month&apos;s rent.</strong> Under Irish law, a
-            deposit can&apos;t be more than one month&apos;s rent. Ask your landlord to reduce it to {money(rent)}.
+            <strong className="font-semibold">The deposit is more than one month's rent.</strong> Under Irish law, a
+            deposit can't be more than one month's rent. Ask your landlord to reduce it to {money(rent)}.
           </span>
         </p>
       )}
       {depositOk && (
         <p className="mt-3 flex items-center gap-2 rounded-2xl bg-ok-bg p-3 text-sm text-ok">
-          <CircleCheck size={18} className="shrink-0" aria-hidden />
+          <CircleCheck size={18} className="shrink-0"  />
           The deposit is within the one-month limit.
         </p>
       )}
 
-      <p className="mt-auto pt-4 text-xs text-mute">Taken from your lease automatically. Check them against your copy.</p>
+      <p className="mt-auto pt-4 text-xs text-mute">Taken from your lease automatically.</p>
     </div>
   );
 }
@@ -79,7 +79,7 @@ function Fact({
   return (
     <div className={cn("rounded-2xl border p-3.5", tone === "warn" ? "border-warn-line bg-warn-bg" : "border-line bg-surface/60")}>
       <dt className="flex items-center gap-1.5 text-xs font-medium text-mute">
-        <Icon size={14} aria-hidden />
+        <Icon size={14}  />
         {label}
       </dt>
       <dd className={cn("mt-1", value ? "font-display text-xl font-semibold text-ink" : "text-sm italic text-mute")}>

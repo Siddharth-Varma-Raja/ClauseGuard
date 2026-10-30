@@ -20,7 +20,7 @@ import { buildNoticeAnswers } from "@/lib/notice-answers";
 import { fmtDate, todayIso } from "@/lib/format";
 import type { NoticeSummary, NoticeType } from "@/lib/notice-types";
 import PageTour from "@/components/PageTour";
-import { NOTICES_TOUR } from "@/lib/tours";
+import { NOTICES_UPLOAD_TOUR, NOTICES_FORM_TOUR, NOTICE_DETAILS_TOUR } from "@/lib/tours";
 
 type LeaseOption = {
   id: string;
@@ -416,7 +416,7 @@ export default function NoticesPage() {
           <ArrowLeft size={18} aria-hidden="true" />
           Back to dashboard
         </Link>
-        <PageTour tourId="notices" steps={NOTICES_TOUR} />
+        <PageTour key={`${mode}-${step}`} tourId="notices" steps={mode === "upload" ? NOTICES_UPLOAD_TOUR : step === 1 ? NOTICES_FORM_TOUR : NOTICE_DETAILS_TOUR} />
       </div>
 
       <header data-tour="notice-intro">
@@ -426,7 +426,7 @@ export default function NoticesPage() {
         </p>
       </header>
 
-      <div className="mt-8 flex rounded-xl bg-surface p-1">
+      <div className="mt-8 flex rounded-xl bg-surface p-1" data-tour="notice-mode">
         <button
           type="button"
           onClick={() => setMode("upload")}
@@ -448,7 +448,7 @@ export default function NoticesPage() {
       </div>
 
       {mode === "upload" ? (
-        <section className="mt-6 rounded-2xl border border-line bg-white p-4 shadow-soft sm:p-6">
+        <section className="mt-6 rounded-2xl border border-line bg-white p-4 shadow-soft sm:p-6" data-tour="notice-start">
           <div className="flex items-center gap-2">
             <Sparkles size={18} className="text-brand" />
             <h2 className="text-xl font-semibold text-brand-dark">Upload Landlord Notice</h2>
@@ -582,10 +582,10 @@ export default function NoticesPage() {
                       <p className="mb-2 text-sm font-semibold text-brand-dark">Notice format details</p>
                       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                         <CheckField name="uploadIsWritten" checked={uploadIsWritten} onChange={(e) => setUploadIsWritten(e.target.checked)}>
-                          It&apos;s a written letter (not a text or call)
+                          It's a written letter (not a text or call)
                         </CheckField>
                         <CheckField name="uploadIsSigned" checked={uploadIsSigned} onChange={(e) => setUploadIsSigned(e.target.checked)}>
-                          It&apos;s signed by landlord or agent
+                          It's signed by landlord or agent
                         </CheckField>
                         <CheckField name="uploadHasStatutoryDeclaration" checked={uploadHasStatutoryDeclaration} onChange={(e) => setUploadHasStatutoryDeclaration(e.target.checked)}>
                           Statutory declaration included
@@ -636,8 +636,8 @@ export default function NoticesPage() {
                           {uploadRentDiff > 0 && (
                             <span
                               className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-semibold ${uploadRentPct > 2 && uploadInRpz
-                                  ? "border-red-200 bg-red-50 text-red-800"
-                                  : "border-emerald-200 bg-emerald-50 text-emerald-800"
+                                ? "border-red-200 bg-red-50 text-red-800"
+                                : "border-emerald-200 bg-emerald-50 text-emerald-800"
                                 }`}
                             >
                               {uploadRentPct > 2 && uploadInRpz ? "⚠️ Exceeds 2% RPZ cap" : "✓ Within 2% RPZ cap"}
@@ -715,7 +715,7 @@ export default function NoticesPage() {
           )}
         </section>
       ) : step === 1 ? (
-        <section data-tour="notice-type" className="mt-6 rounded-2xl border border-line bg-white p-4 shadow-soft sm:p-6">
+        <section data-tour="notice-start" className="mt-6 rounded-2xl border border-line bg-white p-4 shadow-soft sm:p-6">
           <h2 className="text-xl font-semibold text-brand-dark">What kind of notice is it?</h2>
           <div role="radiogroup" aria-label="Notice type" className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
             {noticeTypes.map(({ value, title, description, Icon }) => (
@@ -750,7 +750,7 @@ export default function NoticesPage() {
           </div>
         </section>
       ) : (
-        <form data-tour="notice-form" onSubmit={handleSubmit} className="mt-6 rounded-2xl border border-line bg-white p-4 shadow-soft sm:p-6">
+        <form data-tour="notice-start" onSubmit={handleSubmit} className="mt-6 rounded-2xl border border-line bg-white p-4 shadow-soft sm:p-6">
           <h2 className="text-xl font-semibold text-brand-dark">About your {noticeTitle(type).toLowerCase()}</h2>
           <p className="mt-1 text-sm text-mute">Fields marked with * are required.</p>
 
@@ -808,8 +808,8 @@ export default function NoticesPage() {
               <fieldset className="mt-5">
                 <legend className="mb-2 text-sm font-semibold text-brand-dark">Tick everything that applies</legend>
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  <CheckField name="isWritten" defaultChecked={true}>It&apos;s a written letter (not a text or call)</CheckField>
-                  <CheckField name="isSigned" defaultChecked={true}>It&apos;s signed by the landlord or agent</CheckField>
+                  <CheckField name="isWritten" defaultChecked={true}>It's a written letter (not a text or call)</CheckField>
+                  <CheckField name="isSigned" defaultChecked={true}>It's signed by the landlord or agent</CheckField>
                   <CheckField name="hasStatutoryDeclaration" defaultChecked={true}>A signed statutory declaration came with it</CheckField>
                   <CheckField name="copySentToRtb" defaultChecked={true}>It says a copy was sent to the RTB</CheckField>
                   <CheckField name="disputeRights" defaultChecked={true}>It says I can refer a dispute to the RTB</CheckField>
@@ -855,8 +855,8 @@ export default function NoticesPage() {
                       {rentDiff > 0 && (
                         <span
                           className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-semibold ${rentPct > 2 && isRpz
-                              ? "border-red-200 bg-red-50 text-red-800"
-                              : "border-emerald-200 bg-emerald-50 text-emerald-800"
+                            ? "border-red-200 bg-red-50 text-red-800"
+                            : "border-emerald-200 bg-emerald-50 text-emerald-800"
                             }`}
                         >
                           {rentPct > 2 && isRpz ? "⚠️ Exceeds 2% RPZ cap" : "✓ Within 2% RPZ cap"}
@@ -887,7 +887,7 @@ export default function NoticesPage() {
               <InputField label="When were you told about the visit?" name="toldAt" type="datetime-local" required />
               <InputField label="When is the visit?" name="visitAt" type="datetime-local" required />
               <div className="grid gap-2 sm:col-span-2">
-                <CheckField name="isEmergency">It&apos;s a genuine emergency (e.g. a leak or fire)</CheckField>
+                <CheckField name="isEmergency">It's a genuine emergency (e.g. a leak or fire)</CheckField>
                 <CheckField name="agreedTime" defaultChecked={true}>The time was agreed with me</CheckField>
               </div>
             </div>
