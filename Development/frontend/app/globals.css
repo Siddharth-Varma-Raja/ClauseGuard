@@ -111,3 +111,73 @@ body {
   animation: progressFill 2.4s ease-out forwards;
 }
 
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes shimmer {
+  from { background-position: -600px 0; }
+  to { background-position: 600px 0; }
+}
+
+@keyframes ringFill {
+  from { stroke-dashoffset: var(--ring-length); }
+}
+
+@keyframes growX {
+  from { transform: scaleX(0); }
+}
+
+@keyframes softPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgb(229 161 0 / 0.5); }
+  50% { box-shadow: 0 0 0 7px rgb(229 161 0 / 0); }
+}
+
+.animate-fade-up {
+  animation: fadeUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.stagger > * {
+  animation: fadeUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: var(--delay, 0ms);
+}
+
+.stagger > *:nth-child(2) {
+  animation-delay: calc(var(--delay, 0ms) + 100ms);
+}
+
+.stagger > *:nth-child(3) {
+  animation-delay: calc(var(--delay, 0ms) + 200ms);
+}
+
+.skeleton {
+  background: linear-gradient(90deg, #eceff1 0%, #f6f8f9 50%, #eceff1 100%);
+  background-size: 1200px 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+
+.animate-ring {
+  animation: ringFill 1.2s cubic-bezier(0.16, 1, 0.3, 1) 0.3s both;
+}
+
+.animate-grow {
+  transform-origin: left;
+  animation: growX 1s cubic-bezier(0.16, 1, 0.3, 1) 0.4s both;
+}
+
+.animate-soft-pulse {
+  animation: softPulse 1.8s ease-in-out 0.8s 3;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-up,
+  .stagger > *,
+  .skeleton,
+  .animate-ring,
+  .animate-grow,
+  .animate-soft-pulse,
+  .animate-pop-in {
+    animation: none;
+  }
+}

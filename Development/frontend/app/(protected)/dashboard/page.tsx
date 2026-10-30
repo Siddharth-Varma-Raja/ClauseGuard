@@ -1,47 +1,55 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ArrowRight, CalendarClock, FileCheck, FilePlusCorner, FileSearchCorner, Upload } from "lucide-react";
+import { Clock } from "lucide-react";
 import PageTour from "@/components/PageTour";
-import LoadingState from "@/components/ui/LoadingState";
+import DashboardSkeleton from "@/components/dashboard/DashboardSkeleton";
 import ErrorState from "@/components/ui/ErrorState";
-import AnalysisCard from "@/components/lease/AnalysisCard";
+import Spotlight from "@/components/dashboard/Spotlight";
+import AlsoOnList from "@/components/dashboard/AlsoOnList";
+import LeaseList from "@/components/dashboard/LeaseList";
+import UpcomingDates from "@/components/dashboard/UpcomingDates";
+import QuickActions from "@/components/dashboard/QuickActions";
+import NewUserDashboard, { EmptyLeases } from "@/components/dashboard/NewUserDashboard";
 import { useAuth } from "@/components/auth/AuthProvider";
-import { DASHBOARD_TOUR } from "@/lib/tours";
-import { errorMessage, getAnalyses } from "@/lib/api";
-import type { AnalysisSummary } from "@/lib/notice-types";
-
-const CARDS = [
-  {
-    Icon: FileCheck,
-    title: "Check a Notice",
-    description: "Check whether a landlord notice follows tenancy requirements and is valid.",
-    href: "/notices",
-    tour: "check-notice",
-  },
-  {
-    Icon: CalendarClock,
-    title: "Tenancy Timeline",
-    description: "View a timeline of your tenancy, including important dates and events.",
-    href: "/timeline",
-    tour: "tenancy-timeline",
-  },
-] as const;
+import { DASHBOARD_TOUR, NEW_USER_TOUR } from "@/lib/tours";
+import { errorMessage, getAnalyses, getAnalysis, getEvents, getNotices } from "@/lib/api";
+import { allClearItem, buildItems, flaggedClauses, greeting, upcomingEvents } from "@/lib/dashboard";
+import { daysUntil, relativeDays } from "@/lib/format";
+import type { Analysis, AnalysisSummary, NoticeSummary, TimelineEvent } from "@/lib/notice-types";
 
 const RECENT_COUNT = 3;
+const MAX_LEASES_CHECKED = 10;
+
+type DashboardData = {
+  leases: AnalysisSummary[];
+  details: Analysis[];
+  events: TimelineEvent[];
+  notices: NoticeSummary[];
+};
+
+async function loadDashboard(): Promise<DashboardData> {
+  const [leases, events, notices] = await Promise.all([
+    getAnalyses(),
+    getEvents().catch(() => []),
+    getNotices().catch(() => []),
+  ]);
+  const found = await Promise.all(leases.slice(0, MAX_LEASES_CHECKED).map((lease) => getAnalysis(lease.id).catch(() => null)));
+  const details = found.filter((analysis): analysis is Analysis => analysis !== null);
+  return { leases, details, events, notices };
+}
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const [recent, setRecent] = useState<AnalysisSummary[] | null>(null);
+  const [data, setData] = useState<DashboardData | null>(null);
   const [error, setError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
-    getAnalyses()
-      .then((all) => !cancelled && setRecent(all.slice(0, RECENT_COUNT)))
-      .catch((err) => !cancelled && setError(errorMessage(err, "Your recent analyses could not be loaded.")));
+    loadDashboard()
+      .then((result) => !cancelled && setData(result))
+      .catch((err) => !cancelled && setError(errorMessage(err, "Your dashboard could not be loaded.")));
     return () => {
       cancelled = true;
     };
@@ -49,92 +57,86 @@ export default function Dashboard() {
 
   function retry() {
     setError("");
-    setRecent(null);
+    setData(null);
     setReloadKey((k) => k + 1);
   }
 
   const firstName = user?.displayName?.split(" ")[0];
+  const isNewUser = data !== null && data.leases.length === 0;
+  const today = new Date().toLocaleDateString("en-IE", { weekday: "long", day: "numeric", month: "long" });
+
+  const items = data ? buildItems(data.details, data.events, data.notices) : [];
+  const spotlight = items[0] ?? (data ? allClearItem(data.leases) : null);
+  const others = items.slice(1).filter((item) => item.kind !== "deadline" && item.kind !== "date");
+
+  const toCheck = data ? data.details.reduce((sum, d) => sum + flaggedClauses(d).filter((c) => !c.reviewed).length, 0) : 0;
+  const nextEvent = data ? upcomingEvents(data.events)[0] : undefined;
 
   return (
-    <main className="mx-auto max-w-5xl">
+    <main className="mx-auto max-w-6xl">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-mute">Welcome back{firstName ? `, ${firstName}` : ""}!</p>
-          <h1 className="mt-1 font-display text-3xl font-semibold tracking-tight text-ink">What would you like to do?</h1>
+          <p className="text-xs font-semibold uppercase tracking-widest text-mute">{today}</p>
+          <h1 className="mt-1.5 font-display text-3xl font-semibold tracking-tight text-brand-dark sm:text-4xl">
+            {isNewUser ? `Welcome to ClauseGuard${firstName ? `, ${firstName}` : ""}` : `${greeting()}${firstName ? `, ${firstName}` : ""}`}
+          </h1>
+          {isNewUser ? (
+            <p className="mt-2 text-mute">Let's check your first lease.</p>
+          ) : data && (toCheck > 0 || nextEvent) ? (
+            <div className="mt-3 flex flex-wrap gap-2 text-sm font-medium">
+              {toCheck > 0 && (
+                <span className="inline-flex items-center gap-2 rounded-full border border-warn-line bg-warn-bg px-3 py-1.5 text-warn">
+                  <span className="size-2 rounded-full bg-warn-solid" />
+                  {toCheck} {toCheck === 1 ? "clause" : "clauses"} to check
+                </span>
+              )}
+              {nextEvent && (
+                <span className="inline-flex items-center gap-2 rounded-full border border-line bg-white px-3 py-1.5 text-ink">
+                  <Clock size={15} className="text-brand"/>
+                  {nextEvent.title} {relativeDays(daysUntil(nextEvent.date))}
+                </span>
+              )}
+            </div>
+          ) : null}
         </div>
-        <PageTour tourId="dashboard" steps={DASHBOARD_TOUR} />
+        {data && (
+          <PageTour
+            key={isNewUser ? "new" : "returning"}
+            tourId={isNewUser ? "dashboard-new" : "dashboard"}
+            steps={isNewUser ? NEW_USER_TOUR : DASHBOARD_TOUR}
+          />
+        )}
       </div>
 
-      <div className="mt-8 grid gap-6 sm:grid-cols-2">
-        <div
-          data-tour="validate-lease"
-          className="flex flex-col gap-6 rounded-3xl bg-brand-dark p-6 text-white sm:col-span-2 sm:p-8 md:flex-row md:items-center md:justify-between md:gap-10"
-        >
-          <div className="max-w-xl">
-            <span className="grid size-11 place-items-center rounded-xl bg-white/10">
-              <FileSearchCorner size={22} aria-hidden />
-            </span>
-            <h2 className="mt-4 font-display text-2xl font-semibold leading-tight sm:text-3xl">Check your lease before you sign</h2>
-            <p className="mt-2 text-white/80">Upload your lease and ClauseGuard checks every clause against Irish tenancy law.</p>
+      {error ? (
+        <div className="mt-8">
+          <ErrorState message={error} onRetry={retry} />
+        </div>
+      ) : !data || !spotlight ? (
+        <DashboardSkeleton />
+      ) : isNewUser ? (
+        <>
+          <NewUserDashboard hasDates={data.events.length > 0} />
+          <div className="stagger mt-5 grid gap-5 *:min-w-0 lg:grid-cols-[8fr_4fr]" style={{ "--delay": "300ms" } as React.CSSProperties}>
+            <EmptyLeases />
+            <UpcomingDates events={data.events} />
           </div>
-
-          <Link
-            href="/lease/new"
-            className="inline-flex min-h-16 w-full shrink-0 items-center justify-center gap-3 rounded-2xl bg-white px-10 text-xl font-semibold text-brand-dark shadow-2xl transition hover:-translate-y-0.5 hover:bg-brand-soft md:w-auto"
-          >
-            <Upload size={26} aria-hidden />
-            Upload lease
-          </Link>
-        </div>
-
-        {CARDS.map(({ Icon, title, description, href, tour }) => (
-          <Link href={href} key={title} data-tour={tour} className="group block rounded-3xl border border-line bg-white p-6 shadow-soft transition-colors hover:border-brand sm:p-8">
-            <div className="flex items-center justify-between">
-              <span className="size-11 grid place-items-center rounded-xl bg-brand-soft text-brand"><Icon size={22} /></span>
-              <ArrowRight size={18} className="text-mute transition-transform group-hover:translate-x-0.5 group-hover:text-brand" />
-            </div>
-            <h3 className="text-xl mt-4 font-semibold text-ink font-display">{title}</h3>
-            <p className="text-mute mt-2">{description}</p>
-          </Link>
-        ))}
-      </div>
-
-      <section data-tour="recent-analyses" className="mt-10">
-        <div className="flex items-center justify-between gap-4">
-          <h2 className="text-xl font-semibold text-brand-dark font-display">Recent analyses</h2>
-          {recent && recent.length > 0 && (
-            <Link href="/lease" className="text-sm font-semibold text-brand hover:underline">View all</Link>
-          )}
-        </div>
-
-        <div className="mt-4">
-          {error ? (
-            <ErrorState message={error} onRetry={retry} />
-          ) : recent === null ? (
-            <LoadingState label="Loading your analyses…" />
-          ) : recent.length === 0 ? (
-            <div className="flex flex-col items-center rounded-3xl border border-dashed border-line bg-surface/60 px-6 py-12">
-              <div className="bg-brand-soft text-brand mb-5 size-20 place-items-center grid rounded-full">
-                <FilePlusCorner size={25} />
-              </div>
-              <h3 className="text-xl font-semibold text-brand-dark font-display">No leases were analysed yet</h3>
-              <p className="mt-2 text-mute max-w-sm text-center">
-                Upload a lease and we&apos;ll show you which clauses look fine and which are worth questioning.
-              </p>
-              <Link href="/lease/new" className="font-semibold mt-6 inline-flex gap-2 items-center bg-brand text-white rounded-xl px-6 py-3">
-                <Upload size={20} />
-                Upload lease
-              </Link>
-            </div>
-          ) : (
-            <ul className="space-y-3">
-              {recent.map((analysis) => (
-                <AnalysisCard key={analysis.id} analysis={analysis} />
-              ))}
-            </ul>
-          )}
-        </div>
-      </section>
+        </>
+      ) : (
+        <>
+          <div className="stagger mt-6 grid gap-5 *:min-w-0 lg:grid-cols-[7fr_5fr]">
+            <Spotlight item={spotlight} />
+            <AlsoOnList items={others} latest={data.details[0] ?? null} />
+          </div>
+          <div className="stagger mt-5 grid gap-5 *:min-w-0 lg:grid-cols-[8fr_4fr]" style={{ "--delay": "200ms" } as React.CSSProperties}>
+            <LeaseList leases={data.leases.slice(0, RECENT_COUNT)} details={data.details} totalCount={data.leases.length} />
+            <UpcomingDates events={data.events} />
+          </div>
+          <div className="animate-fade-up" style={{ animationDelay: "400ms" }}>
+            <QuickActions />
+          </div>
+        </>
+      )}
     </main>
   );
 }
