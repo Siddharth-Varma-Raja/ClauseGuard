@@ -6,24 +6,57 @@ export type TourStep = {
 
 export const DASHBOARD_TOUR: TourStep[] = [
   {
-    target: "validate-lease",
+    target: "spotlight",
+    title: "What matters most",
+    text: "This card always shows the most important thing right now, like a deadline that is close or clauses you still need to review.",
+  },
+  {
+    target: "also-on-list",
+    title: "Also on your list",
+    text: "Everything else that needs your attention. When there is nothing left to do, you see a quick summary of your lease instead.",
+  },
+  {
+    target: "my-leases",
+    title: "My leases",
+    text: "Your latest leases with their verdict and how far you got with the review. Click one to open it.",
+  },
+  {
+    target: "upcoming-dates",
+    title: "Upcoming dates",
+    text: "The next dates from your tenancy timeline, like rent day or a notice period.",
+  },
+  {
+    target: "quick-actions",
+    title: "Quick actions",
+    text: "Check a landlord's notice, add a date or upload another lease.",
+  },
+  {
+    target: "tour-button",
+    title: "Replay the tour",
+    text: "You can take this quick tour again whenever you need.",
+  },
+];
+
+export const NEW_USER_TOUR: TourStep[] = [
+  {
+    target: "upload-hero",
     title: "Start here",
     text: "Upload a draft lease and ClauseGuard checks every clause against Irish tenancy law, so you know what to question before you sign.",
   },
   {
-    target: "check-notice",
-    title: "Check a notice",
-    text: "Check a rent increase or notice to quit to see if anything looks wrong.",
+    target: "getting-started",
+    title: "Getting started",
+    text: "Follow these steps to get the most out of ClauseGuard. They tick off as you go.",
   },
   {
-    target: "tenancy-timeline",
-    title: "Tenancy timeline",
-    text: "Keep track of important dates like your rent review dates and notice periods.",
+    target: "how-it-works",
+    title: "How it works",
+    text: "Each clause gets a colour: red for high risk, amber for medium risk and green for low risk.",
   },
   {
-    target: "recent-analyses",
-    title: "Recent analyses",
-    text: "Come back to your previous lease reviews whenever you need them.",
+    target: "upcoming-dates",
+    title: "Upcoming dates",
+    text: "Add rent day or a notice period and they will show up here.",
   },
   {
     target: "tour-button",
