@@ -11,8 +11,6 @@ from app.api.lease_chat_router import router as lease_chat_router
 from app.api.v1.endpoints.auth import router as auth_router
 from app.api.v1.endpoints.dev_token import router as dev_router
 
-from document_checker.api import notices_router, analyses_router
-
 from app.config import settings
 from app.core.firebase import init_firebase
 from app.core.rate_limit import limiter
@@ -52,9 +50,6 @@ app.include_router(auth_router, prefix="/api")
 app.include_router(translation_router, prefix="/api")
 app.include_router(lease_chat_router, prefix="/api")
 app.include_router(dev_router, prefix="/api")
-
-app.include_router(notices_router, prefix="/api")
-app.include_router(analyses_router, prefix="/api")
 
 @app.on_event("startup")
 async def startup() -> None:
