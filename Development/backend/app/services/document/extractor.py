@@ -1,7 +1,10 @@
 import os
-import logging
+import io
 import json
+import logging
+import docx
 from google.cloud import documentai
+from google.cloud import storage
 from google.api_core.client_options import ClientOptions
 from google import genai
 from google.genai import types
@@ -21,66 +24,94 @@ IMAGE_MIME_TYPES = {
 }
 
 PDF_MIME_TYPES = {"application/pdf"}
+DOCX_MIME_TYPES = {"application/vnd.openxmlformats-officedocument.wordprocessingml.document"}
 
-ALL_SUPPORTED_MIME_TYPES = PDF_MIME_TYPES | IMAGE_MIME_TYPES
+ALL_SUPPORTED_MIME_TYPES = PDF_MIME_TYPES | IMAGE_MIME_TYPES | DOCX_MIME_TYPES
 
-# ── Public API ────────────────────────────────────────────────────────────────
+# ── Extraction Functions ──────────────────────────────────────────────────────
 
-def extract_text(file_bytes: bytes, content_type: str) -> str:
-    """
-    Unified entry point — sends the file to Google Cloud Document AI.
-    Document AI natively handles both PDFs and images.
+def extract_docx_text(file_bytes: bytes) -> str:
+    """Instantly parses text from a Word document locally without hitting GCP."""
+    doc = docx.Document(io.BytesIO(file_bytes))
+    return "\n".join([paragraph.text for paragraph in doc.paragraphs])
 
-    Parameters
-    ----------
-    file_bytes:
-        Raw bytes of the uploaded file.
-    content_type:
-        MIME type reported by the upload (e.g. "application/pdf" or "image/jpeg").
-
-    Returns
-    -------
-    str
-        Full extracted text.
-    """
-    if content_type not in ALL_SUPPORTED_MIME_TYPES:
-        raise ValueError(f"Unsupported content type: {content_type}")
-
+def extract_text_large_document(file_bytes: bytes, content_type: str, file_name: str) -> str:
+    """Handles PDFs and images using GCS and asynchronous batch processing to bypass page limits."""
     project_id = os.environ.get("GCP_PROJECT_ID")
     location = os.environ.get("GCP_LOCATION", "eu")
     processor_id = os.environ.get("DOC_AI_PROCESSOR_ID") or os.environ.get("GCP_PROCESSOR_ID")
+    input_bucket = os.environ.get("GCS_INPUT_BUCKET", "clauseguard-docs-in")
+    output_bucket = os.environ.get("GCS_OUTPUT_BUCKET", "clauseguard-docs-out")
 
     if not all([project_id, location, processor_id]):
-        logger.error(
-            "Missing Document AI env vars: GCP_PROJECT_ID=%s, GCP_LOCATION=%s, processor_id=%s",
-            project_id,
-            location,
-            processor_id,
-        )
         raise ValueError("Server configuration error for document extraction.")
 
-    logger.info("Sending document to GCP Document AI (Content-Type: %s)", content_type)
+    storage_client = storage.Client()
+    in_bucket = storage_client.bucket(input_bucket)
+    blob = in_bucket.blob(file_name)
+    blob.upload_from_string(file_bytes, content_type=content_type)
+    
+    gcs_input_uri = f"gs://{input_bucket}/{file_name}"
+    gcs_output_uri = f"gs://{output_bucket}/{file_name}-output/"
 
     opts = ClientOptions(api_endpoint=f"{location}-documentai.googleapis.com")
-    client = documentai.DocumentProcessorServiceClient(client_options=opts)
+    docai_client = documentai.DocumentProcessorServiceClient(client_options=opts)
+    name = docai_client.processor_path(project_id, location, processor_id)
 
-    name = client.processor_path(project_id, location, processor_id)
+    input_config = documentai.BatchDocumentsInputConfig(
+        gcs_documents=documentai.GcsDocuments(
+            documents=[documentai.GcsDocument(gcs_uri=gcs_input_uri, mime_type=content_type)]
+        )
+    )
+    output_config = documentai.DocumentOutputConfig(
+        gcs_output_config=documentai.DocumentOutputConfig.GcsOutputConfig(gcs_uri=gcs_output_uri)
+    )
 
-    raw_document = documentai.RawDocument(content=file_bytes, mime_type=content_type)
-    request = documentai.ProcessRequest(name=name, raw_document=raw_document)
+    request = documentai.BatchProcessRequest(
+        name=name,
+        input_documents=input_config,
+        document_output_config=output_config,
+    )
+
+    operation = docai_client.batch_process_documents(request)
+    operation.result(timeout=400) 
+
+    out_bucket = storage_client.bucket(output_bucket)
+    blob_list = list(out_bucket.list_blobs(prefix=f"{file_name}-output/"))
     
-    try:
-        result = client.process_document(request=request)
-    except Exception as exc:
-        logger.exception("Document AI extraction failed: %s", exc)
-        raise ValueError("Failed to extract text from the document.") from exc
+    full_text = ""
+    for output_blob in blob_list:
+        if output_blob.name.endswith(".json"):
+            json_string = output_blob.download_as_bytes().decode("utf-8")
+            document = documentai.Document.from_json(json_string)
+            full_text += document.text
 
-    text = result.document.text
-    
-    if not text or not text.strip():
+    blob.delete()
+    for output_blob in blob_list:
+        output_blob.delete()
+
+    text = full_text.strip()
+    if not text:
         raise ValueError("Google Cloud Document AI could not extract any text.")
+        
+    return text
 
-    return text.strip()
+# ── Public API ────────────────────────────────────────────────────────────────
+
+def extract_text(file_bytes: bytes, content_type: str, file_name: str = "upload.bin") -> str:
+    """
+    Unified entry point. Routes Word documents to the local parser, 
+    and PDFs/Images to the GCS batch processor.
+    """
+    if content_type not in ALL_SUPPORTED_MIME_TYPES:
+        raise ValueError(f"Unsupported content type: {content_type}")
+        
+    if content_type in DOCX_MIME_TYPES:
+        logger.info("Extracting DOCX file locally.")
+        return extract_docx_text(file_bytes)
+        
+    logger.info("Sending document to GCP Document AI Batch Process (Content-Type: %s)", content_type)
+    return extract_text_large_document(file_bytes, content_type, file_name)
 
 def extract_lease_metadata(raw_unredacted_text: str) -> dict:
     """
