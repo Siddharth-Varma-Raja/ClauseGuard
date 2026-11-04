@@ -14,7 +14,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import FeatureUnion
 from sklearn.preprocessing import FunctionTransformer
-from sklearn.metrics import accuracy_score, classification_report, f1_score
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix, f1_score
 from sklearn.pipeline import make_pipeline
 
 from language_stream.labels import read_jsonl
@@ -68,6 +68,7 @@ def main(path):
 
     leases = sorted({r["lease_id"] for r in rows})
     y_true, y_model, y_hybrid, y_other, y_kw = [], [], [], [], []
+    meta = []  # (lease_id, idx) for each tested clause, so mistakes can be looked up
     for held_out in leases:
         train = [r for r in rows if r["lease_id"] != held_out]
         test = [r for r in rows if r["lease_id"] == held_out]
@@ -82,6 +83,7 @@ def main(path):
         hf1 = f1_score(truth, hpred, average="macro", labels=labels, zero_division=0)
         print(f"test on {held_out}: {len(test)} clauses | TF-IDF macro-F1 {f1:.2f} | hybrid macro-F1 {hf1:.2f}")
         y_true += truth
+        meta += [(r['lease_id'], r['idx']) for r in test]
         y_model += list(pred)
         y_hybrid += list(hpred)
         y_other += ["other"] * len(test)
@@ -99,6 +101,25 @@ def main(path):
     line("Hybrid (TF-IDF + keywords)", y_hybrid)
     print("\nPer-class scores (Hybrid)")
     print(classification_report(y_true, y_hybrid, labels=labels, zero_division=0))
+
+    print("Confusion matrix (Hybrid). Rows = true label, columns = predicted label")
+    cm = confusion_matrix(y_true, y_hybrid, labels=labels)
+    width = max(len(c) for c in labels) + 2
+    print(" " * width + "".join(f"{c[:8]:>9}" for c in labels))
+    for name, row in zip(labels, cm):
+        print(f"{name:<{width}}" + "".join(f"{n:>9}" for n in row))
+
+    print("\nMistakes on the weakest classes (lease, clause number, true -> predicted).")
+    print("Look these up in your labelled file to see why they were confused.")
+    for focus in ("fees", "access"):
+        wrong = [(m, t, h) for m, t, h in zip(meta, y_true, y_hybrid) if t == focus and h != focus]
+        print(f"\n{focus}: {len(wrong)} missed")
+        for (lease, idx), t, h in wrong:
+            print(f"  {lease} #{idx}: {t} -> {h}")
+        extra = [(m, t, h) for m, t, h in zip(meta, y_true, y_hybrid) if h == focus and t != focus]
+        print(f"{focus}: {len(extra)} wrongly predicted as {focus}")
+        for (lease, idx), t, h in extra[:15]:
+            print(f"  {lease} #{idx}: {t} -> {h}")
 
 
 if __name__ == "__main__":
