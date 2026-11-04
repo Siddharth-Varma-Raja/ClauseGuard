@@ -51,7 +51,7 @@ async def process_scanned_notice(request: Request, file: UploadFile):
     content = await file.read()
     
     try:
-        raw_text = extract_text(content, file.content_type)
+        raw_text = extract_text(content, file.content_type, file.filename)
     except Exception as e:
         raise HTTPException(status_code=500, detail={"message": f"Extraction failed: {str(e)}"})
 
