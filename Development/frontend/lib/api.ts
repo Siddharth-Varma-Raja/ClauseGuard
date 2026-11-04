@@ -14,6 +14,7 @@ import type {
   UploadLeaseResponse,
   UserProfile
 } from "./notice-types";
+import { SAMPLE_ANSWER, SAMPLE_ID, SAMPLE_LEASE } from "./sample-lease";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "");
 const API_ORIGIN = API_URL?.replace(/\/api$/, "");
@@ -161,7 +162,8 @@ export const getProfile = () => request<UserProfile>("/me");
 
 export const getAnalyses = () => request<AnalysisSummary[]>("/analyses");
 
-export const getAnalysis = (analysisId: string) => getOrNull<Analysis>(`/analyses/${id(analysisId)}`);
+export const getAnalysis = (analysisId: string) =>
+  analysisId === SAMPLE_ID ? Promise.resolve(SAMPLE_LEASE) : getOrNull<Analysis>(`/analyses/${id(analysisId)}`);
 
 export function uploadLease(file: File) {
   const form = new FormData();
@@ -170,6 +172,7 @@ export function uploadLease(file: File) {
 }
 
 export function setClauseReviewed(analysisId: string, clauseId: string, reviewed: boolean) {
+  if (analysisId === SAMPLE_ID) return Promise.resolve();
   return request<void>(`/analyses/${id(analysisId)}/clauses/${id(clauseId)}`, {
     method: "PATCH",
     body: JSON.stringify({ reviewed }),
@@ -179,6 +182,7 @@ export function setClauseReviewed(analysisId: string, clauseId: string, reviewed
 export const deleteAllAnalyses = () => request<void>("/analyses", { method: "DELETE" });
 
 export async function askAboutClause(analysisId: string, clauseId: string, question: string, history: ChatMessage[]) {
+  if (analysisId === SAMPLE_ID) return SAMPLE_ANSWER;
   const result = await request<{ answer: string }>(
     `/analyses/${id(analysisId)}/clauses/${id(clauseId)}/questions`,
     { method: "POST", body: JSON.stringify({ question, history }) },
@@ -187,6 +191,7 @@ export async function askAboutClause(analysisId: string, clauseId: string, quest
 }
 
 export async function askAboutLease(analysisId: string, question: string, history: ChatMessage[]) {
+  if (analysisId === SAMPLE_ID) return SAMPLE_ANSWER;
   const result = await request<{ answer: string }>(`/analyses/${id(analysisId)}/questions`, {
     method: "POST",
     body: JSON.stringify({ question, history }),
