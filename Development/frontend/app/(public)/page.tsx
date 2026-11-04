@@ -81,7 +81,7 @@ export default function LandingPage() {
                   <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
                   Built for renters in Ireland
                 </span>
-                <PageTour tourId="hero" steps={HOME_TOUR} />
+                <PageTour tourId="hero" steps={HOME_TOUR} showButton />
               </div>
 
               <h1 className="font-display text-4xl sm:text-5xl lg:text-5xl font-semibold leading-[1.15] tracking-tight">

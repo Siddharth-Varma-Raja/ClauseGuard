@@ -4,8 +4,9 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { signOut } from "firebase/auth";
-import { ChevronDown, LogOut, Menu, Settings, Upload, X } from "lucide-react";
+import { ChevronDown, CircleHelp, LogOut, Menu, Settings, X } from "lucide-react";
 import Logo from "./ui/Logo";
+import { START_TOUR, TOUR_GONE, TOUR_READY } from "./PageTour";
 import { auth } from "@/lib/firebase";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { cn } from "@/lib/cn";
@@ -30,6 +31,18 @@ export default function AppHeader() {
     const { user } = useAuth();
     const [menuOpen, setMenuOpen] = useState(false);
     const [profileOpen, setProfileOpen] = useState(false);
+    const [hasTour, setHasTour] = useState(false);
+
+    useEffect(() => {
+        const ready = () => setHasTour(true);
+        const gone = () => setHasTour(false);
+        window.addEventListener(TOUR_READY, ready);
+        window.addEventListener(TOUR_GONE, gone);
+        return () => {
+            window.removeEventListener(TOUR_READY, ready);
+            window.removeEventListener(TOUR_GONE, gone);
+        };
+    }, []);
 
     const name = user?.displayName || user?.email?.split("@")[0] || "";
     const onSettings = pathname.startsWith("/settings");
@@ -47,7 +60,7 @@ export default function AppHeader() {
     }, [menuOpen, profileOpen]);
 
     function isActive(href: string) {
-        if (href === "/lease") return pathname === "/lease" || (pathname.startsWith("/lease/") && !pathname.startsWith("/lease/new"));
+        if (href === "/lease") return pathname === "/lease" || (pathname.startsWith("/lease/") && !pathname.startsWith("/lease/new") && !pathname.startsWith("/lease/try"));
         return pathname === href || pathname.startsWith(`${href}/`);
     }
 
@@ -86,18 +99,21 @@ export default function AppHeader() {
                 </nav>
 
                 <div className="ml-auto flex items-center gap-2 sm:gap-3">
-                    <Link
-                        href="/lease/new"
-                        onClick={closeMenus}
-                        aria-label="Upload lease"
-                        className={cn(
-                            "inline-flex h-10 items-center gap-2 rounded-full bg-brand-dark px-3 text-sm font-semibold text-white shadow-soft transition-colors hover:bg-brand sm:px-5",
-                            pathname.startsWith("/lease/new") && "ring-2 ring-brand-soft ring-offset-2",
-                        )}
-                    >
-                        <Upload size={17}  />
-                        <span className="hidden sm:inline">Upload lease</span>
-                    </Link>
+                    {hasTour && (
+                        <button
+                            type="button"
+                            data-tour="tour-button"
+                            onClick={() => {
+                                closeMenus();
+                                window.dispatchEvent(new Event(START_TOUR));
+                            }}
+                            aria-label="Take the tour of this page"
+                            title="Take the tour of this page"
+                            className="grid size-10 cursor-pointer place-items-center rounded-full border border-line bg-white text-brand-dark transition-colors hover:border-brand hover:bg-brand-soft"
+                        >
+                            <CircleHelp size={19} />
+                        </button>
+                    )}
 
                     <button
                         type="button"
@@ -129,7 +145,7 @@ export default function AppHeader() {
                             <span className="grid size-8 place-items-center rounded-full bg-brand-dark text-xs font-semibold text-white">
                                 {initialsOf(name)}
                             </span>
-                            <ChevronDown size={16} className={cn("transition-transform", profileOpen && "rotate-180")}  />
+                            <ChevronDown size={16} className={cn("transition-transform", profileOpen && "rotate-180")} />
                         </button>
 
                         {profileOpen && (
@@ -152,7 +168,7 @@ export default function AppHeader() {
                                         onSettings && "bg-brand-soft text-brand-dark",
                                     )}
                                 >
-                                    <Settings size={17}  />
+                                    <Settings size={17} />
                                     Settings
                                 </Link>
                                 <div className="mx-1 my-1.5 h-px bg-line" />
@@ -162,7 +178,7 @@ export default function AppHeader() {
                                     onClick={handleLogout}
                                     className="flex w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-bad hover:bg-bad-bg"
                                 >
-                                    <LogOut size={17}  />
+                                    <LogOut size={17} />
                                     Log out
                                 </button>
                             </div>
