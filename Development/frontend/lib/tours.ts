@@ -33,35 +33,25 @@ export const DASHBOARD_TOUR: TourStep[] = [
   {
     target: "tour-button",
     title: "Replay the tour",
-    text: "You can take this quick tour again whenever you need.",
+    text: "Click the ? button at the top any time to take this tour again.",
   },
 ];
 
 export const NEW_USER_TOUR: TourStep[] = [
   {
-    target: "upload-hero",
+    target: "upload-box",
     title: "Start here",
-    text: "Upload a draft lease and ClauseGuard checks every clause against Irish tenancy law, so you know what to question before you sign.",
+    text: "Click the button or drop your lease anywhere in this box. ClauseGuard checks every clause against Irish tenancy law, so you know what to question before you sign.",
   },
   {
-    target: "getting-started",
-    title: "Getting started",
-    text: "Follow these steps to get the most out of ClauseGuard. They tick off as you go.",
-  },
-  {
-    target: "how-it-works",
-    title: "How it works",
-    text: "Each clause gets a colour: red for high risk, amber for medium risk and green for low risk.",
-  },
-  {
-    target: "upcoming-dates",
-    title: "Upcoming dates",
-    text: "Add rent day or a notice period and they will show up here.",
+    target: "features",
+    title: "Everything else",
+    text: "Not ready to upload? Explore the sample lease, check a landlord's notice or add your important dates.",
   },
   {
     target: "tour-button",
     title: "Replay the tour",
-    text: "You can take this quick tour again whenever you need.",
+    text: "Click the ? button at the top any time to take this tour again.",
   },
 ];
 
@@ -75,19 +65,14 @@ export const LEASES_TOUR: TourStep[] = [
 
 export const UPLOAD_TOUR: TourStep[] = [
   {
-    target: "drop-zone",
-    title: "Drop your lease",
-    text: "Drag a PDF or DOCX of your rental agreement here, or click to pick one of them from your files.",
+    target: "upload-box",
+    title: "Upload your lease",
+    text: "Click the button or drop a PDF, Word file or photo anywhere in this box. The check starts straight away.",
   },
   {
-    target: "check-button",
-    title: "Check my lease",
-    text: "Once your file is selected, press this button to start the review.",
-  },
-  {
-    target: "what-happens",
-    title: "What happens next",
-    text: "These three steps explain exactly what ClauseGuard does with your lease after you upload it.",
+    target: "tour-button",
+    title: "Replay the tour",
+    text: "Click the ? button at the top any time to take this tour again.",
   },
 ];
 
@@ -244,5 +229,23 @@ export const REVIEW_LEASE_TOUR: TourStep[] = [
     target: "clause-details",
     title: "Clause explained",
     text: "What the clause means in plain English, why it was flagged under Irish tenancy law, and what you can do.",
+  },
+];
+
+export const SAMPLE_TOUR: TourStep[] = [
+  {
+    target: "key-details",
+    title: "Found straight away",
+    text: "The deposit in this lease is three months' rent. In Ireland the limit is one month, so ClauseGuard flags it here first.",
+  },
+  {
+    target: "clause-cards",
+    title: "Every problem in plain English",
+    text: "These are the clauses worth raising. Open one to see why it was flagged and what you could say to your landlord.",
+  },
+  {
+    target: "sample-own",
+    title: "Now try yours",
+    text: "That's how ClauseGuard works. When you're ready, check your own lease the same way.",
   },
 ];

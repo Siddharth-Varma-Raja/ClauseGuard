@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ArrowLeft, FileText, Plus, Upload } from "lucide-react";
+import { ArrowLeft, FileText } from "lucide-react";
+import UploadLeaseButton from "@/components/ui/UploadLeaseButton";
 import LoadingState from "@/components/ui/LoadingState";
 import ErrorState from "@/components/ui/ErrorState";
 import AnalysisCard from "@/components/lease/AnalysisCard";
@@ -51,13 +52,7 @@ export default function LeasePage() {
           <p className="mt-2 text-mute">Upload and review your rental agreements.</p>
         </div>
         {leases && leases.length > 0 && (
-          <Link
-            href="/lease/new"
-            className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-brand px-5 py-3 font-semibold text-white hover:bg-brand-dark"
-          >
-            <Plus size={18} aria-hidden />
-            Check another lease
-          </Link>
+          <UploadLeaseButton />
         )}
       </div>
 
@@ -75,13 +70,7 @@ export default function LeasePage() {
             <p className="mx-auto mt-2 max-w-md text-mute">
               Upload your rental agreement to get started. Once the analysis is complete, your lease will appear here.
             </p>
-            <Link
-              href="/lease/new"
-              className="mt-6 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-brand px-5 py-3 font-semibold text-white hover:bg-brand-dark"
-            >
-              <Upload size={18} />
-              Upload your first lease
-            </Link>
+            <UploadLeaseButton className="mt-6" />
           </section>
         ) : (
           <section>
