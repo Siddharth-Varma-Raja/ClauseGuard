@@ -8,13 +8,15 @@ import type {
   Analysis,
   AnalysisSummary,
   ChatMessage,
+  Clause,
   GdprExport,
+  LandlordEmailDraft,
   NewTimelineEvent,
   Notice,
   UploadLeaseResponse,
   UserProfile,
 } from "./notice-types";
-import { SAMPLE_ANSWER, SAMPLE_ID, SAMPLE_LEASE } from "./sample-lease";
+import { SAMPLE_ANSWER, SAMPLE_UPDATED_ID, getSampleLease, isSampleId, sampleLandlordEmail } from "./sample-lease";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "");
 const API_ORIGIN = API_URL?.replace(/\/api$/, "");
@@ -163,7 +165,7 @@ export const getProfile = () => request<UserProfile>("/me");
 export const getAnalyses = () => request<AnalysisSummary[]>("/analyses");
 
 export const getAnalysis = (analysisId: string) =>
-  analysisId === SAMPLE_ID ? Promise.resolve(SAMPLE_LEASE) : getOrNull<Analysis>(`/analyses/${id(analysisId)}`);
+  isSampleId(analysisId) ? Promise.resolve(getSampleLease(analysisId)) : getOrNull<Analysis>(`/analyses/${id(analysisId)}`);
 
 /**
  * Upload a lease document. Runs extraction, redaction, and analysis,
@@ -179,8 +181,34 @@ export async function uploadLease(file: File): Promise<UploadLeaseResponse> {
   });
 }
 
+export function uploadLeaseVersion(analysisId: string, file: File | null) {
+  if (isSampleId(analysisId)) return Promise.resolve({ id: SAMPLE_UPDATED_ID });
+  const form = new FormData();
+  if (file) form.append("file", file);
+  return request<UploadLeaseResponse>(`/analyses/${id(analysisId)}/versions`, { method: "POST", body: form, timeoutMs: UPLOAD_TIMEOUT_MS });
+}
+
+export async function generateLandlordEmail(analysisId: string, clauses: Clause[]): Promise<LandlordEmailDraft> {
+  if (isSampleId(analysisId)) return sampleLandlordEmail(clauses);
+
+  const result = await request<{ emailSubject?: string; emailBody?: string; email_subject?: string; email_body?: string }>(
+    "/notices/generate-landlord-email",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        detected_deviations: clauses.map((c) => `Clause ${c.number} (${c.title}): ${c.reason || c.explanation}`),
+      }),
+    },
+  );
+
+  return {
+    subject: result.emailSubject ?? result.email_subject ?? "",
+    body: result.emailBody ?? result.email_body ?? "",
+  };
+}
+
 export function setClauseReviewed(analysisId: string, clauseId: string, reviewed: boolean) {
-  if (analysisId === SAMPLE_ID) return Promise.resolve();
+  if (isSampleId(analysisId)) return Promise.resolve();
   return request<void>(`/analyses/${id(analysisId)}/clauses/${id(clauseId)}`, {
     method: "PATCH",
     body: JSON.stringify({ reviewed }),
@@ -190,7 +218,7 @@ export function setClauseReviewed(analysisId: string, clauseId: string, reviewed
 export const deleteAllAnalyses = () => request<void>("/analyses", { method: "DELETE" });
 
 export async function askAboutClause(analysisId: string, clauseId: string, question: string, history: ChatMessage[]) {
-  if (analysisId === SAMPLE_ID) return SAMPLE_ANSWER;
+  if (isSampleId(analysisId)) return SAMPLE_ANSWER;
   const result = await request<{ answer: string }>(
     `/analyses/${id(analysisId)}/clauses/${id(clauseId)}/questions`,
     { method: "POST", body: JSON.stringify({ question, history }) },
@@ -199,7 +227,7 @@ export async function askAboutClause(analysisId: string, clauseId: string, quest
 }
 
 export async function askAboutLease(analysisId: string, question: string, history: ChatMessage[]) {
-  if (analysisId === SAMPLE_ID) return SAMPLE_ANSWER;
+  if (isSampleId(analysisId)) return SAMPLE_ANSWER;
   const result = await request<{ answer: string }>(`/analyses/${id(analysisId)}/questions`, {
     method: "POST",
     body: JSON.stringify({ question, history }),

@@ -52,7 +52,9 @@ export default function LeaseReviewPage() {
         return <ErrorCard title="We couldn't load this lease" text={state.message} onRetry={retry} />;
     }
 
-    return <ReviewWorkspace analysis={state.analysis} />;
+    if (state.analysis.id !== id) return <LoadingState label="Loading your lease…" />;
+
+    return <ReviewWorkspace key={state.analysis.id} analysis={state.analysis} />;
 }
 
 function ErrorCard({ title, text, onRetry }: { title: string; text: string; onRetry?: () => void }) {
