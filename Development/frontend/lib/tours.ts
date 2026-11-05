@@ -124,6 +124,16 @@ export const REVIEW_TOUR: TourStep[] = [
     target: "view-full-report",
     title: "Full report",
     text: "Export your review as a PDF or print it to share with your landlord.",
+  },
+  {
+    target: "email-landlord",
+    title: "Email your landlord",
+    text: "Choose the clauses you want to raise and we'll write a draft you can edit and send yourself.",
+  },
+  {
+    target: "upload-updated",
+    title: "Got an updated lease?",
+    text: "Upload it here and it's added as a new version, so you can see exactly what changed.",
   }
 ];
 

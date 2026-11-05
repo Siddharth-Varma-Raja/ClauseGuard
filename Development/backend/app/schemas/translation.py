@@ -138,6 +138,20 @@ class CreateNoticeResponse(CamelBaseModel):
     id: str
 
 
+# ── Email Draft Schemas ────────────────────────────────────────────────────────
+
+class EmailDraftRequest(CamelBaseModel):
+    landlord_name: str | None = "[Landlord Name]"
+    tenant_name: str | None = "[Your Name]"
+    property_address: str | None = "[Property Address]"
+    detected_deviations: list[str] = Field(..., max_length=30)
+
+
+class EmailDraftResponse(CamelBaseModel):
+    email_subject: str
+    email_body: str
+
+
 # ── Tenancy Timeline Schemas ───────────────────────────────────────────────────
 
 EventKind = Literal["event", "deadline", "rent"]
