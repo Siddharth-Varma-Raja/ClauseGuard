@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { CircleAlert, CircleCheck, FileText, Lightbulb, Lock, Play, Scale, ShieldCheck, TriangleAlert, Upload } from "lucide-react";
 import ProcessingCard from "@/components/lease/ProcessingCard";
 import { ApiError, LEASE_ACCEPT, LEASE_MAX_BYTES, errorMessage, isAllowedLeaseFile, uploadLease } from "@/lib/api";
+import type { UploadProgressEvent } from "@/lib/notice-types";
 import { cn } from "@/lib/cn";
 
 const MAX_SIZE_MB = LEASE_MAX_BYTES / 1024 / 1024;
@@ -48,38 +49,45 @@ export default function UploadBox({ title, highlight, subtitle, isNewUser = fals
   const [error, setError] = useState("");
   const [uploading, setUploading] = useState(false);
   const [dragging, setDragging] = useState(false);
-  const [progress, setProgress] = useState(0);
+  const [file, setFile] = useState<File | null>(null);
+  const [progressEvent, setProgressEvent] = useState<UploadProgressEvent | null>(null);
 
-  async function startUpload(file: File | undefined) {
+  async function startUpload(selectedFile: File | undefined) {
     setError("");
-    if (!file) return;
+    if (!selectedFile) return;
 
-    if (!isAllowedLeaseFile(file)) {
+    if (!isAllowedLeaseFile(selectedFile)) {
       setError("This file type isn't supported. Upload a PDF, DOCX, JPG or PNG.");
       return;
     }
-    if (file.size === 0) {
+    if (selectedFile.size === 0) {
       setError("This file is empty. Choose another file.");
       return;
     }
-    if (file.size > LEASE_MAX_BYTES) {
+    if (selectedFile.size > LEASE_MAX_BYTES) {
       setError(`This file is over ${MAX_SIZE_MB} MB. Try a smaller scan or compress the PDF.`);
       return;
     }
 
     setUploading(true);
-    setProgress(0);
-    const timer = setInterval(() => setProgress((p) => Math.min(p + 1, STEPS.length - 1)), STEP_INTERVAL_MS);
+    setFile(selectedFile);
+    setProgressEvent({
+      step: "uploaded",
+      stepIndex: 0,
+      progress: 0.05,
+      message: "Sending file to server…",
+      estimatedSeconds: 30,
+      estimatedSecondsRemaining: 30,
+    });
 
     try {
-      const result = await uploadLease(file);
-      setProgress(STEPS.length);
+      const result = await uploadLease(selectedFile, (evt) => {
+        setProgressEvent(evt);
+      });
       router.push(`/lease/${result.id}`);
     } catch (err) {
       setError(uploadErrorMessage(err));
       setUploading(false);
-    } finally {
-      clearInterval(timer);
     }
   }
 
@@ -89,7 +97,15 @@ export default function UploadBox({ title, highlight, subtitle, isNewUser = fals
     startUpload(event.dataTransfer.files[0]);
   }
 
-  if (uploading) return <ProcessingCard steps={STEPS} current={progress} />;
+  if (uploading) {
+    return (
+      <ProcessingCard
+        event={progressEvent}
+        fileName={file?.name}
+        fileSizeBytes={file?.size}
+      />
+    );
+  }
 
   return (
     <>
