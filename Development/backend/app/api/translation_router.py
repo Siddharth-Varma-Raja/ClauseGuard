@@ -6,7 +6,6 @@ to ClauseGuard database models, serializing output to camelCase
 and mapping status levels (likely_unenforceable -> red, etc.).
 """
 
-import asyncio
 import json
 import logging
 import magic
@@ -41,7 +40,6 @@ from app.models.timeline import TimelineEvent
 from app.models.user import AuditLog, User
 from app.schemas.translation import (
     AnalysisDetail,
-    AnalysisStatusResponse,
     AnalysisSummary,
     ClauseItem,
     ClauseQuestionRequest,
@@ -152,7 +150,6 @@ async def get_analyses(
                 created_at=doc.created_at.isoformat(),
                 property_address=prop_addr,
                 counts=counts,
-                processing_status=doc.status.value,
             )
         )
 
@@ -254,7 +251,6 @@ async def get_analysis(
         term_months=term_months,
         page_count=page_count,
         clauses=clauses_list,
-        processing_status=doc.status.value,
     )
 
 
@@ -396,30 +392,32 @@ async def get_analysis_status(
             Document.user_id == current_user.id,
             Document.is_deleted == False,  # noqa: E712
         )
-    )
-    doc = result.scalar_one_or_none()
-    if doc is None:
+    except Exception as exc:
+        logger.exception(f"Unexpected error during upload pipeline: {exc}")
+        doc.status = DocumentStatus.FAILED
+        doc.pipeline_error = str(exc)
+        await db.commit()
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Analysis not found.",
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while processing the document.",
         )
 
-    # Build counts if completed
-    counts = None
-    if doc.status == DocumentStatus.COMPLETED:
-        review_result = await db.execute(
-            select(DocumentReview).where(DocumentReview.document_id == doc.id)
+    # Analyse the redacted lease text (language stream + rules engine) and store the result.
+    try:
+        review = await save_analysis(db, doc.id, pipeline_result["redacted_text"])
+        await db.commit()
+    except Exception as exc:
+        logger.exception(f"Analysis failed: {exc}")
+        await db.rollback()
+        doc.status = DocumentStatus.FAILED
+        doc.pipeline_error = f"analysis: {exc}"
+        await db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="The lease was uploaded but could not be analysed.",
         )
-        review = review_result.scalar_one_or_none()
-        if review:
-            counts = StatusCounts(
-                red=review.likely_unenforceable_count,
-                amber=review.needs_review_count,
-                green=review.compliant_count,
-                grey=review.informational_count,
-            )
 
-    return AnalysisStatusResponse(
+    return UploadLeaseResponse(
         id=doc.id,
         status=doc.status.value,
         # processing_step/progress columns were removed — return None so the
