@@ -12,7 +12,7 @@ import type {
   NewTimelineEvent,
   Notice,
   UploadLeaseResponse,
-  UserProfile
+  UserProfile,
 } from "./notice-types";
 import { SAMPLE_ANSWER, SAMPLE_ID, SAMPLE_LEASE } from "./sample-lease";
 
@@ -177,11 +177,6 @@ export async function uploadLease(file: File): Promise<UploadLeaseResponse> {
     body: form,
     timeoutMs: UPLOAD_TIMEOUT_MS,
   });
-}
-
-/** Poll the processing status of a document. */
-export function getAnalysisStatus(analysisId: string) {
-  return request<AnalysisStatus>(`/analyses/${id(analysisId)}/status`);
 }
 
 export function setClauseReviewed(analysisId: string, clauseId: string, reviewed: boolean) {
