@@ -1,3 +1,4 @@
+import asyncio
 import structlog
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
@@ -15,6 +16,7 @@ from app.config import settings
 from app.core.firebase import init_firebase
 from app.core.rate_limit import limiter
 from app.middleware.logging import RequestLoggingMiddleware
+from app.worker.task_queue import task_queue
 
 structlog.configure(
     processors=[
@@ -54,6 +56,17 @@ app.include_router(dev_router, prefix="/api")
 @app.on_event("startup")
 async def startup() -> None:
     init_firebase()
+    # Start the background worker thread pool.
+    # We pass the running event loop so worker threads can dispatch async DB
+    # writes back onto it via asyncio.run_coroutine_threadsafe().
+    task_queue.start(loop=asyncio.get_running_loop())
+
+
+@app.on_event("shutdown")
+async def shutdown() -> None:
+    # wait=False: don't block shutdown for in-progress jobs; they'll complete
+    # or be retried on the next restart (Document.status=PROCESSING is the cue).
+    task_queue.shutdown(wait=False)
 
 
 @app.get("/health", tags=["Health"])
