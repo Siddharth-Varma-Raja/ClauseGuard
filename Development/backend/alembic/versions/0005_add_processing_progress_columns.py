@@ -21,52 +21,37 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # processing_step  — human-readable pipeline stage name:
-    #   "uploaded" | "extracting" | "validating" | "redacting" | "analysing"
-    #   | "completed" | "failed"
-    op.add_column(
-        "documents",
-        sa.Column("processing_step", sa.String(50), nullable=True),
-    )
+    conn = op.get_bind()
+    insp = sa.inspect(conn)
+    existing_cols = {c["name"] for c in insp.get_columns("documents")}
 
-    # processing_step_index — 0-based index of the current step out of total
-    #   steps, used by the frontend progress bar (0 = uploaded, 4 = analysing)
-    op.add_column(
-        "documents",
-        sa.Column("processing_step_index", sa.Integer, nullable=True),
-    )
-
-    # processing_progress — float 0.0–1.0, overall fraction of work done
-    op.add_column(
-        "documents",
-        sa.Column("processing_progress", sa.Float, nullable=True),
-    )
-
-    # processing_message — the display message shown to the user, e.g.
-    #   "Analysing clauses against Irish tenancy law…"
-    op.add_column(
-        "documents",
-        sa.Column("processing_message", sa.Text, nullable=True),
-    )
-
-    # estimated_seconds — initial estimate written at upload time by estimator.py
-    op.add_column(
-        "documents",
-        sa.Column("estimated_seconds", sa.Integer, nullable=True),
-    )
-
-    # page_count — extracted from the PDF at upload time for display + timing
-    op.add_column(
-        "documents",
-        sa.Column("page_count", sa.Integer, nullable=True),
-    )
+    cols = [
+        ("processing_step", sa.Column("processing_step", sa.String(50), nullable=True)),
+        ("processing_step_index", sa.Column("processing_step_index", sa.Integer, nullable=True)),
+        ("processing_progress", sa.Column("processing_progress", sa.Float, nullable=True)),
+        ("processing_message", sa.Column("processing_message", sa.Text, nullable=True)),
+        ("estimated_seconds", sa.Column("estimated_seconds", sa.Integer, nullable=True)),
+        ("page_count", sa.Column("page_count", sa.Integer, nullable=True)),
+    ]
+    for col_name, col_obj in cols:
+        if col_name not in existing_cols:
+            op.add_column("documents", col_obj)
 
 
 def downgrade() -> None:
-    op.drop_column("documents", "page_count")
-    op.drop_column("documents", "estimated_seconds")
-    op.drop_column("documents", "processing_message")
-    op.drop_column("documents", "processing_progress")
-    op.drop_column("documents", "processing_step_index")
-    op.drop_column("documents", "processing_step")
+    conn = op.get_bind()
+    insp = sa.inspect(conn)
+    existing_cols = {c["name"] for c in insp.get_columns("documents")}
+
+    cols = [
+        "page_count",
+        "estimated_seconds",
+        "processing_message",
+        "processing_progress",
+        "processing_step_index",
+        "processing_step",
+    ]
+    for col_name in cols:
+        if col_name in existing_cols:
+            op.drop_column("documents", col_name)
 
