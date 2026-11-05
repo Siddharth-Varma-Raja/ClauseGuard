@@ -1,6 +1,11 @@
 import type { Analysis, Clause, Status } from "./notice-types";
 
 export const SAMPLE_ID = "sample";
+export const SAMPLE_UPDATED_ID = "sample-v2";
+
+export function isSampleId(id: string) {
+  return id === SAMPLE_ID || id === SAMPLE_UPDATED_ID;
+}
 
 export const SAMPLE_ANSWER =
   "This is a sample lease, so questions aren't answered here. Upload your own lease and you can ask ClauseGuard about any clause in it.";
@@ -207,3 +212,95 @@ export const SAMPLE_LEASE: Analysis = {
   pageCount: 5,
   clauses: CLAUSES,
 };
+
+function countStatuses(clauses: Clause[]) {
+  return {
+    red: clauses.filter((c) => c.status === "red").length,
+    amber: clauses.filter((c) => c.status === "amber").length,
+    green: clauses.filter((c) => c.status === "green").length,
+    grey: clauses.filter((c) => c.status === "grey").length,
+  };
+}
+
+const UPDATED_CLAUSES: Record<string, Partial<Clause>> = {
+  "4": {
+    status: "green",
+    text: "Prior to the commencement of the Term the Tenant shall pay to the Landlord a security deposit equivalent to one (1) month's Rent, being the sum of one thousand eight hundred and fifty euro (€1,850) (\"the Deposit\"), together with Rent in advance for the first month of the Term. The Deposit shall be held by the Landlord as security for the performance of the Tenant's covenants and may be applied by the Landlord in or towards any loss, cost or expense sustained by the Landlord.",
+    explanation: "You'd pay a €1,850 deposit plus one month's rent in advance.",
+    reason: "One month's deposit and one month's rent in advance is within the limit.",
+    nextSteps: [],
+    sources: [],
+  },
+  "6": {
+    status: "amber",
+    text: "The Tenant shall at the Tenant's own expense keep the interior of the Premises in good repair and condition throughout the Term, fair wear and tear excepted, and shall make good any defect within fourteen (14) days of being requested to do so by the Landlord.",
+    explanation: "You'd now only pay for repairs inside the apartment, not the roof, walls, boiler or wiring.",
+    reason: "Better, but it doesn't say who pays for faults that aren't your fault, and it doesn't list the landlord's repair duties.",
+    nextSteps: ["Ask for this to cover only damage you or your visitors cause."],
+  },
+};
+
+const NEW_CLAUSE = clause(
+  18,
+  "Administration Fee",
+  "red",
+  5,
+  "The Tenant shall pay to the Landlord an administration fee of five hundred euro (€500) upon the signing of this Agreement, and a further fee of two hundred and fifty euro (€250) upon any renewal of the Term.",
+  "You'd pay €500 when you sign, and €250 every time the lease is renewed.",
+  "This wasn't in the last version. A charge like this may not be allowed, so check it before you sign.",
+  ["Ask what this fee is for, and ask for it to be removed."],
+);
+
+const UPDATED_CLAUSE_LIST: Clause[] = [
+  ...CLAUSES.filter((c) => c.number !== "14").map((c) => ({ ...c, ...UPDATED_CLAUSES[c.number] })),
+  NEW_CLAUSE,
+].map((c) => ({ ...c, id: `sample-v2-${c.number}` }));
+
+const SAMPLE_UPDATED_LEASE: Analysis = {
+  ...SAMPLE_LEASE,
+  id: SAMPLE_UPDATED_ID,
+  createdAt: "2026-11-15T10:00:00Z",
+  depositCents: 185000,
+  counts: countStatuses(UPDATED_CLAUSE_LIST),
+  clauses: UPDATED_CLAUSE_LIST,
+};
+
+const SAMPLE_VERSIONS = [
+  { id: SAMPLE_ID, version: 1, createdAt: SAMPLE_LEASE.createdAt, counts: SAMPLE_LEASE.counts },
+  { id: SAMPLE_UPDATED_ID, version: 2, createdAt: SAMPLE_UPDATED_LEASE.createdAt, counts: SAMPLE_UPDATED_LEASE.counts },
+];
+
+let sampleUpdateAdded = false;
+
+export function getSampleLease(id: string): Analysis {
+  if (id === SAMPLE_UPDATED_ID) {
+    sampleUpdateAdded = true;
+    return { ...SAMPLE_UPDATED_LEASE, version: 2, versionCount: 2, versions: SAMPLE_VERSIONS };
+  }
+  if (sampleUpdateAdded) return { ...SAMPLE_LEASE, version: 1, versionCount: 2, versions: SAMPLE_VERSIONS };
+  return { ...SAMPLE_LEASE, version: 1, versionCount: 1, versions: SAMPLE_VERSIONS.slice(0, 1) };
+}
+
+const SAMPLE_ASKS: Record<string, string> = {
+  "4": "The deposit is three months' rent, plus two months in advance. I understand the limit is one month for each, so could the deposit be changed to €1,850 with one month's rent in advance?",
+  "6": "This makes me responsible for all repairs, including the roof, boiler and wiring. Could it be limited to damage caused by me or my visitors, with your repair duties written in?",
+  "7": "This allows entry at any time without notice. Could it say that visits will be arranged with me in advance, except in an emergency?",
+  "8": "This allows rent reviews at any time. Could it say that reviews will follow the Residential Tenancies Acts?",
+  "10": "Could the limit on overnight guests be removed or relaxed?",
+  "11": "Would a small pet be possible? I'd be happy to confirm the details in writing.",
+  "12": "This takes a fixed €400 cleaning charge from the deposit. Could this be removed?",
+  "13": "Could we confirm how ending the lease early would work, and the notice period that applies?",
+  "14": "This would stop me from going to the RTB with a dispute. As I understand that right comes from the law, could this clause be removed?",
+  "18": "This is new in the latest version. Could you explain what the €500 fee is for, and could it be removed?",
+};
+
+export function sampleLandlordEmail(clauses: Clause[]) {
+  const points = clauses
+    .map((c) => `- Clause ${c.number} (${c.title}): ${SAMPLE_ASKS[c.number] ?? "Could we talk about this clause?"}`)
+    .join("\n");
+
+  return {
+    subject: "Questions about my lease before signing",
+    body: `Dear [Landlord Name],\n\nThank you for sending the lease for [Property Address]. I've read it carefully and I'm looking forward to the tenancy, but I'd like to talk through a few clauses before I sign:\n\n${points}\n\nI understand some of these may simply be standard wording, and I'd be glad to discuss them. Could you let me know your thoughts, and send an updated copy if you're happy to make these changes?\n\nKind regards,\n[Your Name]`,
+  };
+}
