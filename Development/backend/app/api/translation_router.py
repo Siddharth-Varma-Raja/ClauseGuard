@@ -6,17 +6,15 @@ to ClauseGuard database models, serializing output to camelCase
 and mapping status levels (likely_unenforceable -> red, etc.).
 """
 
-import asyncio
 import json
 import logging
 import magic
 import os
 import uuid
 from datetime import datetime, timezone
-from typing import Any, AsyncGenerator, List
+from typing import Any, List
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, Response, UploadFile, status
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile, status
 from google import genai
 from google.genai import types
 from sqlalchemy import func, select
@@ -25,7 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_user
 from app.config import settings
 from app.core.firebase import revoke_refresh_tokens
-from app.database import AsyncSessionLocal, get_db
+from app.database import get_db
 from app.models.chat import ChatMessage, ChatRole
 from app.models.document import Document, DocumentStatus
 from app.models.notice import Notice
@@ -42,7 +40,6 @@ from app.models.timeline import TimelineEvent
 from app.models.user import AuditLog, User
 from app.schemas.translation import (
     AnalysisDetail,
-    AnalysisStatusResponse,
     AnalysisSummary,
     ClauseItem,
     ClauseQuestionRequest,
@@ -65,11 +62,9 @@ from app.schemas.translation import (
     UserProfileResponse,
 )
 from app.services.analysis.persist import save_analysis
-from app.services.document.estimator import estimate_processing_time
 from app.services.document.pipeline import PipelineError, run_upload_pipeline
 from app.services.document.s3 import delete_from_s3
 from app.services.notice_checker import check_notice_rules
-from app.worker.task_queue import ProcessingTask, task_queue
 
 logger = logging.getLogger(__name__)
 
@@ -155,7 +150,6 @@ async def get_analyses(
                 created_at=doc.created_at.isoformat(),
                 property_address=prop_addr,
                 counts=counts,
-                processing_status=doc.status.value,
             )
         )
 
@@ -257,51 +251,21 @@ async def get_analysis(
         term_months=term_months,
         page_count=page_count,
         clauses=clauses_list,
-        processing_status=doc.status.value,
     )
 
 
 @router.post(
     "/analyses",
-    status_code=status.HTTP_202_ACCEPTED,
+    response_model=UploadLeaseResponse,
+    status_code=status.HTTP_201_CREATED,
     tags=["Analyses"],
 )
 async def upload_lease(
-    request: Request,
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-    stream: bool = Query(
-        default=False,
-        description=(
-            "Set to true (or send Accept: text/event-stream) to receive "
-            "live Server-Sent Events while the document is processed."
-        ),
-    ),
-):
-    """
-    Upload a lease document and queue it for asynchronous processing.
-
-    Returns 202 Accepted immediately with the document ID and estimated
-    processing time.  Pass ?stream=true (or Accept: text/event-stream) to
-    receive a live SSE stream of progress events until analysis is complete.
-
-    SSE event format (JSON)
-    -----------------------
-    ::
-
-        {
-          "step":           "extracting",   // current stage name
-          "stepIndex":      1,              // 0-based stage index
-          "progress":       0.10,           // 0.0 – 1.0
-          "message":        "Reading document text with OCR…",
-          "estimatedSeconds": 32,           // initial estimate (unchanged)
-          "estimatedSecondsRemaining": 28   // countdown (decreasing)
-        }
-
-    The stream ends automatically when step == "completed" or "failed".
-    """
-    # ── 1. Read and validate the uploaded file ─────────────────────────────────
+) -> UploadLeaseResponse:
+    """Upload a lease document and run the extraction and analysis pipeline."""
     file_bytes = await file.read()
 
     if len(file_bytes) > _MAX_FILE_SIZE_BYTES:
@@ -324,12 +288,7 @@ async def upload_lease(
 
     original_filename = file.filename or "lease.pdf"
 
-    # ── 2. Estimate processing time before touching the DB ────────────────────
-    # estimate_processing_time is a pure Python function (no GCP calls) so it
-    # is safe to call synchronously here.
-    estimated_seconds, page_count = estimate_processing_time(file_bytes, actual_mime_type)
-
-    # ── 3. Create the Document row in PROCESSING state ────────────────────────
+    # Create document record
     doc = Document(
         user_id=current_user.id,
         original_filename=original_filename,
@@ -337,242 +296,74 @@ async def upload_lease(
         file_size_bytes=len(file_bytes),
         sha256_hash=Document.compute_hash(file_bytes),
         status=DocumentStatus.PROCESSING,
-        # Pre-fill progress columns so SSE can start streaming immediately
-        processing_step="uploaded",
-        processing_step_index=0,
-        processing_progress=0.0,
-        processing_message="Lease received — starting analysis…",
-        estimated_seconds=estimated_seconds,
-        page_count=page_count,
     )
     db.add(doc)
     await db.commit()
     await db.refresh(doc)
 
-    # ── 4. Submit the document to the background worker ───────────────────────
-    # This is non-blocking: the thread pool picks up the task and runs the
-    # pipeline (OCR → validation → redaction → analysis) independently of
-    # this HTTP request.
-    task_queue.submit(
-        ProcessingTask(
-            doc_id=doc.id,
+    # Run upload pipeline (including diff_engine lease verification)
+    try:
+        pipeline_result = run_upload_pipeline(
             file_bytes=file_bytes,
             user_id=current_user.id,
             content_type=actual_mime_type,
-            filename=original_filename,
-            estimated_seconds=estimated_seconds,
         )
-    )
-
-    logger.info(
-        "[upload] doc_id=%s queued. estimated=%ds pages=%d user=%s",
-        doc.id,
-        estimated_seconds,
-        page_count,
-        current_user.id,
-    )
-
-    # ── 5a. SSE mode — stream progress until completed/failed ─────────────────
-    wants_stream = stream or (
-        request.headers.get("accept", "").startswith("text/event-stream")
-    )
-
-    if wants_stream:
-        return StreamingResponse(
-            _sse_progress_generator(
-                doc_id=doc.id,
-                estimated_seconds=estimated_seconds,
-                user_id=current_user.id,
-            ),
-            media_type="text/event-stream",
-            headers={
-                # Prevent nginx / Cloudflare from buffering the stream
-                "X-Accel-Buffering": "no",
-                "Cache-Control": "no-cache",
-                # Allow the frontend to read the doc ID before streaming starts
-                "X-Document-Id": doc.id,
-            },
+        doc.s3_uri = pipeline_result["s3_uri"]
+        doc.s3_key = pipeline_result["s3_key"]
+        doc.char_count = pipeline_result["char_count"]
+        doc.status = DocumentStatus.COMPLETED
+    except PipelineError as exc:
+        doc.status = DocumentStatus.FAILED
+        doc.pipeline_error = str(exc)
+        await db.commit()
+        if exc.step == "lease_validation":
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=str(exc),
+            )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Upload pipeline failed during {exc.step}: {exc}",
+        )
+    except Exception as exc:
+        logger.exception(f"Unexpected error during upload pipeline: {exc}")
+        doc.status = DocumentStatus.FAILED
+        doc.pipeline_error = str(exc)
+        await db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while processing the document.",
         )
 
-    # ── 5b. Poll mode — return 202 immediately ────────────────────────────────
+    # Analyse the redacted lease text (language stream + rules engine) and store the result.
+    try:
+        review = await save_analysis(db, doc.id, pipeline_result["redacted_text"])
+        await db.commit()
+    except Exception as exc:
+        logger.exception(f"Analysis failed: {exc}")
+        await db.rollback()
+        doc.status = DocumentStatus.FAILED
+        doc.pipeline_error = f"analysis: {exc}"
+        await db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="The lease was uploaded but could not be analysed.",
+        )
+
     return UploadLeaseResponse(
         id=doc.id,
-        message="Lease document uploaded — processing has started.",
+        message="Lease document uploaded and analyzed successfully.",
         file_name=doc.original_filename,
         file_size_bytes=doc.file_size_bytes,
-        status="processing",
-        estimated_seconds=estimated_seconds,
-        page_count=page_count,
-    )
-
-
-async def _sse_progress_generator(
-    doc_id: str,
-    estimated_seconds: int,
-    user_id: str,
-) -> AsyncGenerator[str, None]:
-    """
-    Async generator that polls the Document row in MySQL every 1.5 s and
-    yields Server-Sent Event strings until the pipeline completes or fails.
-
-    Why poll the DB instead of using an in-memory queue?
-    - Works across multiple FastAPI worker processes (Gunicorn with --workers)
-    - Survives server restarts (progress is persisted)
-    - No Redis or message broker required
-
-    SSE wire format (each event is two lines + blank line):
-    ::
-
-        data: {"step": "extracting", ...}\n\n
-    """
-    poll_interval = 1.5   # seconds between DB reads
-    max_polls = 120       # hard cap: 3 minutes total
-    poll_count = 0
-    start_time = datetime.now(timezone.utc)
-
-    # Yield an initial "uploaded" event immediately so the UI starts rendering
-    yield _make_sse_event(
-        step="uploaded",
-        step_index=0,
-        progress=0.0,
-        message="Lease received — starting analysis…",
-        estimated_seconds=estimated_seconds,
-        estimated_seconds_remaining=estimated_seconds,
-    )
-
-    while poll_count < max_polls:
-        await asyncio.sleep(poll_interval)
-        poll_count += 1
-
-        # Open a fresh session for each poll — avoids stale reads from the
-        # SQLAlchemy identity map (which caches the row state).
-        async with AsyncSessionLocal() as db:
-            result = await db.execute(
-                select(Document).where(Document.id == doc_id)
-            )
-            doc = result.scalar_one_or_none()
-
-        if doc is None:
-            yield _make_sse_event(
-                step="failed",
-                step_index=-1,
-                progress=0.0,
-                message="Document not found.",
-                estimated_seconds=estimated_seconds,
-                estimated_seconds_remaining=0,
-            )
-            return
-
-        step = doc.processing_step or "uploaded"
-        step_index = doc.processing_step_index or 0
-        progress = doc.processing_progress or 0.0
-        message = doc.processing_message or ""
-
-        # Compute seconds remaining from elapsed wall-clock time
-        elapsed = (datetime.now(timezone.utc) - start_time).total_seconds()
-        remaining = max(0, int(estimated_seconds - elapsed))
-
-        yield _make_sse_event(
-            step=step,
-            step_index=step_index,
-            progress=progress,
-            message=message,
-            estimated_seconds=estimated_seconds,
-            estimated_seconds_remaining=remaining,
-        )
-
-        # Terminal states — stop streaming
-        if step in ("completed", "failed"):
-            return
-
-    # Timeout guard: if we hit max_polls, yield a failure event
-    yield _make_sse_event(
-        step="failed",
-        step_index=-1,
-        progress=0.0,
-        message="Analysis timed out. Please check the dashboard for results.",
-        estimated_seconds=estimated_seconds,
-        estimated_seconds_remaining=0,
-    )
-
-
-def _make_sse_event(
-    *,
-    step: str,
-    step_index: int,
-    progress: float,
-    message: str,
-    estimated_seconds: int,
-    estimated_seconds_remaining: int,
-) -> str:
-    """Format a dict as an SSE ``data:`` line followed by a blank line."""
-    payload = {
-        "step": step,
-        "stepIndex": step_index,
-        "progress": round(progress, 3),
-        "message": message,
-        "estimatedSeconds": estimated_seconds,
-        "estimatedSecondsRemaining": estimated_seconds_remaining,
-    }
-    return f"data: {json.dumps(payload)}\n\n"
-
-
-@router.get(
-    "/analyses/{analysis_id}/status",
-    response_model=AnalysisStatusResponse,
-    tags=["Analyses"],
-)
-async def get_analysis_status(
-    analysis_id: str,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-) -> AnalysisStatusResponse:
-    """
-    Poll the processing status of a document analysis.
-
-    Use this as a fallback when SSE is unavailable (e.g. the browser tab was
-    restored after a refresh).  The frontend's lease/[id]/page.tsx polls this
-    endpoint every 2 s while status != completed/failed.
-    """
-    result = await db.execute(
-        select(Document).where(
-            Document.id == analysis_id,
-            Document.user_id == current_user.id,
-            Document.is_deleted == False,  # noqa: E712
-        )
-    )
-    doc = result.scalar_one_or_none()
-    if doc is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Analysis not found.",
-        )
-
-    # Build counts if completed
-    counts = None
-    if doc.status == DocumentStatus.COMPLETED:
-        review_result = await db.execute(
-            select(DocumentReview).where(DocumentReview.document_id == doc.id)
-        )
-        review = review_result.scalar_one_or_none()
-        if review:
-            counts = StatusCounts(
-                red=review.likely_unenforceable_count,
-                amber=review.needs_review_count,
-                green=review.compliant_count,
-                grey=review.informational_count,
-            )
-
-    return AnalysisStatusResponse(
-        id=doc.id,
-        status=doc.status.value,
-        processing_step=doc.processing_step,
-        processing_step_index=doc.processing_step_index,
-        processing_progress=doc.processing_progress,
-        processing_message=doc.processing_message,
-        estimated_seconds=doc.estimated_seconds,
-        page_count=doc.page_count,
-        counts=counts,
+        status=doc.status.value if hasattr(doc.status, "value") else str(doc.status),
+        s3_key=doc.s3_key,
+        char_count=doc.char_count,
+        counts=StatusCounts(
+            red=review.likely_unenforceable_count,
+            amber=review.needs_review_count,
+            green=review.compliant_count,
+            grey=review.informational_count,
+        ),
     )
 
 
