@@ -38,7 +38,7 @@ class EmailDraftRequest(BaseModel):
     landlord_name: Optional[str] = "[Landlord Name]"
     tenant_name: Optional[str] = "[Your Name]"
     property_address: Optional[str] = "[Property Address]"
-    detected_deviations: List[str]
+    detected_deviations: List[str] = Field(..., max_length=30)
 
 class EmailDraftResponse(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
