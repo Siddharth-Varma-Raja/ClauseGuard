@@ -7,9 +7,9 @@ const linkHoverClass = "text-sm hover:text-brand transition-colors duration-300 
 export default function Footer() {
   return (
     <footer className="border-t border-line bg-white p-3">
-      <div className="flex flex-row justify-between items-center gap-4 container mx-auto px-6 py-6 text-mute">
+      <div className="flex flex-col sm:flex-row justify-between items-center gap-4 container mx-auto px-6 py-6 text-mute">
         <p className="text-sm">@2026 ClauseGuard</p>
-        <nav className="flex flex-row gap-5">
+        <nav className="flex flex-row flex-wrap justify-center gap-x-5 gap-y-2">
           <Link href="/terms" className={linkHoverClass}>Terms</Link>
           <Link href="/privacy" className={linkHoverClass}>Privacy</Link>
           <Link href="/contact" className={linkHoverClass}>Contact</Link>
