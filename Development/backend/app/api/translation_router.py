@@ -369,69 +369,6 @@ async def upload_lease(
     )
 
 
-@router.get(
-    "/analyses/{analysis_id}/status",
-    response_model=AnalysisStatusResponse,
-    tags=["Analyses"],
-)
-async def get_analysis_status(
-    analysis_id: str,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-) -> AnalysisStatusResponse:
-    """
-    Poll the processing status of a document analysis.
-
-    Use this as a fallback when SSE is unavailable (e.g. the browser tab was
-    restored after a refresh).  The frontend's lease/[id]/page.tsx polls this
-    endpoint every 2 s while status != completed/failed.
-    """
-    result = await db.execute(
-        select(Document).where(
-            Document.id == analysis_id,
-            Document.user_id == current_user.id,
-            Document.is_deleted == False,  # noqa: E712
-        )
-    except Exception as exc:
-        logger.exception(f"Unexpected error during upload pipeline: {exc}")
-        doc.status = DocumentStatus.FAILED
-        doc.pipeline_error = str(exc)
-        await db.commit()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An error occurred while processing the document.",
-        )
-
-    # Analyse the redacted lease text (language stream + rules engine) and store the result.
-    try:
-        review = await save_analysis(db, doc.id, pipeline_result["redacted_text"])
-        await db.commit()
-    except Exception as exc:
-        logger.exception(f"Analysis failed: {exc}")
-        await db.rollback()
-        doc.status = DocumentStatus.FAILED
-        doc.pipeline_error = f"analysis: {exc}"
-        await db.commit()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="The lease was uploaded but could not be analysed.",
-        )
-
-    return UploadLeaseResponse(
-        id=doc.id,
-        status=doc.status.value,
-        # processing_step/progress columns were removed — return None so the
-        # frontend falls back to polling the top-level status field.
-        processing_step=None,
-        processing_step_index=None,
-        processing_progress=None,
-        processing_message=None,
-        estimated_seconds=None,
-        page_count=None,
-        counts=counts,
-    )
-
-
 @router.patch("/analyses/{analysis_id}/clauses/{clause_id}", status_code=status.HTTP_204_NO_CONTENT, tags=["Analyses"])
 async def set_clause_reviewed(
     analysis_id: str,
