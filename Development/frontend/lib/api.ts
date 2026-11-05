@@ -7,13 +7,11 @@ import type {
   TimelineEvent,
   Analysis,
   AnalysisSummary,
-  AnalysisStatus,
   ChatMessage,
   GdprExport,
   NewTimelineEvent,
   Notice,
   UploadLeaseResponse,
-  UploadProgressEvent,
   UserProfile
 } from "./notice-types";
 import { SAMPLE_ANSWER, SAMPLE_ID, SAMPLE_LEASE } from "./sample-lease";

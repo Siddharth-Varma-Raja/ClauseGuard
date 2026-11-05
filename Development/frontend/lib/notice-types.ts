@@ -32,7 +32,6 @@ export type AnalysisSummary = {
   createdAt: string;
   propertyAddress: string | null;
   counts: StatusCounts;
-  processingStatus?: string | null;
 };
 
 export type Analysis = AnalysisSummary & {
@@ -50,33 +49,8 @@ export type UploadLeaseResponse = {
   fileName: string;
   fileSizeBytes: number;
   status: string;
-  estimatedSeconds?: number | null;
-  pageCount?: number | null;
   s3Key?: string | null;
   charCount?: number | null;
-  counts?: StatusCounts | null;
-};
-
-/** One SSE progress event emitted by the backend while processing a lease. */
-export type UploadProgressEvent = {
-  step: "uploaded" | "extracting" | "validating" | "redacting" | "analysing" | "completed" | "failed";
-  stepIndex: number;
-  progress: number;              // 0.0 – 1.0
-  message: string;
-  estimatedSeconds: number;
-  estimatedSecondsRemaining: number;
-};
-
-/** Returned by GET /api/analyses/{id}/status */
-export type AnalysisStatus = {
-  id: string;
-  status: string;
-  processingStep?: string | null;
-  processingStepIndex?: number | null;
-  processingProgress?: number | null;
-  processingMessage?: string | null;
-  estimatedSeconds?: number | null;
-  pageCount?: number | null;
   counts?: StatusCounts | null;
 };
 
