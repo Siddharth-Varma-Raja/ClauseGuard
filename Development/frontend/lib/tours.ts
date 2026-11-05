@@ -6,29 +6,52 @@ export type TourStep = {
 
 export const DASHBOARD_TOUR: TourStep[] = [
   {
-    target: "validate-lease",
-    title: "Start here",
-    text: "Upload a draft lease and ClauseGuard checks every clause against Irish tenancy law, so you know what to question before you sign.",
+    target: "spotlight",
+    title: "What matters most",
+    text: "This card always shows the most important thing right now, like a deadline that is close or clauses you still need to review.",
   },
   {
-    target: "check-notice",
-    title: "Check a notice",
-    text: "Check a rent increase or notice to quit to see if anything looks wrong.",
+    target: "also-on-list",
+    title: "Also on your list",
+    text: "Everything else that needs your attention. When there is nothing left to do, you see a quick summary of your lease instead.",
   },
   {
-    target: "tenancy-timeline",
-    title: "Tenancy timeline",
-    text: "Keep track of important dates like your rent review dates and notice periods.",
+    target: "my-leases",
+    title: "My leases",
+    text: "Your latest leases with their verdict and how far you got with the review. Click one to open it.",
   },
   {
-    target: "recent-analyses",
-    title: "Recent analyses",
-    text: "Come back to your previous lease reviews whenever you need them.",
+    target: "upcoming-dates",
+    title: "Upcoming dates",
+    text: "The next dates from your tenancy timeline, like rent day or a notice period.",
+  },
+  {
+    target: "quick-actions",
+    title: "Quick actions",
+    text: "Check a landlord's notice, add a date or upload another lease.",
   },
   {
     target: "tour-button",
     title: "Replay the tour",
-    text: "You can take this quick tour again whenever you need.",
+    text: "Click the ? button at the top any time to take this tour again.",
+  },
+];
+
+export const NEW_USER_TOUR: TourStep[] = [
+  {
+    target: "upload-box",
+    title: "Start here",
+    text: "Click the button or drop your lease anywhere in this box. ClauseGuard checks every clause against Irish tenancy law, so you know what to question before you sign.",
+  },
+  {
+    target: "features",
+    title: "Everything else",
+    text: "Not ready to upload? Explore the sample lease, check a landlord's notice or add your important dates.",
+  },
+  {
+    target: "tour-button",
+    title: "Replay the tour",
+    text: "Click the ? button at the top any time to take this tour again.",
   },
 ];
 
@@ -42,19 +65,14 @@ export const LEASES_TOUR: TourStep[] = [
 
 export const UPLOAD_TOUR: TourStep[] = [
   {
-    target: "drop-zone",
-    title: "Drop your lease",
-    text: "Drag a PDF or DOCX of your rental agreement here, or click to pick one of them from your files.",
+    target: "upload-box",
+    title: "Upload your lease",
+    text: "Click the button or drop a PDF, Word file or photo anywhere in this box. The check starts straight away.",
   },
   {
-    target: "check-button",
-    title: "Check my lease",
-    text: "Once your file is selected, press this button to start the review.",
-  },
-  {
-    target: "what-happens",
-    title: "What happens next",
-    text: "These three steps explain exactly what ClauseGuard does with your lease after you upload it.",
+    target: "tour-button",
+    title: "Replay the tour",
+    text: "Click the ? button at the top any time to take this tour again.",
   },
 ];
 
@@ -211,5 +229,23 @@ export const REVIEW_LEASE_TOUR: TourStep[] = [
     target: "clause-details",
     title: "Clause explained",
     text: "What the clause means in plain English, why it was flagged under Irish tenancy law, and what you can do.",
+  },
+];
+
+export const SAMPLE_TOUR: TourStep[] = [
+  {
+    target: "key-details",
+    title: "Found straight away",
+    text: "The deposit in this lease is three months' rent. In Ireland the limit is one month, so ClauseGuard flags it here first.",
+  },
+  {
+    target: "clause-cards",
+    title: "Every problem in plain English",
+    text: "These are the clauses worth raising. Open one to see why it was flagged and what you could say to your landlord.",
+  },
+  {
+    target: "sample-own",
+    title: "Now try yours",
+    text: "That's how ClauseGuard works. When you're ready, check your own lease the same way.",
   },
 ];
