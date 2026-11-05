@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, ChevronRight, CircleCheck, CircleX, FileText, Loader2, TriangleAlert } from "lucide-react";
+import { ArrowRight, ChevronRight, CircleCheck, FileText, TriangleAlert } from "lucide-react";
 import { flaggedClauses, leaseName } from "@/lib/dashboard";
 import type { Analysis, AnalysisSummary } from "@/lib/notice-types";
 import { STATUS, STATUS_ORDER } from "@/lib/status";
@@ -11,23 +11,6 @@ function formatCreated(iso: string) {
 }
 
 function Verdict({ lease, detail }: { lease: AnalysisSummary; detail?: Analysis }) {
-  if (lease.processingStatus === "processing" || lease.processingStatus === "pending") {
-    return (
-      <span className="inline-flex w-32 shrink-0 items-center justify-center gap-1.5 rounded-full border border-brand/20 bg-brand-soft px-3 py-1 text-xs font-semibold text-brand">
-        <Loader2 size={13} className="animate-spin" />
-        Processing
-      </span>
-    );
-  }
-  if (lease.processingStatus === "failed") {
-    return (
-      <span className="inline-flex w-32 shrink-0 items-center justify-center gap-1.5 rounded-full border border-bad-line bg-bad-bg px-3 py-1 text-xs font-semibold text-bad">
-        <CircleX size={13} />
-        Failed
-      </span>
-    );
-  }
-
   const left = detail ? flaggedClauses(detail).filter((c) => !c.reviewed) : [];
   const red = detail ? left.filter((c) => c.status === "red").length : lease.counts.red;
   const amber = detail ? left.filter((c) => c.status === "amber").length : lease.counts.amber;
