@@ -14,7 +14,7 @@ import {
   Info,
   Minus,
   Plus, ChevronDown,
-  MessageCircleQuestion, Download, List, FileText
+  MessageCircleQuestion, Download, List, FileText, FlaskConical, Upload
 } from "lucide-react";
 
 import type { Analysis, Clause } from "@/lib/notice-types";
@@ -23,10 +23,11 @@ import { cn } from "@/lib/cn";
 import { errorMessage, getPreferences, setClauseReviewed } from "@/lib/api";
 import AskClauseGuard from "@/components/lease/AskClauseGuard";
 import PageTour from "@/components/PageTour";
-import { REVIEW_LEASE_TOUR, REVIEW_TOUR } from "@/lib/tours";
+import { REVIEW_LEASE_TOUR, REVIEW_TOUR, SAMPLE_TOUR } from "@/lib/tours";
 import ReviewSummary from "@/components/review/ReviewSummary";
 import { loadViewPreference, saveViewPreference, type ReviewView } from "@/lib/viewPreference";
 import LeaseScrollBar from "./review/LeaseScrollBar";
+import { SAMPLE_ID } from "@/lib/sample-lease";
 
 export default function ReviewWorkspace({ analysis }: { analysis: Analysis }) {
   const [clauses, setClauses] = useState<Clause[]>(analysis.clauses);
@@ -140,6 +141,24 @@ export default function ReviewWorkspace({ analysis }: { analysis: Analysis }) {
 
   return (
     <div className="mx-auto max-w-[1400px]">
+      {analysis.id === SAMPLE_ID && (
+        <div className="mb-5 flex flex-wrap items-center gap-3 rounded-2xl border border-[#bfe0e2] bg-brand-soft px-4 py-3 text-sm text-brand-dark">
+          <FlaskConical size={18} className="shrink-0 text-brand" />
+          <p>
+            <b className="font-semibold">Sample lease.</b> Explore freely, nothing here is saved.
+          </p>
+          <div className="ml-auto flex items-center gap-4">
+            <Link href="/dashboard" className="font-semibold underline underline-offset-4">
+              Exit sample
+            </Link>
+            <Link href="/lease/new" data-tour="sample-own" className="inline-flex items-center gap-2 rounded-full bg-brand-dark px-4 py-2 font-semibold text-white hover:bg-brand">
+              <Upload size={15} />
+              Check my own lease
+            </Link>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <div className="flex min-w-0 items-center gap-3">
           <Link
@@ -154,7 +173,9 @@ export default function ReviewWorkspace({ analysis }: { analysis: Analysis }) {
             <h1 className="truncate font-display text-xl font-semibold text-brand-dark">{analysis.fileName}</h1>
           </div>
         </div>
-        {view === "summary" ? (
+        {view === "summary" && analysis.id === SAMPLE_ID ? (
+          <PageTour key="sample" tourId="sample" steps={SAMPLE_TOUR} />
+        ) : view === "summary" ? (
           <PageTour key="summary" tourId="review" steps={REVIEW_TOUR} />
         ) : (
           <PageTour key="lease" tourId="review-lease" steps={REVIEW_LEASE_TOUR} />
