@@ -11,13 +11,7 @@ from google.genai import types
 
 logger = logging.getLogger(__name__)
 
-_gemini_client = None
-
-def get_gemini_client() -> genai.Client:
-    global _gemini_client
-    if _gemini_client is None:
-        _gemini_client = genai.Client()
-    return _gemini_client
+gemini_client = genai.Client()
 
 # ── Supported MIME types ──────────────────────────────────────────────────────
 
@@ -138,8 +132,7 @@ def extract_lease_metadata(raw_unredacted_text: str) -> dict:
     {raw_unredacted_text[:8000]}
     """
     
-    client = get_gemini_client()
-    response = client.models.generate_content(
+    response = gemini_client.models.generate_content(
         model='gemini-2.5-flash',
         contents=prompt,
         config=types.GenerateContentConfig(

@@ -61,8 +61,6 @@ class AnalysisSummary(CamelBaseModel):
     created_at: str
     property_address: str | None = None
     counts: StatusCounts
-    # Present when the document is still processing (status != completed)
-    processing_status: str | None = None
 
 
 class AnalysisDetail(AnalysisSummary):
@@ -95,20 +93,6 @@ class UploadLeaseResponse(CamelBaseModel):
     status: str
     s3_key: str | None = None
     char_count: int | None = None
-    counts: StatusCounts | None = None
-
-
-class AnalysisStatusResponse(CamelBaseModel):
-    """Returned by GET /api/analyses/{id}/status for the frontend to poll."""
-    id: str
-    status: str                           # DocumentStatus value
-    processing_step: str | None = None    # "extracting" | "analysing" etc.
-    processing_step_index: int | None = None
-    processing_progress: float | None = None
-    processing_message: str | None = None
-    estimated_seconds: int | None = None
-    page_count: int | None = None
-    # Filled in once status=completed:
     counts: StatusCounts | None = None
 
 
