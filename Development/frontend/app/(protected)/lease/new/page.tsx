@@ -9,6 +9,7 @@ import PageTour from "@/components/PageTour";
 import ProcessingCard from "@/components/lease/ProcessingCard";
 import { UPLOAD_TOUR } from "@/lib/tours";
 import { ApiError, LEASE_ACCEPT, LEASE_MAX_BYTES, errorMessage, isAllowedLeaseFile, uploadLease } from "@/lib/api";
+import type { UploadProgressEvent } from "@/lib/notice-types";
 
 const MAX_SIZE_MB = LEASE_MAX_BYTES / 1024 / 1024;
 
@@ -40,7 +41,7 @@ export default function NewLeasePage() {
   const [error, setError] = useState("");
   const [uploading, setUploading] = useState(false);
   const [dragging, setDragging] = useState(false);
-  const [progress, setProgress] = useState(0);
+  const [progressEvent, setProgressEvent] = useState<UploadProgressEvent | null>(null);
 
   function chooseFile(selectedFile: File | undefined) {
     setError("");
@@ -75,23 +76,35 @@ export default function NewLeasePage() {
 
     setUploading(true);
     setError("");
-    setProgress(0);
-    const timer = setInterval(() => setProgress((p) => Math.min(p + 1, STEPS.length - 1)), STEP_INTERVAL_MS);
+    setProgressEvent({
+      step: "uploaded",
+      stepIndex: 0,
+      progress: 0.05,
+      message: "Sending file to server…",
+      estimatedSeconds: 30,
+      estimatedSecondsRemaining: 30,
+    });
 
     try {
-      const result = await uploadLease(file);
-      clearInterval(timer);
-      setProgress(STEPS.length);
+      const result = await uploadLease(file, (evt) => {
+        setProgressEvent(evt);
+      });
       router.push(`/lease/${result.id}`);
     } catch (err) {
       setError(uploadErrorMessage(err));
       setUploading(false);
-    } finally {
-      clearInterval(timer);
     }
   }
 
-  if (uploading) return <ProcessingCard steps={STEPS} current={progress} />;
+  if (uploading) {
+    return (
+      <ProcessingCard
+        event={progressEvent}
+        fileName={file?.name}
+        fileSizeBytes={file?.size}
+      />
+    );
+  }
 
   return (
     <div className="mx-auto max-w-3xl">
