@@ -10,13 +10,15 @@ import AlsoOnList from "@/components/dashboard/AlsoOnList";
 import LeaseList from "@/components/dashboard/LeaseList";
 import UpcomingDates from "@/components/dashboard/UpcomingDates";
 import QuickActions from "@/components/dashboard/QuickActions";
-import NewUserDashboard, { EmptyLeases } from "@/components/dashboard/NewUserDashboard";
+import UploadBox from "@/components/lease/UploadBox";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { DASHBOARD_TOUR, NEW_USER_TOUR } from "@/lib/tours";
 import { errorMessage, getAnalyses, getAnalysis, getEvents, getNotices } from "@/lib/api";
 import { allClearItem, buildItems, flaggedClauses, greeting, upcomingEvents } from "@/lib/dashboard";
 import { daysUntil, relativeDays } from "@/lib/format";
 import type { Analysis, AnalysisSummary, NoticeSummary, TimelineEvent } from "@/lib/notice-types";
+import FeatureTiles from "@/components/dashboard/FeatureTiles";
+import UploadLeaseButton from "@/components/ui/UploadLeaseButton";
 
 const RECENT_COUNT = 3;
 const MAX_LEASES_CHECKED = 10;
@@ -74,39 +76,52 @@ export default function Dashboard() {
 
   return (
     <main className="mx-auto max-w-6xl">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-widest text-mute">{today}</p>
-          <h1 className="mt-1.5 font-display text-3xl font-semibold tracking-tight text-brand-dark sm:text-4xl">
-            {isNewUser ? `Welcome to ClauseGuard${firstName ? `, ${firstName}` : ""}` : `${greeting()}${firstName ? `, ${firstName}` : ""}`}
-          </h1>
-          {isNewUser ? (
-            <p className="mt-2 text-mute">Let's check your first lease.</p>
-          ) : data && (toCheck > 0 || nextEvent) ? (
-            <div className="mt-3 flex flex-wrap gap-2 text-sm font-medium">
-              {toCheck > 0 && (
-                <span className="inline-flex items-center gap-2 rounded-full border border-warn-line bg-warn-bg px-3 py-1.5 text-warn">
-                  <span className="size-2 rounded-full bg-warn-solid" />
-                  {toCheck} {toCheck === 1 ? "clause" : "clauses"} to check
-                </span>
-              )}
-              {nextEvent && (
-                <span className="inline-flex items-center gap-2 rounded-full border border-line bg-white px-3 py-1.5 text-ink">
-                  <Clock size={15} className="text-brand"/>
-                  {nextEvent.title} {relativeDays(daysUntil(nextEvent.date))}
-                </span>
-              )}
+      {isNewUser && (
+        <>
+          <PageTour key="new" tourId="dashboard-new" steps={NEW_USER_TOUR} />
+          <UploadBox
+            title="Check your lease"
+            highlight="before you sign"
+            subtitle={`Welcome${firstName ? `, ${firstName}` : ""}! Renting in Ireland is stressful. We read every clause and tell you, in plain English, what's fair and what to question.`}
+            isNewUser
+          >
+            <FeatureTiles />
+          </UploadBox>
+        </>
+      )}
+
+      {!isNewUser && (
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-widest text-mute">{today}</p>
+            <h1 className="mt-1.5 font-display text-3xl font-semibold tracking-tight text-brand-dark sm:text-4xl">
+              {`${greeting()}${firstName ? `, ${firstName}` : ""}`}
+            </h1>
+            {data && (toCheck > 0 || nextEvent) ? (
+              <div className="mt-3 flex flex-wrap gap-2 text-sm font-medium">
+                {toCheck > 0 && (
+                  <span className="inline-flex items-center gap-2 rounded-full border border-warn-line bg-warn-bg px-3 py-1.5 text-warn">
+                    <span className="size-2 rounded-full bg-warn-solid" />
+                    {toCheck} {toCheck === 1 ? "clause" : "clauses"} to check
+                  </span>
+                )}
+                {nextEvent && (
+                  <span className="inline-flex items-center gap-2 rounded-full border border-line bg-white px-3 py-1.5 text-ink">
+                    <Clock size={15} className="text-brand" />
+                    {nextEvent.title} {relativeDays(daysUntil(nextEvent.date))}
+                  </span>
+                )}
+              </div>
+            ) : null}
+          </div>
+          {data && (
+            <div className="flex w-full sm:mt-4 sm:w-auto">
+              <PageTour key="returning" tourId="dashboard" steps={DASHBOARD_TOUR} />
+              <UploadLeaseButton large className="w-full sm:w-auto" />
             </div>
-          ) : null}
+          )}
         </div>
-        {data && (
-          <PageTour
-            key={isNewUser ? "new" : "returning"}
-            tourId={isNewUser ? "dashboard-new" : "dashboard"}
-            steps={isNewUser ? NEW_USER_TOUR : DASHBOARD_TOUR}
-          />
-        )}
-      </div>
+      )}
 
       {error ? (
         <div className="mt-8">
@@ -114,15 +129,7 @@ export default function Dashboard() {
         </div>
       ) : !data || !spotlight ? (
         <DashboardSkeleton />
-      ) : isNewUser ? (
-        <>
-          <NewUserDashboard hasDates={data.events.length > 0} />
-          <div className="stagger mt-5 grid gap-5 *:min-w-0 lg:grid-cols-[8fr_4fr]" style={{ "--delay": "300ms" } as React.CSSProperties}>
-            <EmptyLeases />
-            <UpcomingDates events={data.events} />
-          </div>
-        </>
-      ) : (
+      ) : isNewUser ? null : (
         <>
           <div className="stagger mt-6 grid gap-5 *:min-w-0 lg:grid-cols-[7fr_5fr]">
             <Spotlight item={spotlight} />
