@@ -32,6 +32,15 @@ export type AnalysisSummary = {
   createdAt: string;
   propertyAddress: string | null;
   counts: StatusCounts;
+  version?: number;
+  versionCount?: number;
+};
+
+export type AnalysisVersion = {
+  id: string;
+  version: number;
+  createdAt: string;
+  counts: StatusCounts;
 };
 
 export type Analysis = AnalysisSummary & {
@@ -41,6 +50,12 @@ export type Analysis = AnalysisSummary & {
   termMonths: number | null;
   pageCount: number;
   clauses: Clause[];
+  versions?: AnalysisVersion[];
+};
+
+export type LandlordEmailDraft = {
+  subject: string;
+  body: string;
 };
 
 export type UploadLeaseResponse = {
