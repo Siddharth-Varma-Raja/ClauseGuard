@@ -582,10 +582,10 @@ export default function NoticesPage() {
                       <p className="mb-2 text-sm font-semibold text-brand-dark">Notice format details</p>
                       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                         <CheckField name="uploadIsWritten" checked={uploadIsWritten} onChange={(e) => setUploadIsWritten(e.target.checked)}>
-                          It&apos;s a written letter (not a text or call)
+                          It's a written letter (not a text or call)
                         </CheckField>
                         <CheckField name="uploadIsSigned" checked={uploadIsSigned} onChange={(e) => setUploadIsSigned(e.target.checked)}>
-                          It&apos;s signed by landlord or agent
+                          It's signed by landlord or agent
                         </CheckField>
                         <CheckField name="uploadHasStatutoryDeclaration" checked={uploadHasStatutoryDeclaration} onChange={(e) => setUploadHasStatutoryDeclaration(e.target.checked)}>
                           Statutory declaration included
@@ -808,8 +808,8 @@ export default function NoticesPage() {
               <fieldset className="mt-5">
                 <legend className="mb-2 text-sm font-semibold text-brand-dark">Tick everything that applies</legend>
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  <CheckField name="isWritten" defaultChecked={true}>It&apos;s a written letter (not a text or call)</CheckField>
-                  <CheckField name="isSigned" defaultChecked={true}>It&apos;s signed by the landlord or agent</CheckField>
+                  <CheckField name="isWritten" defaultChecked={true}>It's a written letter (not a text or call)</CheckField>
+                  <CheckField name="isSigned" defaultChecked={true}>It's signed by the landlord or agent</CheckField>
                   <CheckField name="hasStatutoryDeclaration" defaultChecked={true}>A signed statutory declaration came with it</CheckField>
                   <CheckField name="copySentToRtb" defaultChecked={true}>It says a copy was sent to the RTB</CheckField>
                   <CheckField name="disputeRights" defaultChecked={true}>It says I can refer a dispute to the RTB</CheckField>
@@ -887,7 +887,7 @@ export default function NoticesPage() {
               <InputField label="When were you told about the visit?" name="toldAt" type="datetime-local" required />
               <InputField label="When is the visit?" name="visitAt" type="datetime-local" required />
               <div className="grid gap-2 sm:col-span-2">
-                <CheckField name="isEmergency">It&apos;s a genuine emergency (e.g. a leak or fire)</CheckField>
+                <CheckField name="isEmergency">It's a genuine emergency (e.g. a leak or fire)</CheckField>
                 <CheckField name="agreedTime" defaultChecked={true}>The time was agreed with me</CheckField>
               </div>
             </div>
