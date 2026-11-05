@@ -260,21 +260,16 @@ async def get_analysis(
 
 @router.post(
     "/analyses",
-    status_code=status.HTTP_202_ACCEPTED,
+    response_model=UploadLeaseResponse,
+    status_code=status.HTTP_201_CREATED,
     tags=["Analyses"],
 )
 async def upload_lease(
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-):
-    """
-    Upload a lease document for processing.
-
-    Returns 202 Accepted immediately with the document ID.
-    The pipeline runs in the background — poll GET /analyses/{id}/status
-    until status == "completed" or "failed".
-    """
+) -> UploadLeaseResponse:
+    """Upload a lease document and run the extraction and analysis pipeline."""
     # ── 1. Read and validate the uploaded file ─────────────────────────────────
     file_bytes = await file.read()
 
@@ -298,7 +293,7 @@ async def upload_lease(
 
     original_filename = file.filename or "lease.pdf"
 
-    # ── 2. Create the Document row in PROCESSING state ────────────────────────
+    # ── 2. Create document record ──────────────────────────────────────────────
     doc = Document(
         user_id=current_user.id,
         original_filename=original_filename,
@@ -311,97 +306,71 @@ async def upload_lease(
     await db.commit()
     await db.refresh(doc)
 
-    # ── 3. Run the pipeline in a background thread ────────────────────────────
-    # asyncio.to_thread keeps the event loop free while OCR / S3 / AI runs.
-    # The document status is updated to COMPLETED or FAILED when done.
-    asyncio.create_task(
-        _run_pipeline_background(
-            doc_id=doc.id,
+    # ── 3. Run upload pipeline (including diff_engine lease verification) ──────
+    try:
+        pipeline_result = await asyncio.to_thread(
+            run_upload_pipeline,
             file_bytes=file_bytes,
             user_id=current_user.id,
             content_type=actual_mime_type,
         )
-    )
-
-    logger.info(
-        "[upload] doc_id=%s queued for background processing. user=%s",
-        doc.id,
-        current_user.id,
-    )
-
-    # ── 4. Return 202 immediately ─────────────────────────────────────────────
-    return UploadLeaseResponse(
-        id=doc.id,
-        message="Lease document uploaded — processing has started.",
-        file_name=doc.original_filename,
-        file_size_bytes=doc.file_size_bytes,
-        status="processing",
-    )
-
-
-async def _run_pipeline_background(
-    doc_id: str,
-    file_bytes: bytes,
-    user_id: str,
-    content_type: str,
-) -> None:
-    """
-    Run the full upload pipeline in a background asyncio task.
-
-    Calls the synchronous pipeline in a thread so the event loop stays free,
-    then saves the analysis result and updates the Document status to
-    COMPLETED or FAILED in the database.
-    """
-    from app.database import AsyncSessionLocal
-
-    logger.info("[background] Starting pipeline for doc_id=%s", doc_id)
-    try:
-        # run_upload_pipeline is synchronous (blocking I/O) — run in a thread
-        result = await asyncio.to_thread(
-            run_upload_pipeline,
-            file_bytes,
-            user_id,
-            content_type,
+        doc.s3_uri = pipeline_result["s3_uri"]
+        doc.s3_key = pipeline_result["s3_key"]
+        doc.char_count = pipeline_result["char_count"]
+        doc.status = DocumentStatus.COMPLETED
+    except PipelineError as exc:
+        doc.status = DocumentStatus.FAILED
+        doc.pipeline_error = str(exc)
+        await db.commit()
+        if exc.step == "lease_validation":
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=str(exc),
+            )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Upload pipeline failed during {exc.step}: {exc}",
+        )
+    except Exception as exc:
+        logger.exception(f"Unexpected error during upload pipeline: {exc}")
+        doc.status = DocumentStatus.FAILED
+        doc.pipeline_error = str(exc)
+        await db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while processing the document.",
         )
 
-        async with AsyncSessionLocal() as db:
-            doc_result = await db.execute(select(Document).where(Document.id == doc_id))
-            doc = doc_result.scalar_one_or_none()
-            if doc is None:
-                logger.error("[background] doc_id=%s not found after pipeline", doc_id)
-                return
-
-            doc.s3_key = result["s3_key"]
-            doc.s3_uri = result["s3_uri"]
-            doc.char_count = result["char_count"]
-            doc.status = DocumentStatus.COMPLETED
-            await db.commit()
-
-            # save_analysis runs the rules engine and writes clause rows
-            await save_analysis(db, doc_id, result["redacted_text"])
-            await db.commit()
-
-        logger.info("[background] doc_id=%s completed successfully", doc_id)
-
-    except PipelineError as exc:
-        logger.error("[background] Pipeline error for doc_id=%s step=%s: %s", doc_id, exc.step, exc)
-        async with AsyncSessionLocal() as db:
-            doc_result = await db.execute(select(Document).where(Document.id == doc_id))
-            doc = doc_result.scalar_one_or_none()
-            if doc:
-                doc.status = DocumentStatus.FAILED
-                doc.pipeline_error = str(exc)
-                await db.commit()
-
+    # ── 4. Analyse the redacted lease text (rules engine) and store result ─────
+    try:
+        review = await save_analysis(db, doc.id, pipeline_result["redacted_text"])
+        await db.commit()
     except Exception as exc:
-        logger.exception("[background] Unexpected error for doc_id=%s: %s", doc_id, exc)
-        async with AsyncSessionLocal() as db:
-            doc_result = await db.execute(select(Document).where(Document.id == doc_id))
-            doc = doc_result.scalar_one_or_none()
-            if doc:
-                doc.status = DocumentStatus.FAILED
-                doc.pipeline_error = str(exc)
-                await db.commit()
+        logger.exception(f"Analysis failed: {exc}")
+        await db.rollback()
+        doc.status = DocumentStatus.FAILED
+        doc.pipeline_error = f"analysis: {exc}"
+        await db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="The lease was uploaded but could not be analysed.",
+        )
+
+    return UploadLeaseResponse(
+        id=doc.id,
+        message="Lease document uploaded and analyzed successfully.",
+        file_name=doc.original_filename,
+        file_size_bytes=doc.file_size_bytes,
+        status=doc.status.value if hasattr(doc.status, "value") else str(doc.status),
+        s3_key=doc.s3_key,
+        char_count=doc.char_count,
+        counts=StatusCounts(
+            red=review.likely_unenforceable_count,
+            amber=review.needs_review_count,
+            green=review.compliant_count,
+            grey=review.informational_count,
+        ),
+    )
 
 
 @router.get(

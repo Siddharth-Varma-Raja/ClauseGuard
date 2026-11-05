@@ -168,111 +168,20 @@ export const getAnalysis = (analysisId: string) =>
   analysisId === SAMPLE_ID ? Promise.resolve(SAMPLE_LEASE) : getOrNull<Analysis>(`/analyses/${id(analysisId)}`);
 
 /**
- * Upload a lease document and receive live progress events via SSE.
- *
- * When `onProgress` is provided the function:
- *   1. POSTs the file with `Accept: text/event-stream` → receives a 202 stream
- *   2. Calls `onProgress` for each SSE event (uploaded → extracting → … → completed)
- *   3. Returns the UploadLeaseResponse once the stream ends (step === "completed")
- *
- * When `onProgress` is omitted, falls back to a plain POST and returns the
- * UploadLeaseResponse directly (backward-compatible).
+ * Upload a lease document. Runs extraction, redaction, and analysis,
+ * returning the completed analysis summary.
  */
-export async function uploadLease(
-  file: File,
-  onProgress?: (event: UploadProgressEvent) => void,
-): Promise<UploadLeaseResponse> {
+export async function uploadLease(file: File): Promise<UploadLeaseResponse> {
   const form = new FormData();
   form.append("file", file);
-
-  if (!onProgress) {
-    // Simple (non-streaming) upload — backward-compatible
-    return request<UploadLeaseResponse>("/analyses", {
-      method: "POST",
-      body: form,
-      timeoutMs: UPLOAD_TIMEOUT_MS,
-    });
-  }
-
-  // ── SSE streaming upload ───────────────────────────────────────────────────
-  const user = auth.currentUser;
-  const token = user ? await user.getIdToken() : "";
-  const url = `${API_URL}/analyses?stream=true`;
-
-  const headers: Record<string, string> = {
-    Accept: "text/event-stream",
-  };
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
-  }
-
-  const response = await fetch(url, {
+  return request<UploadLeaseResponse>("/analyses", {
     method: "POST",
-    headers,
     body: form,
+    timeoutMs: UPLOAD_TIMEOUT_MS,
   });
-
-  if (!response.ok && response.status !== 202) {
-    const body = await response.json().catch(() => ({}));
-    const msg = (body as { message?: string }).message ?? response.statusText;
-    throw new ApiError(response.status, msg);
-  }
-
-  // The backend sends "X-Document-Id" so we can navigate before stream ends
-  const docId = response.headers.get("X-Document-Id") ?? "";
-
-  if (!response.body) {
-    throw new ApiError(500, "SSE stream body is null.");
-  }
-
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-  let lastEvent: UploadProgressEvent | null = null;
-
-  // Parse the SSE stream line by line
-  while (true) {
-    const { value, done } = await reader.read();
-    if (done) break;
-
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split("\n");
-    buffer = lines.pop() ?? "";           // keep any incomplete line
-
-    for (const line of lines) {
-      if (!line.startsWith("data:")) continue;
-      try {
-        const event: UploadProgressEvent = JSON.parse(line.slice(5).trim());
-        lastEvent = event;
-        onProgress(event);
-        if (event.step === "completed" || event.step === "failed") {
-          reader.cancel();
-          break;
-        }
-      } catch {
-        // Malformed event — skip it
-      }
-    }
-  }
-
-  if (lastEvent?.step === "failed") {
-    throw new ApiError(422, lastEvent.message ?? "Processing failed.");
-  }
-
-  // Build a minimal UploadLeaseResponse from what we know.
-  // The full analysis result is fetched separately by the lease/[id] page.
-  return {
-    id: docId,
-    message: "Lease document uploaded and analysed successfully.",
-    fileName: file.name,
-    fileSizeBytes: file.size,
-    status: "completed",
-    estimatedSeconds: lastEvent?.estimatedSeconds ?? null,
-    pageCount: null,
-  } satisfies UploadLeaseResponse;
 }
 
-/** Poll the processing status of a document (fallback when SSE is unavailable). */
+/** Poll the processing status of a document. */
 export function getAnalysisStatus(analysisId: string) {
   return request<AnalysisStatus>(`/analyses/${id(analysisId)}/status`);
 }

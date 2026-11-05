@@ -89,12 +89,10 @@ class ClauseQuestionResponse(CamelBaseModel):
 
 class UploadLeaseResponse(CamelBaseModel):
     id: str
-    message: str = "Lease document uploaded — processing has started."
+    message: str = "Lease document uploaded and analyzed successfully."
     file_name: str
     file_size_bytes: int
     status: str
-    estimated_seconds: int | None = None
-    page_count: int | None = None
     s3_key: str | None = None
     char_count: int | None = None
     counts: StatusCounts | None = None
