@@ -68,12 +68,31 @@ export default function UploadBox({ title, highlight, subtitle, isNewUser = fals
     }
 
     setUploading(true);
-    setProgress(0);
-    const timer = setInterval(() => setProgress((p) => Math.min(p + 1, STEPS.length - 1)), STEP_INTERVAL_MS);
+    setFile(selectedFile);
+    let stepIdx = 0;
+    setProgressEvent({
+      step: "uploaded",
+      stepIndex: 0,
+      progress: 0.1,
+      message: STEPS[0],
+      estimatedSeconds: 30,
+      estimatedSecondsRemaining: 30,
+    });
+
+    const timer = setInterval(() => {
+      stepIdx = Math.min(stepIdx + 1, STEPS.length - 1);
+      setProgressEvent({
+        step: "analysing",
+        stepIndex: stepIdx,
+        progress: Math.min(0.9, (stepIdx + 1) / STEPS.length),
+        message: STEPS[stepIdx],
+        estimatedSeconds: 30,
+        estimatedSecondsRemaining: Math.max(5, 30 - stepIdx * 7),
+      });
+    }, STEP_INTERVAL_MS);
 
     try {
-      const result = await uploadLease(file);
-      setProgress(STEPS.length);
+      const result = await uploadLease(selectedFile);
       router.push(`/lease/${result.id}`);
     } catch (err) {
       setError(uploadErrorMessage(err));

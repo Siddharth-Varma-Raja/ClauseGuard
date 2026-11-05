@@ -165,10 +165,23 @@ export const getAnalyses = () => request<AnalysisSummary[]>("/analyses");
 export const getAnalysis = (analysisId: string) =>
   analysisId === SAMPLE_ID ? Promise.resolve(SAMPLE_LEASE) : getOrNull<Analysis>(`/analyses/${id(analysisId)}`);
 
-export function uploadLease(file: File) {
+/**
+ * Upload a lease document. Runs extraction, redaction, and analysis,
+ * returning the completed analysis summary.
+ */
+export async function uploadLease(file: File): Promise<UploadLeaseResponse> {
   const form = new FormData();
   form.append("file", file);
-  return request<UploadLeaseResponse>("/analyses", { method: "POST", body: form, timeoutMs: UPLOAD_TIMEOUT_MS });
+  return request<UploadLeaseResponse>("/analyses", {
+    method: "POST",
+    body: form,
+    timeoutMs: UPLOAD_TIMEOUT_MS,
+  });
+}
+
+/** Poll the processing status of a document. */
+export function getAnalysisStatus(analysisId: string) {
+  return request<AnalysisStatus>(`/analyses/${id(analysisId)}/status`);
 }
 
 export function setClauseReviewed(analysisId: string, clauseId: string, reviewed: boolean) {

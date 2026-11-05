@@ -17,7 +17,7 @@ from typing import Any, List
 from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile, status
 from google import genai
 from google.genai import types
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
@@ -266,6 +266,7 @@ async def upload_lease(
     db: AsyncSession = Depends(get_db),
 ) -> UploadLeaseResponse:
     """Upload a lease document and run the extraction and analysis pipeline."""
+    # ── 1. Read and validate the uploaded file ─────────────────────────────────
     file_bytes = await file.read()
 
     if len(file_bytes) > _MAX_FILE_SIZE_BYTES:
@@ -288,7 +289,7 @@ async def upload_lease(
 
     original_filename = file.filename or "lease.pdf"
 
-    # Create document record
+    # ── 2. Create document record ──────────────────────────────────────────────
     doc = Document(
         user_id=current_user.id,
         original_filename=original_filename,
@@ -301,9 +302,10 @@ async def upload_lease(
     await db.commit()
     await db.refresh(doc)
 
-    # Run upload pipeline (including diff_engine lease verification)
+    # ── 3. Run upload pipeline (including diff_engine lease verification) ──────
     try:
-        pipeline_result = run_upload_pipeline(
+        pipeline_result = await asyncio.to_thread(
+            run_upload_pipeline,
             file_bytes=file_bytes,
             user_id=current_user.id,
             content_type=actual_mime_type,
@@ -335,7 +337,7 @@ async def upload_lease(
             detail="An error occurred while processing the document.",
         )
 
-    # Analyse the redacted lease text (language stream + rules engine) and store the result.
+    # ── 4. Analyse the redacted lease text (rules engine) and store result ─────
     try:
         review = await save_analysis(db, doc.id, pipeline_result["redacted_text"])
         await db.commit()
@@ -364,6 +366,69 @@ async def upload_lease(
             green=review.compliant_count,
             grey=review.informational_count,
         ),
+    )
+
+
+@router.get(
+    "/analyses/{analysis_id}/status",
+    response_model=AnalysisStatusResponse,
+    tags=["Analyses"],
+)
+async def get_analysis_status(
+    analysis_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> AnalysisStatusResponse:
+    """
+    Poll the processing status of a document analysis.
+
+    Use this as a fallback when SSE is unavailable (e.g. the browser tab was
+    restored after a refresh).  The frontend's lease/[id]/page.tsx polls this
+    endpoint every 2 s while status != completed/failed.
+    """
+    result = await db.execute(
+        select(Document).where(
+            Document.id == analysis_id,
+            Document.user_id == current_user.id,
+            Document.is_deleted == False,  # noqa: E712
+        )
+    except Exception as exc:
+        logger.exception(f"Unexpected error during upload pipeline: {exc}")
+        doc.status = DocumentStatus.FAILED
+        doc.pipeline_error = str(exc)
+        await db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while processing the document.",
+        )
+
+    # Analyse the redacted lease text (language stream + rules engine) and store the result.
+    try:
+        review = await save_analysis(db, doc.id, pipeline_result["redacted_text"])
+        await db.commit()
+    except Exception as exc:
+        logger.exception(f"Analysis failed: {exc}")
+        await db.rollback()
+        doc.status = DocumentStatus.FAILED
+        doc.pipeline_error = f"analysis: {exc}"
+        await db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="The lease was uploaded but could not be analysed.",
+        )
+
+    return UploadLeaseResponse(
+        id=doc.id,
+        status=doc.status.value,
+        # processing_step/progress columns were removed — return None so the
+        # frontend falls back to polling the top-level status field.
+        processing_step=None,
+        processing_step_index=None,
+        processing_progress=None,
+        processing_message=None,
+        estimated_seconds=None,
+        page_count=None,
+        counts=counts,
     )
 
 
