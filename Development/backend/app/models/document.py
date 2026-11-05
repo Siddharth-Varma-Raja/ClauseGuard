@@ -18,8 +18,10 @@ from sqlalchemy import (
     Boolean,
     DateTime,
     Enum,
+    Float,
     ForeignKey,
     Index,
+    Integer,
     String,
     Text,
 )
@@ -77,6 +79,39 @@ class Document(Base):
     )
     pipeline_error: Mapped[str | None] = mapped_column(
         Text, comment="Error message if the pipeline failed",
+    )
+
+    # ── Processing progress (written by background worker, read by SSE) ───────
+    # These four columns replace the former in-memory status_tracker.  The
+    # background ThreadPoolExecutor worker writes to them after each stage so
+    # the SSE generator can poll the DB without needing Redis or shared memory.
+
+    processing_step: Mapped[str | None] = mapped_column(
+        String(50),
+        comment=(
+            "Current pipeline stage: uploaded | extracting | validating | "
+            "redacting | analysing | completed | failed"
+        ),
+    )
+    processing_step_index: Mapped[int | None] = mapped_column(
+        Integer,
+        comment="0-based index of the current stage (0=uploaded, 4=analysing)",
+    )
+    processing_progress: Mapped[float | None] = mapped_column(
+        Float,
+        comment="Overall fraction of work completed (0.0–1.0)",
+    )
+    processing_message: Mapped[str | None] = mapped_column(
+        Text,
+        comment="Human-readable status shown in the frontend ProcessingCard",
+    )
+    estimated_seconds: Mapped[int | None] = mapped_column(
+        Integer,
+        comment="Initial estimate of total processing time (seconds)",
+    )
+    page_count: Mapped[int | None] = mapped_column(
+        Integer,
+        comment="Number of pages in the uploaded document (from PDF metadata)",
     )
 
     # ── Soft-delete ───────────────────────────────────────────────────────────
