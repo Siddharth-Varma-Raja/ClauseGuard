@@ -204,8 +204,8 @@ export default function ReviewWorkspace({ analysis }: { analysis: Analysis }) {
         <div className="mb-5 flex flex-wrap items-center gap-3 rounded-2xl border border-[#bfe0e2] bg-brand-soft px-4 py-3 text-sm text-brand-dark">
           <History size={18} className="shrink-0 text-brand" />
           <p>
-            <b className="font-semibold">You&apos;re viewing an older version.</b> Version {currentVersion?.version}, uploaded{" "}
-            {fmtDate(analysis.createdAt.slice(0, 10))}. It&apos;s kept for your records.
+            <b className="font-semibold">You are viewing an older version.</b> Version {currentVersion?.version}, uploaded{" "}
+            {fmtDate(analysis.createdAt.slice(0, 10))}. It's kept for your records.
           </p>
           <Link href={`/lease/${latestVersion.id}`} className="ml-auto inline-flex items-center gap-2 rounded-full bg-brand-dark px-4 py-2 font-semibold text-white hover:bg-brand">
             Go to latest version
@@ -291,7 +291,7 @@ export default function ReviewWorkspace({ analysis }: { analysis: Analysis }) {
             <b className="font-semibold text-ink">
               You raised {raised.clauses.length} {raised.clauses.length === 1 ? "clause" : "clauses"} with your landlord.
             </b>{" "}
-            <span className="text-mute">When they send back a new copy, upload it here and we&apos;ll show you what changed.</span>
+            <span className="text-mute">When they send back a new copy, upload it here and we will show you what changed.</span>
           </p>
           <button
             type="button"
