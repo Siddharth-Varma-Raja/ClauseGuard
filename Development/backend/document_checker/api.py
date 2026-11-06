@@ -12,7 +12,6 @@ from app.models.database_models import LeaseAnalysis, Clause, User
 from app.services.document.extractor import extract_text 
 from .diff_engine import TemplateDiffEngine
 
-from app.services.email_generator import generate_landlord_email
 from app.services.rag_engine import query_lease_context 
 
 from .schemas import (
@@ -20,15 +19,12 @@ from .schemas import (
     DiffRequest, 
     ValidationResponse, 
     ExtractionResponse,
-    EmailDraftRequest,
-    EmailDraftResponse,
     AnalysisSummary,
     LeaseRenameRequest,
     ChatRequest,
     ChatResponse
 )
 
-# --- ROUTERS ---
 notices_router = APIRouter(prefix="/notices", tags=["Notice Checker"])
 analyses_router = APIRouter(prefix="/analyses", tags=["Analyses Dashboard"])
 
@@ -103,24 +99,6 @@ async def validate_notice(request: Request, submission: NoticeSubmission):
             raise HTTPException(status_code=500, detail={"message": "Failed to append to timeline."})
 
     return {"message": "Notice legally validated and appended to timeline."}
-
-@notices_router.post("/generate-landlord-email", response_model=EmailDraftResponse)
-@limiter.limit("5/minute")
-async def draft_landlord_email(request: Request, submission: EmailDraftRequest):
-    """Generates a polite negotiation email based on found lease flaws."""
-    if not submission.detected_deviations:
-        raise HTTPException(status_code=400, detail="No deviations provided to discuss.")
-        
-    try:
-        draft_json = generate_landlord_email(
-            deviations=submission.detected_deviations,
-            landlord_name=submission.landlord_name,
-            tenant_name=submission.tenant_name,
-            address=submission.property_address
-        )
-        return draft_json
-    except Exception as e:
-        raise HTTPException(status_code=500, detail={"message": f"Failed to generate draft: {str(e)}"})
 
 # ==========================================
 # ANALYSES DASHBOARD ENDPOINTS
