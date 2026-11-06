@@ -2,6 +2,7 @@ import { STATUS_ORDER, STATUS } from "@/lib/notice-status";
 import { Status, StatusCounts } from "@/lib/notice-types";
 import { cn } from "@/lib/cn";
 import { ReactNode } from "react";
+import { ArrowDown } from "lucide-react";
 
 const MEANING: Record<Status, string> = {
     red: "Goes against Irish tenancy law. Don't sign until it's fixed",
@@ -33,7 +34,7 @@ function plural(count: number, one: string, many: string) {
     return count === 1 ? one : many;
 }
 
-export function ShortAnswer({ counts, total }: { counts: StatusCounts; total: number }) {
+export function ShortAnswer({ counts, total, children }: { counts: StatusCounts; total: number; children?: ReactNode }) {
     const level = counts.red > 0 ? "red" : counts.amber > 0 ? "amber" : "green";
     let headline: ReactNode;
     let detail: string;
@@ -41,7 +42,7 @@ export function ShortAnswer({ counts, total }: { counts: StatusCounts; total: nu
     if (level === "red") {
         headline = (
             <>
-                <strong className="text-bad">Don&apos;t sign yet.</strong> {counts.red} {plural(counts.red, "clause goes", "clauses go")} against Irish
+                <strong className="text-bad">Don't sign yet.</strong> {counts.red} {plural(counts.red, "clause goes", "clauses go")} against Irish
                 tenancy law
                 {counts.amber > 0 ? ` and ${counts.amber} more ${plural(counts.amber, "is", "are")} worth asking about.` : "."}
             </>
@@ -65,7 +66,7 @@ export function ShortAnswer({ counts, total }: { counts: StatusCounts; total: nu
 
     return (
         <section className={cn("mt-6 flex break-inside-avoid items-center gap-5 rounded-3xl border p-5 sm:p-7", BOX[level])}>
-            <div className="flex shrink-0 flex-col gap-1.5 rounded-xl bg-ink p-2" aria-hidden>
+            <div className="hidden shrink-0 flex-col gap-1.5 rounded-xl bg-ink p-3 sm:flex print:flex">
                 {LIGHTS.map(([key, colour]) => (
                     <span key={key} className={cn("size-6 rounded-full", colour, level !== key && "opacity-25")} />
                 ))}
@@ -74,6 +75,7 @@ export function ShortAnswer({ counts, total }: { counts: StatusCounts; total: nu
                 <p className={cn("text-sm font-bold", TEXT[level])}>The short answer</p>
                 <p className="mt-1 font-display text-xl font-semibold leading-snug text-brand-dark sm:text-2xl">{headline}</p>
                 <p className="mt-2 text-ink">{detail}</p>
+                {children}
             </div>
         </section>
     );
@@ -123,7 +125,7 @@ export function LeaseDetails({ rows, missing }: { rows: [string, string | null][
                 </dl>
                 {missing.length > 0 && (
                     <p className="mt-4 rounded-xl bg-surface px-4 py-3 text-ink">
-                        This lease doesn&apos;t say the {missing.join(", ")}. Ask your landlord to add {missing.length === 1 ? "it" : "them"} before you sign.
+                        This lease does not say the {missing.join(", ")}. Ask your landlord to add {missing.length === 1 ? "it" : "them"} before you sign.
                     </p>
                 )}
             </div>
@@ -131,3 +133,82 @@ export function LeaseDetails({ rows, missing }: { rows: [string, string | null][
     );
 }
 
+type Step = {
+    title: string;
+    text: string;
+    paperTitle?: string;
+    paperText?: string;
+    action?: ReactNode;
+};
+
+export function NextSteps({ counts, onDownload, onEmail }: { counts: StatusCounts; onDownload: () => void; onEmail: () => void }) {
+    const flagged = counts.red + counts.amber;
+    const actionClass = "inline-flex shrink-0 cursor-pointer items-center gap-1 font-semibold text-brand hover:underline print:hidden";
+
+    const download: Step = {
+        title: "Download and keep this report",
+        text: "It's a record of what your lease said.",
+        paperTitle: "Keep this report",
+        paperText: "It's a record of what your lease said on the day it was checked.",
+        action: (
+            <button type="button" onClick={onDownload} className={actionClass}>
+                Download
+            </button>
+        ),
+    };
+
+    const steps: Step[] =
+        flagged > 0
+            ? [
+                {
+                    title: `Read the ${flagged} ${plural(flagged, "clause", "clauses")} to ask about`,
+                    text: "Each one is explained in plain English below.",
+                    paperText: "Each one is explained in plain English on the next pages.",
+                    action: (
+                        <a href="#clauses" className={actionClass}>
+                            Read <ArrowDown size={16} />
+                        </a>
+                    ),
+                },
+                {
+                    title: "Write an email to your landlord",
+                    text: "We'll draft one for you. Check it, then send it from your own email.",
+                    paperTitle: "Ask your landlord to change them",
+                    paperText: "Under each clause, \"What to ask for\" tells you what to say. You can also write the email from your ClauseGuard account.",
+                    action: (
+                        <button type="button" onClick={onEmail} className={actionClass}>
+                            Write email
+                        </button>
+                    ),
+                },
+                ...(counts.red > 0
+                    ? [{ title: "Get free advice before you sign", text: "Threshold and the Residential Tenancies Board help renters for free." }]
+                    : []),
+                download,
+            ]
+            : [{ title: "Check the lease details above", text: "Make sure the rent, dates and deposit match what you agreed." }, download];
+
+    return (
+        <section className="mt-10 break-inside-avoid">
+            <h2 className="font-display text-2xl font-semibold text-brand-dark">What to do next</h2>
+            <ol className="mt-3 space-y-3">
+                {steps.map((step, i) => (
+                    <li key={step.title} className="flex items-center gap-4 rounded-2xl border border-line bg-white px-5 py-4">
+                        <span className="grid size-8 shrink-0 place-items-center rounded-full bg-brand-dark font-bold text-white">{i + 1}</span>
+                        <div className="min-w-0 flex-1">
+                            <p className="font-bold text-ink">
+                                <span className="print:hidden">{step.title}</span>
+                                <span className="hidden print:inline">{step.paperTitle ?? step.title}</span>
+                            </p>
+                            <p className="text-mute">
+                                <span className="print:hidden">{step.text}</span>
+                                <span className="hidden print:inline">{step.paperText ?? step.text}</span>
+                            </p>
+                        </div>
+                        {step.action}
+                    </li>
+                ))}
+            </ol>
+        </section>
+    );
+}
