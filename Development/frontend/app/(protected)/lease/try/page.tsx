@@ -155,7 +155,7 @@ export default function TrySampleLease() {
               <p className="mt-6 flex gap-3 rounded-2xl border border-white/15 bg-white/10 p-4 leading-relaxed">
                 <TriangleAlert size={20} className="mt-0.5 shrink-0 text-[#ffb4ab]" />
                 <span>
-                  <b className="font-semibold">Biggest issue:</b> the deposit is three months&apos; rent. The legal limit is one month.
+                  <b className="font-semibold">Biggest issue:</b> the deposit is three months; rent. The legal limit is one month.
                 </span>
               </p>
               <div className="mt-8 max-w-sm">
@@ -207,7 +207,7 @@ export default function TrySampleLease() {
               </p>
               <h1 className="mt-4 font-display text-4xl font-semibold leading-tight">Try ClauseGuard on a sample lease</h1>
               <p className="mt-3 leading-relaxed text-white/80">
-                A made-up Dublin lease with a few common problems hidden in it. We&apos;ll check it exactly the way we&apos;d check yours.
+                A made-up Dublin lease with a few common problems hidden in it. We'll check it exactly the way we check yours.
               </p>
               <dl className="mt-6 grid grid-cols-2 gap-3">
                 {FACTS.map((fact) => (
@@ -284,7 +284,7 @@ export default function TrySampleLease() {
               ))}
             </div>
             <div className="flex items-center justify-between gap-3 border-t border-line px-6 py-4">
-              <p className="text-sm text-mute">Spotted anything? Let&apos;s see what ClauseGuard finds.</p>
+              <p className="text-sm text-mute">Spotted anything? Let's see what ClauseGuard finds.</p>
               <button type="button" onClick={startCheck} className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-brand-dark px-5 py-2.5 font-semibold text-white hover:bg-brand">
                 <Play size={16} />
                 Check this lease

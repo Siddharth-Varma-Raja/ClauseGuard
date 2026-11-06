@@ -133,7 +133,7 @@ export default function WhatChanged({
               className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-xl bg-brand px-4 text-sm font-semibold text-white hover:bg-brand-dark"
             >
               <Mail size={16} aria-hidden />
-              Email about what&apos;s left ({leftToRaise.length})
+              Email about what's left ({leftToRaise.length})
             </button>
           )}
         </div>
@@ -258,7 +258,7 @@ function ChangeRow({
           {after?.reason && <p className="mt-1 text-sm leading-relaxed text-mute">{after.reason}</p>}
 
           {change.kind === "open" ? (
-            <p className="mt-3 rounded-xl bg-warn-bg p-3 text-sm text-ink">You raised this clause, but the wording hasn&apos;t changed.</p>
+            <p className="mt-3 rounded-xl bg-warn-bg p-3 text-sm text-ink">You raised this clause, but the wording hasn't changed.</p>
           ) : (
             <div className="mt-3 grid gap-3 md:grid-cols-2">
               <div className="rounded-xl border border-line p-3">
