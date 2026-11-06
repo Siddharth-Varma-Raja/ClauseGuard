@@ -276,3 +276,26 @@ body {
     scroll-behavior: auto;
   }
 }
+
+@media print {
+  @page {
+    size: A4;
+    margin: 14mm;
+  }
+
+  html {
+    font-size: 11px;
+  }
+
+  body,
+  main,
+  div:has(> main) {
+    background: #fff !important;
+  }
+
+  * {
+    box-shadow: none !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+}

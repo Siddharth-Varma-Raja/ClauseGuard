@@ -148,7 +148,7 @@ export default function LandlordEmailPanel({
         <>
           <div className="min-h-0 flex-1 space-y-5 overflow-auto p-5">
             <p className="text-sm text-mute">
-              Pick the clauses you&apos;d like to raise. We&apos;ll write a polite draft that you can edit and send yourself.
+              Pick the clauses you'd like to raise. We will write a polite draft that you can edit and send yourself.
             </p>
 
             {error && (
@@ -227,7 +227,7 @@ export default function LandlordEmailPanel({
         <div role="status" className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center text-mute">
           <Loader2 size={28} className="animate-spin text-brand" aria-hidden />
           <p className="font-semibold text-brand-dark">Writing your draft…</p>
-          <p className="text-sm">Your name and address aren&apos;t shared for this step.</p>
+          <p className="text-sm">Your name and address aren not shared for this step.</p>
         </div>
       )}
 
@@ -236,7 +236,7 @@ export default function LandlordEmailPanel({
           <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto p-5">
             <div className="grid gap-2.5 sm:grid-cols-2">
               <label className="block text-xs font-semibold text-mute">
-                Landlord&apos;s name
+                Landlord's name
                 <input
                   value={landlordName}
                   onChange={(e) => setLandlordName(e.target.value)}
@@ -284,7 +284,7 @@ export default function LandlordEmailPanel({
             <p className="flex gap-2 rounded-xl bg-surface p-2.5 text-xs leading-relaxed text-mute">
               <Info size={15} className="mt-px shrink-0" aria-hidden />
               <span>
-                ClauseGuard doesn&apos;t send this for you. Read it first: it&apos;s general information, not legal advice.
+                ClauseGuard does not send this for you. Read it first: it's general information, not legal advice.
                 {blanks > 0 && <b className="font-semibold text-ink"> Some details in brackets still need filling in.</b>}
               </span>
             </p>
@@ -293,7 +293,7 @@ export default function LandlordEmailPanel({
 
           {handedOff ? (
             <footer className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-line bg-ok-bg/50 p-4">
-              <p className="text-sm font-semibold text-ink">Did you send it? We&apos;ll remember what you raised.</p>
+              <p className="text-sm font-semibold text-ink">Did you send it? We will remember what you raised.</p>
               <div className="flex gap-2">
                 <button type="button" onClick={() => setHandedOff(false)} className="min-h-10 cursor-pointer rounded-xl px-3 text-sm font-semibold text-mute hover:bg-white">
                   Not yet
