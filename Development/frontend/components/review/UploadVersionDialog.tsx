@@ -115,7 +115,7 @@ export default function UploadVersionDialog({
             {uploading ? `Adding Version ${nextVersion}…` : "Upload your updated lease"}
           </h2>
           <p className="mt-1 text-sm text-mute">
-            It&apos;s added to <b className="font-semibold text-ink">{analysis.fileName}</b> as Version {nextVersion}. Your earlier version stays saved.
+            It's added to <b className="font-semibold text-ink">{analysis.fileName}</b> as Version {nextVersion}. Your earlier version stays saved.
           </p>
         </div>
         {!uploading && (
