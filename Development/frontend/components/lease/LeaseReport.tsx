@@ -179,36 +179,6 @@ export default function LeaseReport({ analysis }: { analysis: Analysis }) {
         <NextSteps counts={counts} onDownload={downloadReport} onEmail={openEmail} />
       </div>
 
-      {/*<div className="mt-4 flex flex-wrap gap-3 print:hidden">
-        <Link
-          href={`/lease/${analysis.id}`}
-          className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-line bg-white px-4 font-semibold text-brand-dark hover:border-brand"
-        >
-          <FileSearch size={17} /> See it in my lease
-        </Link>
-        <button
-          type="button"
-          onClick={addDatesToTimeline}
-          disabled={timeline.busy}
-          className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-line bg-white px-4 font-semibold text-brand-dark hover:border-brand disabled:opacity-60"
-        >
-          {timeline.busy ? <Loader2 size={17} className="animate-spin" /> : <CalendarPlus size={17} />}
-          Add dates to my timeline
-        </button>
-      </div>
-      {timeline.text && timeline.tone && (
-        <div className="mt-3 print:hidden">
-          <Alert tone={timeline.tone}>
-            {timeline.text}{" "}
-            {timeline.tone === "success" && (
-              <Link href="/timeline" className="underline">
-                Open timeline
-              </Link>
-            )}
-          </Alert>
-        </div>
-      )}*/}
-
       <FlaggedClauses analysisId={analysis.id} clauses={clauses} printing={printing} raised={raised} onEmail={openEmail} />
 
       <AllClauses analysisId={analysis.id} clauses={clauses} printing={printing} />
