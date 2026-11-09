@@ -19,6 +19,7 @@ from typing import Any
 
 from language_stream.baseline import predict
 from language_stream.split import split_clean
+from language_stream.action_list import extract as extract_actions
 from rules_engine import ClauseInput, Engine, LeaseContext
 
 CLASSIFIER_NAME = "keyword-baseline-v0"
@@ -150,7 +151,9 @@ def analyse_text(text: str, file_name: str = "lease") -> dict[str, Any]:
     facts = lease_facts(text)
     ctx = LeaseContext(monthly_rent_cents=facts["monthly_rent_cents"])
     pages = text.split("\f") if "\f" in text else [text]
-    clauses = [_clause_to_dict(c, ctx) for c in split_clean(pages, "demo")]
+    parts = split_clean(pages, "demo")
+    clauses = [_clause_to_dict(c, ctx) for c in parts]
+    action_list = extract_actions([{"number": _number(c.text, c.idx), "text": c.text} for c in parts])
 
     counts = {"red": 0, "amber": 0, "green": 0, "grey": 0}
     for c in clauses:
@@ -168,6 +171,7 @@ def analyse_text(text: str, file_name: str = "lease") -> dict[str, Any]:
         "termMonths": None,
         "pageCount": len(pages),
         "clauses": clauses,
+        "actionList": action_list,
         # extra fields the frontend can ignore; useful for the demo and the docs
         "engine": {"classifier": CLASSIFIER_NAME, "rulesStatus": "draft", "lawVersion": get_engine().law_version},
     }
