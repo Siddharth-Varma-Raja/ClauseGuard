@@ -14,7 +14,7 @@ import type {
   NewTimelineEvent,
   Notice,
   UploadLeaseResponse,
-  UserProfile
+  UserProfile,
 } from "./notice-types";
 import { SAMPLE_ANSWER, SAMPLE_UPDATED_ID, getSampleLease, isSampleId, sampleLandlordEmail } from "./sample-lease";
 
@@ -167,10 +167,18 @@ export const getAnalyses = () => request<AnalysisSummary[]>("/analyses");
 export const getAnalysis = (analysisId: string) =>
   isSampleId(analysisId) ? Promise.resolve(getSampleLease(analysisId)) : getOrNull<Analysis>(`/analyses/${id(analysisId)}`);
 
-export function uploadLease(file: File) {
+/**
+ * Upload a lease document. Runs extraction, redaction, and analysis,
+ * returning the completed analysis summary.
+ */
+export async function uploadLease(file: File): Promise<UploadLeaseResponse> {
   const form = new FormData();
   form.append("file", file);
-  return request<UploadLeaseResponse>("/analyses", { method: "POST", body: form, timeoutMs: UPLOAD_TIMEOUT_MS });
+  return request<UploadLeaseResponse>("/analyses", {
+    method: "POST",
+    body: form,
+    timeoutMs: UPLOAD_TIMEOUT_MS,
+  });
 }
 
 export function uploadLeaseVersion(analysisId: string, file: File | null) {
