@@ -33,7 +33,7 @@ export const DASHBOARD_TOUR: TourStep[] = [
   {
     target: "tour-button",
     title: "Replay the tour",
-    text: "Click the ? button at the top any time to take this tour again.",
+    text: "Click the ? button in the menu any time to take this tour again.",
   },
 ];
 
@@ -51,7 +51,7 @@ export const NEW_USER_TOUR: TourStep[] = [
   {
     target: "tour-button",
     title: "Replay the tour",
-    text: "Click the ? button at the top any time to take this tour again.",
+    text: "   Click the ? button in the menu any time to take this tour again.",
   },
 ];
 
@@ -72,7 +72,7 @@ export const UPLOAD_TOUR: TourStep[] = [
   {
     target: "tour-button",
     title: "Replay the tour",
-    text: "Click the ? button at the top any time to take this tour again.",
+    text: "   Click the ? button in the menu any time to take this tour again.",
   },
 ];
 

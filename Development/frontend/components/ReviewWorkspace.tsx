@@ -35,6 +35,7 @@ import WhatChanged from "./review/WhatChanged";
 import { fmtDate } from "@/lib/format";
 import { loadRaised, saveRaised } from "@/lib/raisedClauses";
 import { SAMPLE_ID, isSampleId } from "@/lib/sample-lease";
+import { match } from "assert";
 
 type WorkspaceView = ReviewView | "changes";
 
@@ -77,6 +78,7 @@ export default function ReviewWorkspace({ analysis }: { analysis: Analysis }) {
   const gridRef = useRef<HTMLDivElement>(null);
   const leaseScrollRef = useRef<HTMLDivElement>(null);
   const centreNextScroll = useRef(false);
+  const [jumps, setJumps] = useState(0);
 
   useEffect(() => {
     const grid = gridRef.current;
@@ -119,12 +121,24 @@ export default function ReviewWorkspace({ analysis }: { analysis: Analysis }) {
     const block = centreNextScroll.current ? "center" : "nearest";
     centreNextScroll.current = false;
     document.getElementById(`clause-${selectedId}`)?.scrollIntoView({ behavior: "smooth", block });
-  }, [selectedId, page, view]);
+  }, [selectedId, page, view, jumps]);
+
+  function isOnScreen(id: string) {
+    const element = document.getElementById(`clause-${id}`);
+    const box = leaseScrollRef.current?.getBoundingClientRect();
+    if (!element || !box) return false;
+    const rect = element.getBoundingClientRect();
+    return rect.top >= box.top && rect.bottom <= box.bottom;
+  }
 
   function jumpTo(status: Clause["status"]) {
     const matching = clauses.filter((c) => c.status === status);
     if (matching.length === 0) return;
     const at = matching.findIndex((c) => c.id === selectedId);
+    if (at >= 0 && !isOnScreen(matching[at].id)) {
+      selectClause(matching[at]);
+      return;
+    }
     selectClause(matching[(at + 1) % matching.length]);
   }
 
@@ -175,6 +189,7 @@ export default function ReviewWorkspace({ analysis }: { analysis: Analysis }) {
   function selectClause(clause: Clause) {
     setSelectedId(clause.id);
     setPage(clause.page);
+    setJumps((n) => n + 1);
     if (window.innerWidth < 1024) {
       panelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }
