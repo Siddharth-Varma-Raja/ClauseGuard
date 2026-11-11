@@ -1,6 +1,7 @@
 import type { StatusCounts } from "@/lib/notice-types";
 import { cn } from "@/lib/cn";
 import { BRIGHT, verdictOf } from "./shared";
+import Tooltip from "../ui/Tooltip";
 
 const LIGHTS = [
     { key: "red", label: "Don't sign yet", color: BRIGHT.red },
@@ -15,13 +16,14 @@ export default function VerdictBand({ counts, total }: { counts: StatusCounts; t
     return (
         <section className="flex flex-col gap-6 rounded-[32px] bg-[radial-gradient(130%_130%_at_100%_0%,#1d6b73_0%,#0a3b43_55%,#082d33_100%)] p-6 text-white shadow-[0_14px_36px_-18px_rgb(10_59_67/0.7)] sm:flex-row sm:items-center sm:gap-8 sm:p-8">
             <div className="flex items-center gap-4">
-                <div className="flex gap-2 rounded-full bg-[#062227] p-2 ring-1 ring-white/10 sm:flex-col" aria-hidden>
+                <div className="flex gap-2 rounded-full bg-[#062227] p-2 ring-1 ring-white/10 sm:flex-col">
                     {LIGHTS.map((l) => (
-                        <span
-                            key={l.key}
-                            className={cn("size-7 rounded-full sm:size-8", l.key !== level && "opacity-20")}
-                            style={{ background: l.color, boxShadow: l.key === level ? `0 0 18px ${l.color}` : undefined }}
-                        />
+                        <Tooltip key={l.key} text={l.key === level ? `${l.label}: this is the result for your lease` : l.label}>
+                            <span
+                                className={cn("size-7 rounded-full sm:size-8", l.key !== level && "opacity-20")}
+                                style={{ background: l.color, boxShadow: l.key === level ? `0 0 18px ${l.color}` : undefined }}
+                            />
+                        </Tooltip>
                     ))}
                 </div>
                 <ul className="hidden space-y-2 text-sm sm:block" aria-label="What the light means">

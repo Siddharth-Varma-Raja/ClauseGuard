@@ -4,6 +4,7 @@ import { STATUS, STATUS_ORDER } from "@/lib/notice-status";
 import { cn } from "@/lib/cn";
 import VerdictBand from "./VerdictBand";
 import { CARD, LABEL, MEANING } from "./shared";
+import Tooltip from "../ui/Tooltip";
 
 const TILE: Record<Status, string> = {
     red: "border-bad-line bg-[linear-gradient(160deg,#fde3df_0%,#fff6f4_70%)]",
@@ -69,9 +70,11 @@ export default function Overview({
                                 className={cn("group flex flex-col rounded-[28px] border p-5 text-left transition enabled:cursor-pointer enabled:hover:-translate-y-0.5 enabled:hover:shadow-soft", TILE[s])}
                             >
                                 <div className="flex items-center gap-3">
-                                    <span className={cn("grid size-11 place-items-center rounded-full text-white", solid)}>
-                                        <Icon size={21} />
-                                    </span>
+                                    <Tooltip text={`${LABEL[s]}: ${MEANING[s]}`}>
+                                        <span className={cn("grid size-11 place-items-center rounded-full text-white", solid)}>
+                                            <Icon size={21} aria-hidden />
+                                        </span>
+                                    </Tooltip>
                                     <span className={cn("font-display text-4xl font-semibold leading-none", INK[s])}>{counts[s]}</span>
                                 </div>
                                 <p className="mt-4 text-lg font-bold text-ink">{LABEL[s]}</p>
@@ -95,9 +98,11 @@ export default function Overview({
                         {serious.map((c) => (
                             <li key={c.id}>
                                 <button type="button" onClick={() => onOpen(c)} className={cn(CARD, "group flex h-full w-full cursor-pointer items-start gap-4 p-5 text-left transition hover:-translate-y-0.5 hover:border-bad-line")}>
-                                    <span className="grid size-11 shrink-0 place-items-center rounded-full bg-bad-bg text-bad">
-                                        <span className="font-display text-lg font-semibold">{c.number}</span>
-                                    </span>
+                                    <Tooltip text={`Clause ${c.number} in your lease`} side="right" className="shrink-0">
+                                        <span className="grid size-11 place-items-center rounded-full bg-bad-bg text-bad">
+                                            <span className="font-display text-lg font-semibold">{c.number}</span>
+                                        </span>
+                                    </Tooltip>
                                     <span className="min-w-0 flex-1">
                                         <span className="block text-lg font-bold text-ink">{c.title}</span>
                                         <span className="mt-1 block leading-relaxed text-ink/80">{c.explanation}</span>

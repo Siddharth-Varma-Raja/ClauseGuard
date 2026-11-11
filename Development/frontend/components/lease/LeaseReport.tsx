@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
-import { ChevronRight, Download, Info } from "lucide-react";
+import { ArrowLeft, ChevronRight, Download, Info } from "lucide-react";
 import Alert from "@/components/ui/Alert";
 import { addEvent, errorMessage, getEvents } from "@/lib/api";
 import type { Analysis, Clause, NewTimelineEvent, Status } from "@/lib/notice-types";
@@ -166,13 +166,10 @@ export default function LeaseReport({ analysis }: { analysis: Analysis }) {
 
       <style>{`@media print { header { display: none !important; } body { background: white; } }`}</style>
 
-      <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-sm text-mute print:hidden">
-        <Link href="/lease" className="font-medium hover:text-brand hover:underline">
-          My leases
-        </Link>
-        <ChevronRight size={14} />
-        <span className="font-medium text-ink">{leaseName}</span>
-      </nav>
+      <Link href="/lease" className="inline-flex min-h-11 items-center gap-2 rounded-lg text-brand hover:underline print:hidden">
+        <ArrowLeft size={18} />
+        Back to my leases
+      </Link>
 
       <div className="mt-2 flex flex-wrap items-end justify-between gap-4">
         <div>
