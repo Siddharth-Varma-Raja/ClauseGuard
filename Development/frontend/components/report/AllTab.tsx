@@ -7,6 +7,7 @@ import { STATUS, STATUS_ORDER } from "@/lib/notice-status";
 import StatusBadge from "@/components/ui/StatusBadge";
 import { cn } from "@/lib/cn";
 import { CARD, LABEL } from "./shared";
+import Tooltip from "../ui/Tooltip";
 
 const PER_PAGE = 8;
 
@@ -91,7 +92,9 @@ export default function AllTab({ clauses, risk, onRisk, onOpen }: { clauses: Cla
                                 onClick={() => onOpen(c)}
                                 className="grid w-full cursor-pointer grid-cols-[2.75rem_minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 rounded-2xl border border-line bg-white px-3.5 py-3 text-left transition hover:border-brand/40 hover:bg-surface/60 sm:grid-cols-[2.75rem_minmax(0,1fr)_5rem_10rem_1.5rem]"
                             >
-                                <span className={cn("grid size-11 place-items-center rounded-full font-display text-lg font-semibold", CHIP[c.status])}>{c.number}</span>
+                                <Tooltip text={`Clause ${c.number}: ${LABEL[c.status]}`} side="right">
+                                    <span className={cn("grid size-11 place-items-center rounded-full font-display text-lg font-semibold", CHIP[c.status])}>{c.number}</span>
+                                </Tooltip>
                                 <span className="min-w-0">
                                     <span className="block font-semibold text-ink">{c.title}</span>
                                     <span className="block truncate text-sm text-mute">{c.explanation}</span>
@@ -113,15 +116,17 @@ export default function AllTab({ clauses, risk, onRisk, onOpen }: { clauses: Cla
                         {current * PER_PAGE + 1}–{current * PER_PAGE + shown.length} of {found.length}
                     </span>
                     <div className="flex items-center gap-2">
-                        <button
-                            type="button"
-                            onClick={() => setPage(current - 1)}
-                            disabled={current === 0}
-                            aria-label="Previous page"
-                            className="grid size-10 cursor-pointer place-items-center rounded-full border-[1.5px] border-brand-dark text-brand-dark hover:bg-brand-dark hover:text-white disabled:cursor-default disabled:border-line disabled:text-mute/50 disabled:hover:bg-transparent"
-                        >
-                            <ChevronLeft size={18} />
-                        </button>
+                        <Tooltip text="Previous clauses">
+                            <button
+                                type="button"
+                                onClick={() => setPage(current - 1)}
+                                disabled={current === 0}
+                                aria-label="Previous page"
+                                className="grid size-10 cursor-pointer place-items-center rounded-full border-[1.5px] border-brand-dark text-brand-dark hover:bg-brand-dark hover:text-white disabled:cursor-default disabled:border-line disabled:text-mute/50 disabled:hover:bg-transparent"
+                            >
+                                <ChevronLeft size={18} />
+                            </button>
+                        </Tooltip>
                         {Array.from({ length: pages }).map((_, i) => (
                             <button
                                 key={i}
@@ -134,15 +139,17 @@ export default function AllTab({ clauses, risk, onRisk, onOpen }: { clauses: Cla
                                 {i + 1}
                             </button>
                         ))}
-                        <button
-                            type="button"
-                            onClick={() => setPage(current + 1)}
-                            disabled={current === pages - 1}
-                            aria-label="Next page"
-                            className="grid size-10 cursor-pointer place-items-center rounded-full border-[1.5px] border-brand-dark text-brand-dark hover:bg-brand-dark hover:text-white disabled:cursor-default disabled:border-line disabled:text-mute/50 disabled:hover:bg-transparent"
-                        >
-                            <ChevronRight size={18} />
-                        </button>
+                        <Tooltip text="Next clauses">
+                            <button
+                                type="button"
+                                onClick={() => setPage(current + 1)}
+                                disabled={current === pages - 1}
+                                aria-label="Next page"
+                                className="grid size-10 cursor-pointer place-items-center rounded-full border-[1.5px] border-brand-dark text-brand-dark hover:bg-brand-dark hover:text-white disabled:cursor-default disabled:border-line disabled:text-mute/50 disabled:hover:bg-transparent"
+                            >
+                                <ChevronRight size={18} />
+                            </button>
+                        </Tooltip>
                     </div>
                 </div>
             )}
