@@ -20,7 +20,7 @@ export default function ReportPdf({ analysis, leaseName, end, userName, userEmai
     const deposit = analysis.depositCents;
     const over = rent != null && deposit != null && deposit > rent;
     const reportId = `CG-${analysis.id.slice(0, 8).toUpperCase()}`;
-    const page = { reportId, leaseName };
+    const page = { reportId };
 
     const facts: [string, string | null, string?][] = [
         ["Monthly rent", money(rent)],
@@ -35,24 +35,23 @@ export default function ReportPdf({ analysis, leaseName, end, userName, userEmai
         ["Report ID", reportId],
         ["Lease checked on", dateTime(new Date(analysis.createdAt))],
         ["Report downloaded on", dateTime(new Date())],
-        ["File name", analysis.fileName],
     ];
     if (start && end) details.push(["Tenancy dates", `${longDate(start)} to ${longDate(end)}`]);
 
     const contents = [
         { id: "overview", label: "Overview" },
         { id: "all", label: "Every clause in your lease" },
-        ...(flagged.length > 0 ? [{ id: "issues", label: "Issues to raise with your landlord" }] : []),
-        { id: "next", label: "What to do next and conclusion" },
+        ...(flagged.length > 0 ? [{ id: "issues", label: "Potential clauses found" }] : []),
+        { id: "next", label: "What to do next" },
     ];
 
     return (
         <Document title={`ClauseGuard report - ${leaseName}`} author="ClauseGuard">
-            <CoverPage {...page} userName={userName} fileName={analysis.fileName} pageCount={analysis.pageCount} total={total} issues={flagged.length} details={details} contents={contents} />
-            <OverviewPage {...page} createdAt={analysis.createdAt} pageCount={analysis.pageCount} total={total} counts={counts} facts={facts} />
+            <CoverPage {...page} fileName={analysis.fileName} pageCount={analysis.pageCount} total={total} issues={flagged.length} details={details} contents={contents} />
+            <OverviewPage {...page} total={total} counts={counts} facts={facts} />
             <ClausesPage {...page} clauses={clauses} />
             {flagged.length > 0 && <IssuesPage {...page} flagged={flagged} />}
-            <NextStepsPage {...page} clauses={clauses} counts={counts} issues={flagged.length} />
+            <NextStepsPage {...page} issues={flagged.length} />
         </Document>
     );
 }

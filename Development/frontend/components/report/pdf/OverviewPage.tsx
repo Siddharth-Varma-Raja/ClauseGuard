@@ -1,40 +1,18 @@
 import { Text, View } from "@react-pdf/renderer";
 import type { StatusCounts } from "@/lib/notice-types";
 import { STATUS_ORDER } from "@/lib/notice-status";
-import { BRIGHT, LABEL, MEANING, plural, verdictOf } from "../shared";
-import { P, longDate } from "./parts";
+import { BRIGHT, LABEL, MEANING, verdictOf } from "../shared";
+import { P } from "./parts";
 import { C, TONE, s } from "./theme";
 import Section from "./Section";
 
-export default function OverviewPage({
-    reportId,
-    leaseName,
-    createdAt,
-    pageCount,
-    total,
-    counts,
-    facts,
-}: {
-    reportId: string;
-    leaseName: string;
-    createdAt: string;
-    pageCount: number;
-    total: number;
-    counts: StatusCounts;
-    facts: [string, string | null, string?][];
-}) {
+export default function OverviewPage({ reportId, total, counts, facts }: { reportId: string; total: number; counts: StatusCounts; facts: [string, string | null, string?][] }) {
     const { level, verdict, reason } = verdictOf(counts, total);
     const missing = facts.filter((f) => !f[1]).map((f) => f[0].toLowerCase());
 
     return (
-        <Section name="Overview" reportId={reportId} leaseName={leaseName}>
-            <View>
-                <Text style={s.title}>{leaseName}</Text>
-                <P style={s.subtitle}>
-                    Checked on {longDate(createdAt)}. {pageCount} {plural(pageCount, "page", "pages")}, {total} clauses.
-                </P>
-            </View>
-
+        <Section name="Overview" reportId={reportId}>
+            <Text style={[s.h2, s.first]}>Overview</Text>
             <View style={s.verdict} wrap={false}>
                 <View style={s.lights}>
                     {(["red", "amber", "green"] as const).map((l) => (
@@ -75,7 +53,7 @@ export default function OverviewPage({
                     </View>
                 ))}
             </View>
-            {missing.length > 0 && <P style={s.note}>This lease doesn't say the {missing.join(", ")}. Ask your landlord to add it before you sign.</P>}
+            {missing.length > 0 && <P style={s.note}>This lease doesn&apos;t say the {missing.join(", ")}. Ask your landlord to add it before you sign.</P>}
         </Section>
     );
 }
