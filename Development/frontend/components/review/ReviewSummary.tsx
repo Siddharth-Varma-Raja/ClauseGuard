@@ -7,6 +7,7 @@ import AddToEmailButton from "@/components/review/AddToEmailButton";
 import KeyLeaseDetails from "@/components/review/KeyLeaseDetails";
 import { STATUS, STATUS_ORDER } from "@/lib/status";
 import { cn } from "@/lib/cn";
+import Tooltip from "../ui/Tooltip";
 
 const GROUP_HINT: Record<Status, string> = {
   red: "May be unfair or unlawful",
@@ -66,9 +67,11 @@ export default function ReviewSummary({
                   )}
                 >
                   <span className="flex items-center justify-between">
-                    <span className={cn("grid size-9 place-items-center rounded-xl text-white", style.solid)}>
-                      <style.Icon size={18} />
-                    </span>
+                    <Tooltip text={`${style.label}: ${style.hint}`}>
+                      <span className={cn("grid size-9 place-items-center rounded-xl text-white", style.solid)}>
+                        <style.Icon size={18} aria-hidden />
+                      </span>
+                    </Tooltip>
                     <span className="font-display text-3xl font-semibold text-ink">{count}</span>
                   </span>
                   <span className={cn("mt-3 block font-semibold", style.text)}>{style.label}</span>
@@ -250,7 +253,7 @@ function loadPerPage(): number {
 }
 
 function savePerPage(value: number) {
-    localStorage.setItem(PER_PAGE_KEY, value === 0 ? "all" : String(value));
+  localStorage.setItem(PER_PAGE_KEY, value === 0 ? "all" : String(value));
 }
 
 function pageNumbers(page: number, pageCount: number): (number | "…")[] {
@@ -362,8 +365,9 @@ function ClauseCard({
           <span className="mt-2 block font-semibold text-ink">{clause.title}</span>
           <span className="mt-1 line-clamp-2 block text-sm leading-relaxed text-mute">{clause.explanation}</span>
         </span>
-        <PlusMinus open={open} />
-        <span className="sr-only">{open ? "Close this clause" : "Read this clause"}</span>
+        <Tooltip text={open ? "Close this clause" : "Read this clause here"} side="left">
+          <PlusMinus open={open} />
+        </Tooltip>
       </button>
     </li>
   );
@@ -449,9 +453,9 @@ export function DetailsPanel({
   const reference = `Clause ${clause.number}, page ${clause.page} – ${clause.title}`;
 
   async function copyReference() {
-      await navigator.clipboard.writeText(reference);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+    await navigator.clipboard.writeText(reference);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   }
   const onClosedRef = useRef(onClosed);
   useEffect(() => {

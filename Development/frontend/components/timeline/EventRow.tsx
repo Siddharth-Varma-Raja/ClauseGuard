@@ -3,6 +3,7 @@ import { cn } from "@/lib/cn";
 import { Trash2, Undo2, Check } from "lucide-react";
 import Card from "../ui/Card";
 import SmallPill from "./SmallPill";
+import Tooltip from "../ui/Tooltip";
 
 const SOURCE: Record<EventSource, string | null> = {
     user: null,
@@ -57,22 +58,24 @@ export default function EventRow({
                 </div>
 
                 <div className="flex gap-1">
-                    <button
-                        onClick={onToggleDone}
-                        aria-label={event.done ? `Mark "${event.title}" as not done` : `Mark "${event.title}" as done`}
-                        title={event.done ? "Mark as not done" : "Mark as done"}
-                        className="cursor-pointer rounded-lg p-2 text-mute hover:bg-surface hover:text-brand"
-                    >
-                        {event.done ? <Undo2 size={17} /> : <Check size={17} />}
-                    </button>
-                    <button
-                        onClick={onDelete}
-                        aria-label={`Delete "${event.title}"`}
-                        title="Delete"
-                        className="cursor-pointer rounded-lg p-2 text-mute hover:bg-bad-bg hover:text-bad"
-                    >
-                        <Trash2 size={17} />
-                    </button>
+                    <Tooltip text={event.done ? "Mark as not done" : "Mark as done"}>
+                        <button
+                            onClick={onToggleDone}
+                            aria-label={event.done ? `Mark "${event.title}" as not done` : `Mark "${event.title}" as done`}
+                            className="cursor-pointer rounded-lg p-2 text-mute hover:bg-surface hover:text-brand"
+                        >
+                            {event.done ? <Undo2 size={17} /> : <Check size={17} />}
+                        </button>
+                    </Tooltip>
+                    <Tooltip text="Delete this date">
+                        <button
+                            onClick={onDelete}
+                            aria-label={`Delete "${event.title}"`}
+                            className="cursor-pointer rounded-lg p-2 text-mute hover:bg-bad-bg hover:text-bad"
+                        >
+                            <Trash2 size={17} />
+                        </button>
+                    </Tooltip>
                 </div>
             </Card>
         </li>

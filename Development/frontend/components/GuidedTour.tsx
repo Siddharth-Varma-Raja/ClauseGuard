@@ -53,7 +53,7 @@ export default function GuidedTour({
   useEffect(() => {
     if (!step) return;
     nextButtonRef.current?.focus();
-    const element = document.querySelector(`[data-tour="${step.target}"]`);
+    const element = Array.from(document.querySelectorAll(`[data-tour="${step.target}"]`)).find((el) => el.getClientRects().length > 0);
 
     if (!element) {
       const frame = requestAnimationFrame(() => setBox(null));
