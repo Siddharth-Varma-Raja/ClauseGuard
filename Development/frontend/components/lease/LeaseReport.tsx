@@ -82,14 +82,16 @@ export default function LeaseReport({ analysis }: { analysis: Analysis }) {
   }, []);
 
   async function downloadReport() {
+    var name = user?.displayName || "User";
+    var email = user?.email || "";
     try {
       const blob = await pdf(
         <ReportPdf
           analysis={analysis}
           leaseName={leaseName}
           end={end}
-          userName="User"
-          userEmail=""
+          userName={name}
+          userEmail={email}
         />
       ).toBlob();
 
