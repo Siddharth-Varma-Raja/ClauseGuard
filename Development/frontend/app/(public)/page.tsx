@@ -49,7 +49,7 @@ const longestHeadingPhrase = "before you move in.";
 const gradientClass = "bg-[radial-gradient(120%_140%_at_0%_0%,#1d6b73_0%,#0a3b43_55%,#082d33_100%)]";
 
 const getStartedClass =
-  "inline-flex min-h-14 items-center gap-2.5 rounded-xl bg-white px-8 py-4 text-lg font-bold text-brand-dark shadow-[0_0_0_4px_rgba(227,241,242,0.2),0_12px_32px_rgba(0,0,0,0.35),0_0_40px_rgba(227,241,242,0.3)] transition-all hover:-translate-y-0.5 hover:bg-brand-soft hover:shadow-xl hover:shadow-black/30";
+  "inline-flex min-h-14 items-center gap-2.5 rounded-xl bg-white px-8 py-4 text-2xl font-bold text-brand-dark shadow-[0_0_0_4px_rgba(227,241,242,0.2),0_12px_32px_rgba(0,0,0,0.35),0_0_40px_rgba(227,241,242,0.3)] transition-all hover:-translate-y-0.5 hover:bg-brand-soft hover:shadow-xl hover:shadow-black/30";
 
 function TypedHeadingEnd() {
   const [phraseIndex, setPhraseIndex] = useState(0);
@@ -137,7 +137,7 @@ export default function LandingPage() {
         <span className="pointer-events-none absolute -bottom-24 -right-16 size-64 rounded-full bg-white/5" />
 
         <div className="relative mx-auto max-w-7xl px-4 sm:px-6">
-          <div className="grid items-center gap-12 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] xl:grid-cols-[minmax(0,1fr)_500px]">
+          <div className="grid items-center gap-12 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] xl:grid-cols-[minmax(0,1fr)_450px]">
             <div className="space-y-6">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <span className="inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-3.5 py-1 text-xs font-semibold text-emerald-300">
@@ -149,7 +149,7 @@ export default function LandingPage() {
 
               <h1
                 aria-label="Know what's in your lease before you sign."
-                className="font-display text-[clamp(1.75rem,9vw,2.25rem)] sm:text-5xl xl:text-6xl font-semibold leading-[1.08] tracking-tight"
+                className="font-display text-[clamp(1.75rem,9vw,2.25rem)] sm:text-5xl xl:text-7xl font-semibold leading-[1.08] tracking-tight"
               >
                 <span className="block animate-fade-up">
                   Know what's in <br className="hidden lg:block" />
@@ -158,11 +158,11 @@ export default function LandingPage() {
                 <TypedHeadingEnd />
               </h1>
 
-              <p className="text-lg text-white/85 leading-relaxed max-w-lg animate-fade-up">
+              <p className="text-xl text-white/85 leading-relaxed max-w-lg animate-fade-up">
                 Drop in your rental agreement. We'll hide your personal details, check the wording against Irish law, and flag any unclear or unfair terms before you sign.
               </p>
 
-              <div className="flex flex-wrap items-center gap-3 pt-2 animate-fade-up">
+              <div className="flex flex-wrap items-center gap-3 pt-2 animate-fade-up text-xl">
                 <Link
                   href="/register"
                   data-tour="get-started"
@@ -444,7 +444,7 @@ export default function LandingPage() {
             <h3 className="font-display text-xl font-bold text-brand-dark">
               Catch Unfair Rules
             </h3>
-            <p className="mt-2.5 text-sm text-mute leading-relaxed">
+            <p className="mt-2.5 text-md text-mute leading-relaxed">
               We flag rules that aren't legal - like asking for three months rent up front, turning up unannounced or charging unreasonable fees.
             </p>
           </div>
@@ -456,7 +456,7 @@ export default function LandingPage() {
             <h3 className="font-display text-xl font-bold text-brand-dark">
               Simple English Explanations
             </h3>
-            <p className="mt-2.5 text-sm text-mute leading-relaxed">
+            <p className="mt-2.5 text-md text-mute leading-relaxed">
               Leases are filled with confusing legal words. We rewrite the tricky bits so you actually understand what you're agreeing to.
             </p>
           </div>
@@ -468,7 +468,7 @@ export default function LandingPage() {
             <h3 className="font-display text-xl font-bold text-brand-dark">
               Rent Caps and Dates
             </h3>
-            <p className="mt-2.5 text-sm text-mute leading-relaxed">
+            <p className="mt-2.5 text-md text-mute leading-relaxed">
               Check if rent hikes stay within the 2% cap, and whether any notice to leave gives you the time the law requires.
             </p>
           </div>
@@ -495,7 +495,7 @@ export default function LandingPage() {
                 <Upload size={19} className="text-brand" />
                 Upload your agreement
               </div>
-              <p className="mt-2 text-sm text-mute leading-relaxed">
+              <p className="mt-2 text-md text-mute leading-relaxed">
                 Upload your rental agreement to get started.
               </p>
             </div>
@@ -508,7 +508,7 @@ export default function LandingPage() {
                 <FileSearch size={19} className="text-brand" />
                 We check the rules
               </div>
-              <p className="mt-2 text-sm text-mute leading-relaxed">
+              <p className="mt-2 text-md text-mute leading-relaxed">
                 Review potential issues against Irish tenancy guidance.
               </p>
             </div>
@@ -521,7 +521,7 @@ export default function LandingPage() {
                 <CircleCheck size={19} className="text-brand" />
                 You get a clear report
               </div>
-              <p className="mt-2 text-sm text-mute leading-relaxed">
+              <p className="mt-2 text-md text-mute leading-relaxed">
                 Read clear explanations and relevant sources.
               </p>
             </div>
@@ -576,7 +576,7 @@ export default function LandingPage() {
             Upload your lease right now for a simplified breakdown.
           </p>
 
-          <div className="mt-8 flex flex-wrap justify-center items-center gap-3">
+          <div className="mt-8 flex flex-wrap justify-center items-center gap-8">
             <Link
               href="/register"
               className={getStartedClass}
@@ -585,7 +585,7 @@ export default function LandingPage() {
             </Link>
             <Link
               href="/login"
-              className="inline-flex min-h-12 items-center rounded-xl border border-white/30 px-6 py-3 font-medium text-white hover:bg-white/10 transition-all"
+              className="inline-flex text-2xl min-h-12 items-center rounded-xl border border-white/30 px-8 py-4 font-bold text-white hover:bg-white/10 transition-all"
             >
               Login
             </Link>
