@@ -1,4 +1,5 @@
 import AppHeader from "@/components/AppHeader"
+import AppSidebar from "@/components/AppSidebar"
 //import Footer from "@/components/Footer"
 import RequireAuth from "@/components/auth/RequireAuth"
 import type { ReactNode } from "react"
@@ -13,6 +14,7 @@ export default function ProtectedLayout({
             <RequireAuth>
                 <AppHeader />
                 <div className="flex">
+                    <AppSidebar />
                     <main className="min-w-0 flex-1 p-6 md:p-8">
                         {children}
                     </main>
