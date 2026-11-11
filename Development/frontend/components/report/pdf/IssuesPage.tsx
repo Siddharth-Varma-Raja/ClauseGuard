@@ -46,13 +46,13 @@ function IssueCard({ clause }: { clause: Clause }) {
     );
 }
 
-export default function IssuesPage({ reportId, leaseName, flagged }: { reportId: string; leaseName: string; flagged: Clause[] }) {
+export default function IssuesPage({ reportId, flagged }: { reportId: string; flagged: Clause[] }) {
     return (
-        <Section name="Issues to raise" reportId={reportId} leaseName={leaseName}>
+        <Section name="Potential clauses" reportId={reportId}>
             <View>
-                <Text style={[s.h2, s.first]}>Issues to raise with your landlord</Text>
+                <Text style={[s.h2, s.first]}>Potential clauses found</Text>
                 <P style={s.intro}>
-                    {flagged.length} {plural(flagged.length, "clause is", "clauses are")} against the law, unclear or unfair to you. High Risk first.
+                    {flagged.length} {plural(flagged.length, "clause", "clauses")}, High Risk first.
                 </P>
             </View>
             {flagged.map((c) => (

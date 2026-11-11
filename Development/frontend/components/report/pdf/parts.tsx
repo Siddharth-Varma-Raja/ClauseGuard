@@ -15,11 +15,11 @@ export function money(cents: number | null) {
 }
 
 export function longDate(iso: string) {
-    return new Date(iso.length === 10 ? `${iso}T00:00:00` : iso).toLocaleDateString("en-IE", { day: "numeric", month: "long", year: "numeric" });
+    return new Date(iso.length === 10 ? `${iso}T00:00:00` : iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
 export function dateTime(date: Date) {
-    return date.toLocaleString("en-IE", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" });
+    return date.toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short" });
 }
 
 export function isFlagged(c: Clause) {
@@ -41,11 +41,9 @@ export function Badge({ status }: { status: Status }) {
 }
 
 export function Pill({ clause }: { clause: Clause }) {
-    const tone = TONE[clause.status];
-    const filled = isFlagged(clause);
     return (
-        <View style={[s.pill, filled ? { backgroundColor: tone.solid } : { borderWidth: 1, borderColor: tone.solid }]}>
-            <Text style={[s.pillText, { color: filled ? "white" : tone.ink }]}>{clause.number}</Text>
+        <View style={[s.pill, { backgroundColor: TONE[clause.status].solid }]}>
+            <Text style={[s.pillText, { color: "white" }]}>{clause.number}</Text>
         </View>
     );
 }
