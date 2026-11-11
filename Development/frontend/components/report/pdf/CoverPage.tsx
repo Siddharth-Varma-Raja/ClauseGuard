@@ -6,8 +6,6 @@ import Section from "./Section";
 
 export default function CoverPage({
     reportId,
-    leaseName,
-    userName,
     fileName,
     pageCount,
     total,
@@ -16,8 +14,6 @@ export default function CoverPage({
     contents,
 }: {
     reportId: string;
-    leaseName: string;
-    userName: string;
     fileName: string;
     pageCount: number;
     total: number;
@@ -26,9 +22,8 @@ export default function CoverPage({
     contents: { id: string; label: string }[];
 }) {
     return (
-        <Section name="Cover page" reportId={reportId} leaseName={leaseName}>
-            <Text style={s.coverName}>{userName}</Text>
-            <Text style={s.coverLease}>{fileName}</Text>
+        <Section name="Cover page" reportId={reportId}>
+            <Text style={s.coverFile}>{fileName}</Text>
             <View style={s.coverMeta}>
                 <Text>Lease report by ClauseGuard</Text>
                 <Text>Checked against the Residential Tenancies Acts 2004 to 2022</Text>
@@ -51,7 +46,7 @@ export default function CoverPage({
                     </Text>
                     <Text style={s.bold}>{total} clauses</Text>
                     <Text style={s.bold}>
-                        {issues} {plural(issues, "issue", "issues")} to raise
+                        {issues} potential {plural(issues, "clause", "clauses")} found
                     </Text>
                 </View>
             </View>
