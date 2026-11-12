@@ -6,6 +6,7 @@ import { askAboutClause, askAboutLease, errorMessage } from "@/lib/api";
 import type { ChatMessage, Clause } from "@/lib/notice-types";
 import { STATUS } from "@/lib/status";
 import { cn } from "@/lib/cn";
+import Tooltip from "../ui/Tooltip";
 
 type Message = ChatMessage & { clause?: Pick<Clause, "id" | "number" | "title"> };
 
@@ -237,13 +238,14 @@ export default function AskClauseGuard({
         onClick={() => onOpenChange(!open)}
         aria-expanded={open}
         aria-label={open ? "Collapse Ask ClauseGuard" : "Open Ask ClauseGuard"}
-        title={open ? "Collapse" : "Ask ClauseGuard"}
         data-tour="ask-clauseguard"
         className="fixed bottom-6 right-6 z-50 grid size-14 cursor-pointer place-items-center rounded-full bg-brand-dark text-white shadow-xl transition-all duration-300 hover:scale-105 hover:bg-brand"
       >
-        <span key={open ? "open" : "closed"} className="animate-pop-in">
-          {open ? <ChevronDown size={24} /> : <MessageCircleQuestion size={24} />}
-        </span>
+        <Tooltip text={open ? "Close Ask ClauseGuard" : "Ask ClauseGuard a question about this lease"} side="left" className="absolute inset-0 grid place-items-center">
+          <span key={open ? "open" : "closed"} className="animate-pop-in">
+            {open ? <ChevronDown size={24} /> : <MessageCircleQuestion size={24} />}
+          </span>
+        </Tooltip>
         {!open && reference && (
           <span className="absolute right-1 top-1 size-3.5 rounded-full border-2 border-white bg-warn-solid" aria-hidden />
         )}

@@ -4,6 +4,7 @@ import { flaggedClauses, leaseName } from "@/lib/dashboard";
 import type { Analysis, AnalysisSummary } from "@/lib/notice-types";
 import { STATUS, STATUS_ORDER } from "@/lib/status";
 import { cn } from "@/lib/cn";
+import Tooltip from "../ui/Tooltip";
 
 function formatCreated(iso: string) {
   const date = new Date(iso);
@@ -32,7 +33,7 @@ function Badge({ tone, text }: { tone: "bad" | "warn" | "ok"; text: string }) {
         tone === "ok" && "border-ok-line bg-ok-bg text-ok",
       )}
     >
-      <Icon size={14}  />
+      <Icon size={14} />
       {text}
     </span>
   );
@@ -52,7 +53,7 @@ function LeaseRow({ lease, detail }: { lease: AnalysisSummary; detail?: Analysis
         className="group flex flex-wrap items-center gap-4 rounded-2xl border border-line bg-white p-4 transition hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-soft sm:flex-nowrap"
       >
         <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-brand-soft text-brand">
-          <FileText size={21}  />
+          <FileText size={21} />
         </span>
         <div className="min-w-0 flex-1">
           <p className="truncate font-semibold text-ink group-hover:text-brand">{leaseName(lease.fileName)}</p>
@@ -62,14 +63,16 @@ function LeaseRow({ lease, detail }: { lease: AnalysisSummary; detail?: Analysis
           <p className="text-xs text-mute">
             {total} clauses{progress}
           </p>
-          <div className="animate-grow mt-1.5 flex h-2 gap-0.5 overflow-hidden rounded-full bg-line">
-            {STATUS_ORDER.map((s) =>
-              counts[s] > 0 ? <span key={s} className={STATUS[s].solid} style={{ width: `${(counts[s] / total) * 100}%` }} /> : null,
-            )}
-          </div>
+          <Tooltip text={STATUS_ORDER.filter((s) => counts[s] > 0).map((s) => `${counts[s]} ${STATUS[s].label}`).join(", ")} className="mt-1.5 w-full">
+            <div className="animate-grow flex h-2 w-full gap-0.5 overflow-hidden rounded-full bg-line">
+              {STATUS_ORDER.map((s) =>
+                counts[s] > 0 ? <span key={s} className={STATUS[s].solid} style={{ width: `${(counts[s] / total) * 100}%` }} /> : null,
+              )}
+            </div>
+          </Tooltip>
         </div>
         <Verdict lease={lease} detail={detail} />
-        <ChevronRight size={20} className="hidden shrink-0 text-neu-solid transition-transform group-hover:translate-x-0.5 sm:block"  />
+        <ChevronRight size={20} className="hidden shrink-0 text-neu-solid transition-transform group-hover:translate-x-0.5 sm:block" />
       </Link>
     </li>
   );
@@ -82,7 +85,7 @@ export default function LeaseList({ leases, details, totalCount }: { leases: Ana
         <h2 className="font-display text-xl font-semibold text-brand-dark">My leases</h2>
         <Link href="/lease" className="inline-flex items-center gap-1 text-sm font-semibold text-brand hover:underline">
           View all {totalCount}
-          <ArrowRight size={15}  />
+          <ArrowRight size={15} />
         </Link>
       </div>
       <ul className="mt-4 space-y-3">

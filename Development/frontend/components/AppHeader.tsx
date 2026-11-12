@@ -12,20 +12,6 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import { NAV_ITEMS, isActive, initialsOf } from "@/lib/nav";
 import { cn } from "@/lib/cn";
 
-{/*const NAV_ITEMS = [
-    { label: "Dashboard", href: "/dashboard" },
-    { label: "My leases", href: "/lease" },
-    { label: "Notices", href: "/notices" },
-    { label: "Timeline", href: "/timeline" },
-];
-
-function initialsOf(name: string) {
-    const parts = name.trim().split(/\s+/).filter(Boolean);
-    if (parts.length === 0) return "?";
-    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-}*/}
-
 export default function AppHeader() {
     const router = useRouter();
     const pathname = usePathname();
@@ -60,10 +46,6 @@ export default function AppHeader() {
         return () => window.removeEventListener("keydown", onKey);
     }, [menuOpen, profileOpen]);
 
-    function isActive(href: string) {
-        if (href === "/lease") return pathname === "/lease" || (pathname.startsWith("/lease/") && !pathname.startsWith("/lease/new") && !pathname.startsWith("/lease/try"));
-        return pathname === href || pathname.startsWith(`${href}/`);
-    }
 
     function closeMenus() {
         setMenuOpen(false);
@@ -82,22 +64,6 @@ export default function AppHeader() {
                 <Link href="/dashboard" onClick={closeMenus}>
                     <Logo />
                 </Link>
-
-                {/*<nav aria-label="Main" className="hidden items-center gap-1 md:flex">
-                    {NAV_ITEMS.map((item) => (
-                        <Link
-                            key={item.href}
-                            href={item.href}
-                            aria-current={isActive(item.href) ? "page" : undefined}
-                            className={cn(
-                                "rounded-full px-4 py-2 text-sm font-medium transition-colors",
-                                isActive(item.href) ? "bg-brand-soft font-semibold text-brand-dark" : "text-mute hover:bg-surface hover:text-brand-dark",
-                            )}
-                        >
-                            {item.label}
-                        </Link>
-                    ))}
-                </nav>*/}
 
                 <div className="ml-auto flex items-center gap-2 sm:gap-3">
                     {hasTour && (

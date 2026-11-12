@@ -17,6 +17,7 @@ import {
   MessageCircleQuestion, Download, List, FileText, FlaskConical, Upload, GitCompare, History, Mail
 } from "lucide-react";
 
+import Tooltip from "./ui/Tooltip";
 import type { Analysis, Clause } from "@/lib/notice-types";
 import { STATUS, STATUS_ORDER } from "@/lib/status";
 import { cn } from "@/lib/cn";
@@ -231,13 +232,15 @@ export default function ReviewWorkspace({ analysis }: { analysis: Analysis }) {
 
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <div className="flex min-w-0 items-center gap-3">
-          <Link
-            href="/lease"
-            aria-label="Back to my leases"
-            className="grid size-9 shrink-0 place-items-center rounded-full border border-line bg-white text-brand-dark hover:bg-brand-soft"
-          >
-            <ArrowLeft size={17} />
-          </Link>
+          <Tooltip text="Back to my leases" side="bottom" className="shrink-0">
+            <Link
+              href="/lease"
+              aria-label="Back to my leases"
+              className="grid size-9 place-items-center rounded-full border border-line bg-white text-brand-dark hover:bg-brand-soft"
+            >
+              <ArrowLeft size={17} />
+            </Link>
+          </Tooltip>
           <div className="min-w-0">
             <p className="text-xs font-medium uppercase tracking-wide text-mute">Lease review</p>
             <h1 className="truncate font-display text-xl font-semibold text-brand-dark">{analysis.fileName}</h1>
@@ -617,14 +620,11 @@ function LeaseClause({
 
   return (
     <div id={`clause-${clause.id}`} className="relative scroll-my-6">
-      <span
-        className={cn(
-          "absolute -left-8 top-1 grid size-6 place-items-center rounded-full text-white sm:-left-10",
-          style.solid,
-        )}
-      >
-        <style.Icon size={14} />
-      </span>
+      <Tooltip text={`${style.label}: ${style.hint}`} side="right" className="absolute -left-8 top-1 sm:-left-10">
+        <span className={cn("grid size-6 place-items-center rounded-full text-white", style.solid)}>
+          <style.Icon size={14} aria-hidden />
+        </span>
+      </Tooltip>
 
       <button
         onClick={onSelect}
@@ -637,7 +637,11 @@ function LeaseClause({
       >
         <span className="mb-1 flex items-center gap-2 font-bold">
           {clause.number}. {clause.title}
-          {clause.reviewed && <Check size={15} className="text-ok" aria-label="Reviewed" />}
+          {clause.reviewed && (
+            <Tooltip text="You marked this clause as reviewed">
+              <Check size={15} className="text-ok" aria-label="Reviewed" />
+            </Tooltip>
+          )}
         </span>
         <span className={cn("box-decoration-clone px-0.5", style.mark)}>{clause.text}</span>
       </button>
@@ -820,13 +824,15 @@ function IconButton({
   children: React.ReactNode;
 }) {
   return (
-    <button
-      aria-label={label}
-      disabled={disabled}
-      onClick={onClick}
-      className="grid size-9 cursor-pointer place-items-center rounded-full text-brand-dark hover:bg-surface disabled:cursor-not-allowed disabled:opacity-30"
-    >
-      {children}
-    </button>
+    <Tooltip text={label} side="bottom">
+      <button
+        aria-label={label}
+        disabled={disabled}
+        onClick={onClick}
+        className="grid size-9 cursor-pointer place-items-center rounded-full text-brand-dark hover:bg-surface disabled:cursor-not-allowed disabled:opacity-30"
+      >
+        {children}
+      </button>
+    </Tooltip>
   );
 }
