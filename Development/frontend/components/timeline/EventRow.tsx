@@ -1,10 +1,9 @@
-import Link from "next/link";
-import { ArrowUpRight, CalendarPlus, CircleCheck, Repeat, Undo2 } from "lucide-react";
+import { BellPlus, CircleCheck, Repeat, Undo2 } from "lucide-react";
 import type { TimelineEvent } from "@/lib/notice-types";
 import { KIND_STYLE, countdown, daysBetween, toDate, weekday } from "@/lib/timeline";
 import { cn } from "@/lib/cn";
 import Tooltip from "../ui/Tooltip";
-import EventMenu, { SOURCE_LINK, type EventActions } from "./EventMenu";
+import EventMenu, { type EventActions } from "./EventMenu";
 
 export default function EventRow({
   event,
@@ -23,10 +22,9 @@ export default function EventRow({
   const days = daysBetween(today, event.date);
   const urgent = !event.done && event.kind === "deadline" && days >= 0 && days <= 14;
   const past = event.done || days < 0;
-  const source = event.source && event.source !== "user" ? SOURCE_LINK[event.source] : null;
 
   return (
-    <li
+    <div
       data-date={event.date}
       className={cn("flex items-center gap-3 px-4 py-2.5 transition-colors sm:gap-3.5", highlighted && "bg-brand-soft/60")}
     >
@@ -44,17 +42,13 @@ export default function EventRow({
         </p>
         <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12.5px] text-mute">
           <span className={cn("rounded-full border px-2 py-px text-[11px] font-bold", kind.pill)}>{kind.label}</span>
+          <span className={cn("sm:hidden", urgent && "font-semibold text-warn")}>{event.done ? "Done" : countdown(event.date, today)}</span>
           {moreDates > 0 && (
             <span className="inline-flex items-center gap-1">
               <Repeat size={13} aria-hidden />
-              Repeats · {moreDates} more date{moreDates > 1 ? "s" : ""}
+              <span className="sm:hidden">Repeats</span>
+              <span className="hidden sm:inline">Repeats · {moreDates} more date{moreDates > 1 ? "s" : ""}</span>
             </span>
-          )}
-          {source && (
-            <Link href={source.href} className="inline-flex items-center gap-0.5 font-semibold text-brand hover:underline">
-              {source.label}
-              <ArrowUpRight size={13} aria-hidden />
-            </Link>
           )}
           {event.note && <span className="hidden truncate md:inline">{event.note}</span>}
         </div>
@@ -71,14 +65,14 @@ export default function EventRow({
 
       <div className="flex shrink-0 items-center">
         {!past && (
-          <Tooltip text="Add to my calendar">
+          <Tooltip text="Remind me">
             <button
               type="button"
               onClick={() => actions.onExport(event)}
-              aria-label={`Add "${event.title}" to my calendar`}
-              className="hidden size-8 cursor-pointer place-items-center rounded-lg text-mute hover:bg-surface hover:text-brand sm:grid"
+              aria-label={`Remind me about "${event.title}"`}
+              className="grid size-8 cursor-pointer place-items-center rounded-lg text-mute hover:bg-surface hover:text-brand"
             >
-              <CalendarPlus size={16} />
+              <BellPlus size={16} />
             </button>
           </Tooltip>
         )}
@@ -94,6 +88,6 @@ export default function EventRow({
         </Tooltip>
         <EventMenu event={event} actions={actions} />
       </div>
-    </li>
+    </div>
   );
 }

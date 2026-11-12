@@ -27,6 +27,8 @@ export const KIND_STYLE: Record<EventKind, { label: string; plural: string; pill
 export const KINDS: EventKind[] = ["deadline", "rent", "event"];
 
 export type LeaseInfo = {
+  id: string;
+  name: string;
   start: string;
   termMonths: number;
   monthlyRent: number | null;
@@ -167,11 +169,11 @@ export function leaseSuggestions(lease: LeaseInfo | null, events: TimelineEvent[
   if (!lease) return [];
   const proposed: (Suggestion & { oldTitle: string })[] = [
     {
-      title: "Part 4 security of tenure begins",
+      title: "Secure tenancy begins",
       oldTitle: "Part 4 Security of Tenure",
       date: addMonths(lease.start, 6),
       kind: "deadline",
-      note: "After 6 months your landlord needs a legal reason to end the tenancy.",
+      note: "From now your landlord needs a legal reason to end your tenancy (Part 4).",
     },
     {
       title: "Earliest rent review",

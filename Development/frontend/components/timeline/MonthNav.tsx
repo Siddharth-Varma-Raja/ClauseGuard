@@ -4,13 +4,17 @@ import { addMonths, monthLabel, monthStart } from "@/lib/timeline";
 export default function MonthNav({
   month,
   today,
+  todaySelected,
   onChange,
+  onToday,
 }: {
   month: string;
   today: string;
+  todaySelected: boolean;
   onChange: (month: string) => void;
+  onToday: () => void;
 }) {
-  const isThisMonth = month === monthStart(today);
+  const atToday = todaySelected && month === monthStart(today);
   return (
     <div className="flex items-center gap-1">
       <button
@@ -34,8 +38,9 @@ export default function MonthNav({
       </button>
       <button
         type="button"
-        onClick={() => onChange(monthStart(today))}
-        disabled={isThisMonth}
+        onClick={onToday}
+        disabled={atToday}
+        title="Show today's dates"
         className="ml-1 cursor-pointer rounded-md px-2 py-0.5 text-xs font-semibold text-brand hover:bg-white disabled:cursor-default disabled:text-mute/60 disabled:hover:bg-transparent"
       >
         Today

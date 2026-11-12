@@ -140,18 +140,18 @@ export const REVIEW_TOUR: TourStep[] = [
 export const TIMELINE_TOUR: TourStep[] = [
   {
     target: "timeline-summary",
-    title: "Your tenancy at a glance",
-    text: "See where you are in your lease, when your Part 4 rights start, and your open deadlines and next rent.",
+    title: "Your tenancy timeline",
+    text: "All your important dates in one place. If you've analysed your lease, you'll also see how far into it you are.",
   },
   {
     target: "event-list",
     title: "Your dates",
-    text: "Upcoming dates are grouped by week and month. Switch to Month to see them on a calendar, or open the menu on a date to edit or delete it.",
+    text: "Upcoming dates are grouped by week and month. Pick a day on the calendar to see only that day, and use the arrows to see more.",
   },
   {
     target: "add-to-calendar",
     title: "Get reminders",
-    text: "We don't send reminders, so add your dates to Google, Apple or Outlook Calendar and choose when you want to be reminded.",
+    text: "We don't send reminders, so put your dates into the calendar you already use and it will remind you.",
   },
   {
     target: "add-event",

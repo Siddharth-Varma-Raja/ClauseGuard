@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
-import { ArrowUpRight, CalendarPlus, CircleCheck, Ellipsis, Pencil, Trash2, Undo2 } from "lucide-react";
+import { Ellipsis, Pencil, Trash2 } from "lucide-react";
 import type { TimelineEvent } from "@/lib/notice-types";
 import { cn } from "@/lib/cn";
 
@@ -13,17 +12,12 @@ export type EventActions = {
   onDelete: (event: TimelineEvent) => void;
 };
 
-export const SOURCE_LINK = {
-  notice: { href: "/notices", label: "Open notice" },
-  lease: { href: "/lease", label: "Open lease" },
-};
-
 const itemClass = "flex w-full cursor-pointer items-center gap-2.5 px-3 py-1.5 text-left hover:bg-surface";
 
 export default function EventMenu({ event, actions, className }: { event: TimelineEvent; actions: EventActions; className?: string }) {
   const [open, setOpen] = useState(false);
+  const [upward, setUpward] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const source = event.source && event.source !== "user" ? SOURCE_LINK[event.source] : null;
 
   useEffect(() => {
     if (!open) return;
@@ -48,7 +42,10 @@ export default function EventMenu({ event, actions, className }: { event: Timeli
     <div ref={ref} className={cn("relative", className)}>
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={(e) => {
+          setUpward(window.innerHeight - e.currentTarget.getBoundingClientRect().bottom < 120);
+          setOpen((v) => !v);
+        }}
         aria-label={`More options for "${event.title}"`}
         aria-expanded={open}
         aria-haspopup="menu"
@@ -57,31 +54,18 @@ export default function EventMenu({ event, actions, className }: { event: Timeli
         <Ellipsis size={16} />
       </button>
       {open && (
-        <div role="menu" className="absolute right-0 top-full z-30 mt-1 w-52 rounded-xl border border-line bg-white py-1.5 text-[13.5px] shadow-xl">
+        <div
+          role="menu"
+          className={cn(
+            "absolute right-0 z-30 w-40 rounded-xl border border-line bg-white py-1.5 text-[13.5px] shadow-xl",
+            upward ? "bottom-full mb-1" : "top-full mt-1",
+          )}
+        >
           <button role="menuitem" type="button" onClick={() => run(actions.onEdit)} className={itemClass}>
             <Pencil size={15} className="text-mute" aria-hidden />
             Edit date
           </button>
-          <button role="menuitem" type="button" onClick={() => run(actions.onExport)} className={itemClass}>
-            <CalendarPlus size={15} className="text-mute" aria-hidden />
-            Add to my calendar
-          </button>
-          {source && (
-            <Link role="menuitem" href={source.href} className={itemClass}>
-              <ArrowUpRight size={15} className="text-mute" aria-hidden />
-              {source.label}
-            </Link>
-          )}
-          <button role="menuitem" type="button" onClick={() => run(actions.onToggleDone)} className={itemClass}>
-            {event.done ? <Undo2 size={15} className="text-mute" aria-hidden /> : <CircleCheck size={15} className="text-mute" aria-hidden />}
-            {event.done ? "Mark as not done" : "Mark as done"}
-          </button>
-          <button
-            role="menuitem"
-            type="button"
-            onClick={() => run(actions.onDelete)}
-            className={cn(itemClass, "mt-1 border-t border-line pt-2 text-bad hover:bg-bad-bg")}
-          >
+          <button role="menuitem" type="button" onClick={() => run(actions.onDelete)} className={cn(itemClass, "text-bad hover:bg-bad-bg")}>
             <Trash2 size={15} aria-hidden />
             Delete
           </button>
