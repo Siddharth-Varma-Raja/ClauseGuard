@@ -140,18 +140,23 @@ export const REVIEW_TOUR: TourStep[] = [
 export const TIMELINE_TOUR: TourStep[] = [
   {
     target: "timeline-summary",
-    title: "Your tenancy timeline",
-    text: "See all your important tenancy dates in one place, including rent reviews and notice periods.",
-  },
-  {
-    target: "add-event",
-    title: "Add an event",
-    text: "Click this button to add a new event to your timeline, such as a rent review or notice period.",
+    title: "Your tenancy at a glance",
+    text: "See where you are in your lease, when your Part 4 rights start, and your open deadlines and next rent.",
   },
   {
     target: "event-list",
-    title: "Your events",
-    text: "View and manage your upcoming, past and completed tenancy events here.",
+    title: "Your dates",
+    text: "Upcoming dates are grouped by week and month. Switch to Month to see them on a calendar, or open the menu on a date to edit or delete it.",
+  },
+  {
+    target: "add-to-calendar",
+    title: "Get reminders",
+    text: "We don't send reminders, so add your dates to Google, Apple or Outlook Calendar and choose when you want to be reminded.",
+  },
+  {
+    target: "add-event",
+    title: "Add a date",
+    text: "Add your own dates, such as an inspection or a rent payment.",
   },
 ]
 
