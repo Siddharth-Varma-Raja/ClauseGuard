@@ -33,7 +33,7 @@ export const DASHBOARD_TOUR: TourStep[] = [
   {
     target: "tour-button",
     title: "Replay the tour",
-    text: "Click the ? button at the top any time to take this tour again.",
+    text: "Click the ? button in the menu any time to take this tour again.",
   },
 ];
 
@@ -51,7 +51,7 @@ export const NEW_USER_TOUR: TourStep[] = [
   {
     target: "tour-button",
     title: "Replay the tour",
-    text: "Click the ? button at the top any time to take this tour again.",
+    text: "   Click the ? button in the menu any time to take this tour again.",
   },
 ];
 
@@ -72,7 +72,7 @@ export const UPLOAD_TOUR: TourStep[] = [
   {
     target: "tour-button",
     title: "Replay the tour",
-    text: "Click the ? button at the top any time to take this tour again.",
+    text: "   Click the ? button in the menu any time to take this tour again.",
   },
 ];
 
@@ -124,6 +124,16 @@ export const REVIEW_TOUR: TourStep[] = [
     target: "view-full-report",
     title: "Full report",
     text: "Export your review as a PDF or print it to share with your landlord.",
+  },
+  {
+    target: "email-landlord",
+    title: "Email your landlord",
+    text: "Choose the clauses you want to raise and we'll write a draft you can edit and send yourself.",
+  },
+  {
+    target: "upload-updated",
+    title: "Got an updated lease?",
+    text: "Upload it here and it's added as a new version, so you can see exactly what changed.",
   }
 ];
 

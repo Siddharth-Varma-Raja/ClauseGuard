@@ -14,7 +14,8 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, List
 
-from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile, status, Request
+from starlette.concurrency import run_in_threadpool
 from google import genai
 from google.genai import types
 from sqlalchemy import select
@@ -22,6 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.config import settings
+from app.core.rate_limit import limiter
 from app.core.firebase import revoke_refresh_tokens
 from app.database import get_db
 from app.models.chat import ChatMessage, ChatRole
@@ -46,6 +48,8 @@ from app.schemas.translation import (
     ClauseQuestionResponse,
     ClauseReviewedRequest,
     CreateNoticeResponse,
+    EmailDraftRequest,
+    EmailDraftResponse,
     NewTimelineEventRequest,
     NoticeCheckItem,
     NoticeDetail,
@@ -65,6 +69,7 @@ from app.services.analysis.persist import save_analysis
 from app.services.document.pipeline import PipelineError, run_upload_pipeline
 from app.services.document.s3 import delete_from_s3
 from app.services.notice_checker import check_notice_rules
+from app.services.email_generator import generate_landlord_email
 
 logger = logging.getLogger(__name__)
 
@@ -121,7 +126,7 @@ async def get_analyses(
         select(Document)
         .where(
             Document.user_id == current_user.id,
-            Document.is_deleted == False,  # noqa: E712
+            Document.is_deleted == False,  
         )
         .order_by(Document.created_at.desc())
     )
@@ -167,7 +172,7 @@ async def get_analysis(
         select(Document).where(
             Document.id == id,
             Document.user_id == current_user.id,
-            Document.is_deleted == False,  # noqa: E712
+            Document.is_deleted == False,  
         )
     )
     doc = doc_result.scalar_one_or_none()
@@ -412,7 +417,7 @@ async def delete_all_analyses(
     docs_result = await db.execute(
         select(Document).where(
             Document.user_id == current_user.id,
-            Document.is_deleted == False,  # noqa: E712
+            Document.is_deleted == False,  
         )
     )
     docs = docs_result.scalars().all()
@@ -446,7 +451,6 @@ async def ask_clause_question(
     Ask a targeted question about a specific clause with AI privacy isolation.
     Sends only the clause text and the question to the AI model.
     """
-    # Verify ownership and clause relationship
     result = await db.execute(
         select(ClauseReview)
         .join(DocumentReview, ClauseReview.review_id == DocumentReview.id)
@@ -455,7 +459,7 @@ async def ask_clause_question(
             ClauseReview.id == clause_id,
             DocumentReview.document_id == analysis_id,
             Document.user_id == current_user.id,
-            Document.is_deleted == False,  # noqa: E712
+            Document.is_deleted == False, 
         )
     )
     clause = result.scalar_one_or_none()
@@ -474,14 +478,12 @@ async def ask_clause_question(
     )
 
     contents = []
-    # Map prior history (accepts role 'assistant' or 'user')
     for item in body.history:
         role = "model" if item.get("role") in ["assistant", "model"] else "user"
         msg_text = item.get("text") or item.get("content") or ""
         if msg_text:
             contents.append(types.Content(role=role, parts=[types.Part.from_text(text=msg_text)]))
 
-    # Send only the clause text and user question
     prompt = (
         f"--- LEASE CLAUSE ---\n"
         f"Title: {clause.clause_title}\n"
@@ -516,6 +518,35 @@ async def ask_clause_question(
 # ═══════════════════════════════════════════════════════════════════════════════
 # 2. LANDLORD NOTICES
 # ═══════════════════════════════════════════════════════════════════════════════
+
+
+@router.post("/notices/generate-landlord-email", response_model=EmailDraftResponse, tags=["Notices"])
+@limiter.limit("5/minute")
+async def draft_landlord_email(
+    request: Request,
+    body: EmailDraftRequest,
+    current_user: User = Depends(get_current_user),
+    gemini_client: genai.Client = Depends(get_genai_client),
+) -> EmailDraftResponse:
+    """Generates a polite negotiation email based on found lease flaws."""
+    if not body.detected_deviations:
+        raise HTTPException(status_code=400, detail="No deviations provided to discuss.")
+        
+    try:
+        draft_json = await run_in_threadpool(
+            generate_landlord_email,
+            client=gemini_client,
+            deviations=body.detected_deviations,
+            landlord_name=body.landlord_name,
+            tenant_name=body.tenant_name,
+            address=body.property_address
+        )
+        return EmailDraftResponse(
+            email_subject=draft_json["email_subject"],
+            email_body=draft_json["email_body"]
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate draft: {str(e)}")
 
 
 @router.get("/notices", response_model=List[NoticeSummaryItem], tags=["Notices"])
@@ -771,7 +802,6 @@ async def delete_my_data(
     Cascading account deletion: removes stored files from S3, soft-deletes/purges
     analyses, notices, timeline events, preferences, and revokes Firebase tokens.
     """
-    # 1. Wipe S3 files and soft-delete documents
     docs_result = await db.execute(
         select(Document).where(Document.user_id == current_user.id)
     )
@@ -784,7 +814,6 @@ async def delete_my_data(
         doc.is_deleted = True
         doc.deleted_at = datetime.now(timezone.utc)
 
-    # 2. Delete user's notices, timeline events, preferences
     notices_result = await db.execute(
         select(Notice).where(Notice.user_id == current_user.id)
     )
@@ -803,7 +832,6 @@ async def delete_my_data(
     for p in pref_result.scalars().all():
         await db.delete(p)
 
-    # 3. Deactivate user and revoke Firebase refresh tokens
     current_user.is_active = False
     current_user.updated_at = datetime.now(timezone.utc)
     try:

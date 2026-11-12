@@ -4,6 +4,7 @@ import { upcomingEvents } from "@/lib/dashboard";
 import { daysUntil, fmtDate, relativeDays } from "@/lib/format";
 import type { TimelineEvent } from "@/lib/notice-types";
 import { cn } from "@/lib/cn";
+import Tooltip from "../ui/Tooltip";
 
 export default function UpcomingDates({ events }: { events: TimelineEvent[] }) {
   const next = upcomingEvents(events).slice(0, 4);
@@ -12,7 +13,9 @@ export default function UpcomingDates({ events }: { events: TimelineEvent[] }) {
     <section data-tour="upcoming-dates" className="flex flex-col rounded-3xl border border-line bg-white p-5 shadow-soft sm:p-6">
       <div className="flex items-center justify-between">
         <h2 className="font-display text-xl font-semibold text-brand-dark">Upcoming dates</h2>
-        <CalendarDays size={20} className="text-brand"  />
+        <Tooltip text="Rent days, deadlines and dates you've added" side="left">
+          <CalendarDays size={20} className="text-brand" aria-hidden />
+        </Tooltip>
       </div>
 
       {next.length === 0 ? (
@@ -31,7 +34,7 @@ export default function UpcomingDates({ events }: { events: TimelineEvent[] }) {
                     "relative mt-1 size-4 shrink-0 rounded-full border-[3px] border-white ring-1 ring-line",
                     index === 0 && days <= 7 ? "bg-warn-solid" : "bg-brand",
                   )}
-                  
+
                 />
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-semibold text-ink">{event.title}</p>
@@ -54,12 +57,12 @@ export default function UpcomingDates({ events }: { events: TimelineEvent[] }) {
 
       <div className="mt-3 flex items-center justify-between border-t border-line pt-3.5 text-sm font-semibold text-brand">
         <Link href="/timeline" className="inline-flex items-center gap-1 hover:underline">
-          <Plus size={15}  />
+          <Plus size={15} />
           Add a date
         </Link>
         <Link href="/timeline" className="inline-flex items-center gap-1 hover:underline">
           Open timeline
-          <ArrowRight size={15}  />
+          <ArrowRight size={15} />
         </Link>
       </div>
     </section>

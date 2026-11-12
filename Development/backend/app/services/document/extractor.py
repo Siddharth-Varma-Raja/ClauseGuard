@@ -3,6 +3,7 @@ import io
 import json
 import logging
 import docx
+import pypdf
 from google.cloud import documentai
 from google.cloud import storage
 from google.api_core.client_options import ClientOptions
@@ -34,6 +35,22 @@ def extract_docx_text(file_bytes: bytes) -> str:
     """Instantly parses text from a Word document locally without hitting GCP."""
     doc = docx.Document(io.BytesIO(file_bytes))
     return "\n".join([paragraph.text for paragraph in doc.paragraphs])
+
+def extract_text_sync(file_bytes: bytes, content_type: str) -> str:
+    """Fast, direct-to-memory extraction for images and small PDFs (≤ 15 pages)."""
+    project_id = os.environ.get("GCP_PROJECT_ID")
+    location = os.environ.get("GCP_LOCATION", "eu")
+    processor_id = os.environ.get("DOC_AI_PROCESSOR_ID") or os.environ.get("GCP_PROCESSOR_ID")
+
+    opts = ClientOptions(api_endpoint=f"{location}-documentai.googleapis.com")
+    client = documentai.DocumentProcessorServiceClient(client_options=opts)
+    name = client.processor_path(project_id, location, processor_id)
+
+    raw_document = documentai.RawDocument(content=file_bytes, mime_type=content_type)
+    request = documentai.ProcessRequest(name=name, raw_document=raw_document)
+    
+    result = client.process_document(request=request)
+    return result.document.text.strip()
 
 def extract_text_large_document(file_bytes: bytes, content_type: str, file_name: str) -> str:
     """Handles PDFs and images using GCS and asynchronous batch processing to bypass page limits."""
@@ -100,8 +117,10 @@ def extract_text_large_document(file_bytes: bytes, content_type: str, file_name:
 
 def extract_text(file_bytes: bytes, content_type: str, file_name: str = "upload.bin") -> str:
     """
-    Unified entry point. Routes Word documents to the local parser, 
-    and PDFs/Images to the GCS batch processor.
+    Hybrid router: 
+    - DOCX goes to local python-docx parser.
+    - Images & Small PDFs (≤ 15 pages) go to fast Sync API.
+    - Large PDFs (> 15 pages) go to slow Async GCS Batch API.
     """
     if content_type not in ALL_SUPPORTED_MIME_TYPES:
         raise ValueError(f"Unsupported content type: {content_type}")
@@ -110,8 +129,21 @@ def extract_text(file_bytes: bytes, content_type: str, file_name: str = "upload.
         logger.info("Extracting DOCX file locally.")
         return extract_docx_text(file_bytes)
         
-    logger.info("Sending document to GCP Document AI Batch Process (Content-Type: %s)", content_type)
-    return extract_text_large_document(file_bytes, content_type, file_name)
+    if content_type in IMAGE_MIME_TYPES:
+        logger.info("Extracting image synchronously.")
+        return extract_text_sync(file_bytes, content_type)
+        
+    if content_type in PDF_MIME_TYPES:
+        # Count pages in memory to determine the correct pipeline
+        pdf_reader = pypdf.PdfReader(io.BytesIO(file_bytes))
+        num_pages = len(pdf_reader.pages)
+        
+        if num_pages <= 15:
+            logger.info("PDF is %d pages. Routing to fast Sync API.", num_pages)
+            return extract_text_sync(file_bytes, content_type)
+        else:
+            logger.info("PDF is %d pages. Routing to Async GCS Batch API.", num_pages)
+            return extract_text_large_document(file_bytes, content_type, file_name)
 
 def extract_lease_metadata(raw_unredacted_text: str) -> dict:
     """
@@ -133,7 +165,7 @@ def extract_lease_metadata(raw_unredacted_text: str) -> dict:
     """
     
     response = gemini_client.models.generate_content(
-        model='gemini-2.5-flash',
+        model='gemini-3.8-flash',
         contents=prompt,
         config=types.GenerateContentConfig(
             response_mime_type="application/json",
