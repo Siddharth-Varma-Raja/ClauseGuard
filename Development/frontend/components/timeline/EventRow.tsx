@@ -1,82 +1,93 @@
-import type { EventKind, EventSource, TimelineEvent } from "@/lib/notice-types";
+import { BellPlus, CircleCheck, Repeat, Undo2 } from "lucide-react";
+import type { TimelineEvent } from "@/lib/notice-types";
+import { KIND_STYLE, countdown, daysBetween, toDate, weekday } from "@/lib/timeline";
 import { cn } from "@/lib/cn";
-import { Trash2, Undo2, Check } from "lucide-react";
-import Card from "../ui/Card";
-import SmallPill from "./SmallPill";
-
-const SOURCE: Record<EventSource, string | null> = {
-    user: null,
-    lease: "From your lease",
-    notice: "From a notice check",
-};
-
-const KIND: Record<EventKind, { label: string; pill: string }> = {
-    deadline: { label: "Deadline", pill: "border-warn-line bg-warn-bg text-warn" },
-    rent: { label: "Rent", pill: "border-ok-line bg-ok-bg text-ok" },
-    event: { label: "Event", pill: "border-brand/20 bg-brand-soft text-brand-dark" },
-};
+import Tooltip from "../ui/Tooltip";
+import EventMenu, { type EventActions } from "./EventMenu";
 
 export default function EventRow({
-    event,
-    today,
-    onToggleDone,
-    onDelete
+  event,
+  today,
+  moreDates = 0,
+  highlighted = false,
+  actions,
 }: {
-    event: TimelineEvent,
-    today: string,
-    onToggleDone: () => void,
-    onDelete: () => void
+  event: TimelineEvent;
+  today: string;
+  moreDates?: number;
+  highlighted?: boolean;
+  actions: EventActions;
 }) {
-    const date = new Date(`${event.date}T00:00:00`);
-    const day = date.getDate();
-    const month = date.toLocaleString("en-IE", { month: "short" });
-    const year = date.getFullYear();
-    const source = event.source ? SOURCE[event.source] : null;
-    const kind = KIND[event.kind] ?? KIND.event;
-    return (
-        <li className="relative flex gap-3">
-            <div className="z-10 grid size-14 shrink-0 place-items-center sm:size-[72px] rounded-2xl border border-line bg-white text-center shadow-soft">
-                <div>
-                    <p className="font-display text-xl font-semibold leading-none text-brand-dark">{day}</p>
-                    <p className="text-xs font-bold uppercase text-mute">{month} {year}</p>
-                </div>
-            </div>
+  const kind = KIND_STYLE[event.kind] ?? KIND_STYLE.event;
+  const days = daysBetween(today, event.date);
+  const urgent = !event.done && event.kind === "deadline" && days >= 0 && days <= 14;
+  const past = event.done || days < 0;
 
-            <Card className="flex min-w-0 flex-1 items-start gap-2 p-3 sm:gap-3 sm:p-4">
-                <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                        <span className={cn("rounded-full border px-2.5 py-0.5 text-xs font-bold", kind.pill)}>
-                            {kind.label}
-                        </span>
-                        {event.done && <SmallPill>Done</SmallPill>}
-                        {!event.done && event.date < today && <SmallPill>Passed</SmallPill>}
-                        {source && <SmallPill brand>{source}</SmallPill>}
-                    </div>
-                    <p className={cn("mt-1.5 font-semibold", event.done && "text-mute line-through decoration-mute")}>{event.title}</p>
-                    {event.note && <p className="text-mute">{event.note}</p>}
-                </div>
+  return (
+    <div
+      data-date={event.date}
+      className={cn("flex items-center gap-3 px-4 py-2.5 transition-colors sm:gap-3.5", highlighted && "bg-brand-soft/60")}
+    >
+      <div className="w-10 shrink-0 text-center">
+        <p className="text-[10.5px] font-bold uppercase text-mute">{weekday(event.date)}</p>
+        <p className={cn("font-display text-[22px] font-semibold leading-none", past ? "text-mute" : "text-brand-dark")}>
+          {toDate(event.date).getDate()}
+        </p>
+      </div>
+      <span className={cn("h-9 w-1 shrink-0 rounded-full", kind.dot, past && "opacity-40")} />
 
-                <div className="flex gap-1">
-                    <button
-                        onClick={onToggleDone}
-                        aria-label={event.done ? `Mark "${event.title}" as not done` : `Mark "${event.title}" as done`}
-                        title={event.done ? "Mark as not done" : "Mark as done"}
-                        className="cursor-pointer rounded-lg p-2 text-mute hover:bg-surface hover:text-brand"
-                    >
-                        {event.done ? <Undo2 size={17} /> : <Check size={17} />}
-                    </button>
-                    <button
-                        onClick={onDelete}
-                        aria-label={`Delete "${event.title}"`}
-                        title="Delete"
-                        className="cursor-pointer rounded-lg p-2 text-mute hover:bg-bad-bg hover:text-bad"
-                    >
-                        <Trash2 size={17} />
-                    </button>
-                </div>
-            </Card>
-        </li>
+      <div className="min-w-0 flex-1">
+        <p className={cn("truncate text-[15px] font-semibold", past ? "text-mute" : "text-ink", event.done && "line-through decoration-mute")}>
+          {event.title}
+        </p>
+        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12.5px] text-mute">
+          <span className={cn("rounded-full border px-2 py-px text-[11px] font-bold", kind.pill)}>{kind.label}</span>
+          <span className={cn("sm:hidden", urgent && "font-semibold text-warn")}>{event.done ? "Done" : countdown(event.date, today)}</span>
+          {moreDates > 0 && (
+            <span className="inline-flex items-center gap-1">
+              <Repeat size={13} aria-hidden />
+              <span className="sm:hidden">Repeats</span>
+              <span className="hidden sm:inline">Repeats · {moreDates} more date{moreDates > 1 ? "s" : ""}</span>
+            </span>
+          )}
+          {event.note && <span className="hidden truncate md:inline">{event.note}</span>}
+        </div>
+      </div>
 
+      <span
+        className={cn(
+          "hidden shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold sm:inline",
+          urgent ? "bg-warn-bg text-warn ring-1 ring-warn-line" : "bg-[#f2f7f7] text-mute",
+        )}
+      >
+        {event.done ? "Done" : countdown(event.date, today)}
+      </span>
 
-    )
+      <div className="flex shrink-0 items-center">
+        {!past && (
+          <Tooltip text="Remind me">
+            <button
+              type="button"
+              onClick={() => actions.onExport(event)}
+              aria-label={`Remind me about "${event.title}"`}
+              className="grid size-8 cursor-pointer place-items-center rounded-lg text-mute hover:bg-surface hover:text-brand"
+            >
+              <BellPlus size={16} />
+            </button>
+          </Tooltip>
+        )}
+        <Tooltip text={event.done ? "Mark as not done" : "Mark as done"}>
+          <button
+            type="button"
+            onClick={() => actions.onToggleDone(event)}
+            aria-label={event.done ? `Mark "${event.title}" as not done` : `Mark "${event.title}" as done`}
+            className="grid size-8 cursor-pointer place-items-center rounded-lg text-mute hover:bg-surface hover:text-brand"
+          >
+            {event.done ? <Undo2 size={16} /> : <CircleCheck size={16} />}
+          </button>
+        </Tooltip>
+        <EventMenu event={event} actions={actions} />
+      </div>
+    </div>
+  );
 }

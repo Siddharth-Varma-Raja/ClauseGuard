@@ -13,18 +13,10 @@ export default function PublicHeader() {
         <nav className="ml-auto flex items-center gap-2">
           <Link
             href="/login"
-            className="inline-flex min-h-11 items-center rounded-lg px-4 py-2 font-semibold text-brand-dark hover:bg-surface"
+            className="inline-flex min-h-11 min-w-30 justify-center text-lg items-center rounded-lg px-4 py-2 font-semibold text-white bg-brand-dark hover:bg-brand"
           >
             Log in
           </Link>
-
-          <ButtonLink
-            href="/register"
-            size="md"
-            className="min-h-11"
-          >
-            Sign up
-          </ButtonLink>
         </nav>
       </div>
     </header>

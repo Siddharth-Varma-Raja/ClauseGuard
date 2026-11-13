@@ -18,7 +18,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFil
 from starlette.concurrency import run_in_threadpool
 from google import genai
 from google.genai import types
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
@@ -271,6 +271,7 @@ async def upload_lease(
     db: AsyncSession = Depends(get_db),
 ) -> UploadLeaseResponse:
     """Upload a lease document and run the extraction and analysis pipeline."""
+    # ── 1. Read and validate the uploaded file ─────────────────────────────────
     file_bytes = await file.read()
 
     if len(file_bytes) > _MAX_FILE_SIZE_BYTES:
@@ -293,6 +294,7 @@ async def upload_lease(
 
     original_filename = file.filename or "lease.pdf"
 
+    # ── 2. Create document record ──────────────────────────────────────────────
     doc = Document(
         user_id=current_user.id,
         original_filename=original_filename,
@@ -305,8 +307,10 @@ async def upload_lease(
     await db.commit()
     await db.refresh(doc)
 
+    # ── 3. Run upload pipeline (including diff_engine lease verification) ──────
     try:
-        pipeline_result = run_upload_pipeline(
+        pipeline_result = await asyncio.to_thread(
+            run_upload_pipeline,
             file_bytes=file_bytes,
             user_id=current_user.id,
             content_type=actual_mime_type,
@@ -338,6 +342,7 @@ async def upload_lease(
             detail="An error occurred while processing the document.",
         )
 
+    # ── 4. Analyse the redacted lease text (rules engine) and store result ─────
     try:
         review = await save_analysis(db, doc.id, pipeline_result["redacted_text"])
         await db.commit()

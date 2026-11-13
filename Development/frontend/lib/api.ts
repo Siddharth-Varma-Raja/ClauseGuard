@@ -247,6 +247,21 @@ export const setEventDone = (eventId: string, done: boolean) =>
   request<void>(`/events/${id(eventId)}`, { method: "PATCH", body: JSON.stringify({ done }) });
 export const deleteEvent = (eventId: string) => request<void>(`/events/${id(eventId)}`, { method: "DELETE" });
 
+export async function updateEvent(original: TimelineEvent, changes: NewTimelineEvent) {
+  const saved = await addEvent(changes);
+  try {
+    await deleteEvent(original.id);
+  } catch (err) {
+    await deleteEvent(saved.id).catch(() => undefined);
+    throw err;
+  }
+  if (original.done) {
+    await setEventDone(saved.id, true).catch(() => undefined);
+    return { ...saved, done: true };
+  }
+  return saved;
+}
+
 export const getPreferences = () => request<Preferences>("/me/preferences");
 export const updatePreferences = (changes: Partial<Preferences>) =>
   request<Preferences>("/me/preferences", { method: "PATCH", body: JSON.stringify(changes) });

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 120" width="108" height="120" role="img" aria-label="ClauseGuard">
+  <title>ClauseGuard</title>
+  <g fill="#10545E">
+    <!-- Outer bracket -->
+    <path d="M28 0H108V10H32.14L10 32.14V110H108V120H0V28Z"/>
+    <!-- Inner G -->
+    <path d="M35.04 17H108V27H39.18L27 39.18V93H98V70H80V60H108V103H17V35.04Z"/>
+    <!-- Lease (text lines knocked out) -->
+    <path fill-rule="evenodd" d="M38 38H72V86H38Z M44 45H66V48.5H44Z M44 52H66V55.5H44Z M44 59H58V62.5H44Z"/>
+  </g>
+</svg>

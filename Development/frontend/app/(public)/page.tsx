@@ -49,7 +49,7 @@ const longestHeadingPhrase = "before you move in.";
 const gradientClass = "bg-[radial-gradient(120%_140%_at_0%_0%,#1d6b73_0%,#0a3b43_55%,#082d33_100%)]";
 
 const getStartedClass =
-  "inline-flex min-h-14 items-center gap-2.5 rounded-xl bg-white px-8 py-4 text-lg font-bold text-brand-dark shadow-[0_0_0_4px_rgba(227,241,242,0.2),0_12px_32px_rgba(0,0,0,0.35),0_0_40px_rgba(227,241,242,0.3)] transition-all hover:-translate-y-0.5 hover:bg-brand-soft hover:shadow-xl hover:shadow-black/30";
+  "inline-flex min-h-14 items-center gap-2.5 rounded-xl bg-white px-8 py-4 text-2xl font-bold text-brand-dark shadow-[0_0_0_4px_rgba(227,241,242,0.2),0_12px_32px_rgba(0,0,0,0.35),0_0_40px_rgba(227,241,242,0.3)] transition-all hover:-translate-y-0.5 hover:bg-brand-soft hover:shadow-xl hover:shadow-black/30";
 
 function TypedHeadingEnd() {
   const [phraseIndex, setPhraseIndex] = useState(0);
@@ -137,7 +137,7 @@ export default function LandingPage() {
         <span className="pointer-events-none absolute -bottom-24 -right-16 size-64 rounded-full bg-white/5" />
 
         <div className="relative mx-auto max-w-7xl px-4 sm:px-6">
-          <div className="grid items-center gap-12 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] xl:grid-cols-[minmax(0,1fr)_624px]">
+          <div className="grid items-center gap-12 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] xl:grid-cols-[minmax(0,1fr)_450px]">
             <div className="space-y-6">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <span className="inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-3.5 py-1 text-xs font-semibold text-emerald-300">
@@ -149,7 +149,7 @@ export default function LandingPage() {
 
               <h1
                 aria-label="Know what's in your lease before you sign."
-                className="font-display text-[clamp(1.75rem,9vw,2.25rem)] sm:text-5xl lg:text-[2.6rem] xl:text-6xl font-semibold leading-[1.08] tracking-tight"
+                className="font-display text-[clamp(1.75rem,9vw,2.25rem)] sm:text-5xl xl:text-7xl font-semibold leading-[1.08] tracking-tight"
               >
                 <span className="block animate-fade-up">
                   Know what's in <br className="hidden lg:block" />
@@ -158,11 +158,11 @@ export default function LandingPage() {
                 <TypedHeadingEnd />
               </h1>
 
-              <p className="text-lg text-white/85 leading-relaxed max-w-lg animate-fade-up">
+              <p className="text-xl text-white/85 leading-relaxed max-w-lg animate-fade-up">
                 Drop in your rental agreement. We'll hide your personal details, check the wording against Irish law, and flag any unclear or unfair terms before you sign.
               </p>
 
-              <div className="flex flex-wrap items-center gap-3 pt-2 animate-fade-up">
+              <div className="flex flex-wrap items-center gap-3 pt-2 animate-fade-up text-xl">
                 <Link
                   href="/register"
                   data-tour="get-started"
@@ -192,7 +192,7 @@ export default function LandingPage() {
             </div>
 
             <div className="min-w-0">
-              <div className="relative rounded-2xl border border-white/15 bg-white/10 p-3 sm:p-5 backdrop-blur-xl shadow-2xl h-[520px] sm:h-[540px] flex flex-col justify-between">
+              <div className="relative rounded-2xl border border-white/15 bg-white/10 p-3 sm:p-5 backdrop-blur-xl shadow-lg h-[440px] sm:h-[460px] flex flex-col justify-between">
                 <div className="flex items-center justify-between border-b border-white/10 pb-3">
                   <div className="flex items-center gap-2">
                     <FileText size={16} className="text-brand-soft" />
@@ -211,13 +211,12 @@ export default function LandingPage() {
 
                 <div className="relative mt-3 flex-1 rounded-xl bg-white p-4 sm:p-5 text-ink shadow-md overflow-hidden flex flex-col justify-between">
                   <div
-                    className={`absolute inset-0 bg-white/95 backdrop-blur-xs rounded-xl flex flex-col items-center justify-center p-6 text-center transition-all duration-700 z-20 ${
-                      stage === "upload"
+                    className={`absolute inset-0 bg-white/95 backdrop-blur-xs rounded-xl flex flex-col items-center justify-center p-6 text-center transition-all duration-700 z-20 ${stage === "upload"
                         ? "opacity-100 pointer-events-auto scale-100"
                         : "opacity-0 pointer-events-none scale-95"
-                    }`}
+                      }`}
                   >
-                    <div className="size-16 rounded-2xl bg-brand-soft text-brand grid place-items-center mb-3 animate-bounce shadow-xs">
+                    <div className="size-16 rounded-2xl bg-brand-soft text-brand grid place-items-center mb-3 shadow-xs">
                       <Upload size={28} />
                     </div>
                     <div className="font-display text-base font-bold text-brand-dark">
@@ -233,11 +232,10 @@ export default function LandingPage() {
                     <span className="mt-2 text-[11px] font-semibold text-brand">Uploading document...</span>
                   </div>
 
-                  <div className="relative space-y-3">
+                  <div className="relative min-h-0 flex-1 space-y-3 overflow-hidden [mask-image:linear-gradient(to_bottom,black_85%,transparent)]">
                     <div
-                      className={`absolute inset-x-0 h-1 bg-gradient-to-r from-transparent via-cyan-500 to-transparent pointer-events-none z-10 shadow-xs transition-opacity duration-500 ${
-                        stage === "scan" ? "animate-scan opacity-100" : "opacity-0"
-                      }`}
+                      className={`absolute inset-x-0 h-1 bg-gradient-to-r from-transparent via-cyan-500 to-transparent pointer-events-none z-10 shadow-xs transition-opacity duration-500 ${stage === "scan" ? "animate-scan opacity-100" : "opacity-0"
+                        }`}
                     />
 
                     <div className="flex items-center justify-between border-b border-slate-100 pb-2">
@@ -271,14 +269,12 @@ export default function LandingPage() {
                         <span className="relative inline-block px-1 font-semibold text-slate-800">
                           Sarah Murphy
                           <span
-                            className={`absolute inset-0 bg-slate-900 rounded-xs transition-all duration-700 ease-out ${
-                              stage === "upload" ? "w-0" : "w-full"
-                            }`}
+                            className={`absolute inset-0 bg-slate-900 rounded-xs transition-all duration-700 ease-out ${stage === "upload" ? "w-0" : "w-full"
+                              }`}
                           />
                           <span
-                            className={`absolute inset-0 flex items-center justify-center text-[10px] font-mono font-bold text-emerald-400 transition-opacity duration-500 delay-500 ${
-                              stage === "upload" ? "opacity-0" : "opacity-100"
-                            }`}
+                            className={`absolute inset-0 flex items-center justify-center text-[10px] font-mono font-bold text-emerald-400 transition-opacity duration-500 delay-500 ${stage === "upload" ? "opacity-0" : "opacity-100"
+                              }`}
                           >
                             [HIDDEN]
                           </span>
@@ -288,14 +284,12 @@ export default function LandingPage() {
                         <span className="relative inline-block px-1 font-semibold text-slate-800">
                           +353 87 234 5678
                           <span
-                            className={`absolute inset-0 bg-slate-900 rounded-xs transition-all duration-700 ease-out ${
-                              stage === "upload" ? "w-0" : "w-full"
-                            }`}
+                            className={`absolute inset-0 bg-slate-900 rounded-xs transition-all duration-700 ease-out ${stage === "upload" ? "w-0" : "w-full"
+                              }`}
                           />
                           <span
-                            className={`absolute inset-0 flex items-center justify-center text-[10px] font-mono font-bold text-emerald-400 transition-opacity duration-500 delay-500 ${
-                              stage === "upload" ? "opacity-0" : "opacity-100"
-                            }`}
+                            className={`absolute inset-0 flex items-center justify-center text-[10px] font-mono font-bold text-emerald-400 transition-opacity duration-500 delay-500 ${stage === "upload" ? "opacity-0" : "opacity-100"
+                              }`}
                           >
                             [HIDDEN]
                           </span>
@@ -307,14 +301,12 @@ export default function LandingPage() {
                         <span className="relative inline-block px-1 font-semibold text-slate-800">
                           Apt 4B, Grand Canal Dock, Dublin 2
                           <span
-                            className={`absolute inset-0 bg-slate-900 rounded-xs transition-all duration-700 ease-out ${
-                              stage === "upload" ? "w-0" : "w-full"
-                            }`}
+                            className={`absolute inset-0 bg-slate-900 rounded-xs transition-all duration-700 ease-out ${stage === "upload" ? "w-0" : "w-full"
+                              }`}
                           />
                           <span
-                            className={`absolute inset-0 flex items-center justify-center text-[10px] font-mono font-bold text-emerald-400 transition-opacity duration-500 delay-500 ${
-                              stage === "upload" ? "opacity-0" : "opacity-100"
-                            }`}
+                            className={`absolute inset-0 flex items-center justify-center text-[10px] font-mono font-bold text-emerald-400 transition-opacity duration-500 delay-500 ${stage === "upload" ? "opacity-0" : "opacity-100"
+                              }`}
                           >
                             [HIDDEN]
                           </span>
@@ -324,11 +316,10 @@ export default function LandingPage() {
 
                     <div className="space-y-2 text-xs leading-relaxed">
                       <div
-                        className={`rounded-lg p-2.5 transition-all duration-700 ease-out ${
-                          stage === "results"
+                        className={`rounded-lg p-2.5 transition-all duration-700 ease-out ${stage === "results"
                             ? "border border-bad-line bg-bad-bg/60 text-bad shadow-2xs"
                             : "border border-slate-100 bg-slate-50/50 text-slate-700"
-                        }`}
+                          }`}
                       >
                         <div className="flex items-center justify-between">
                           <span className="font-bold text-[11px]">Clause 3.2: Security Deposit</span>
@@ -339,11 +330,10 @@ export default function LandingPage() {
                           )}
                         </div>
                         <p
-                          className={`mt-1 transition-all duration-700 ${
-                            stage === "results"
+                          className={`mt-1 transition-all duration-700 ${stage === "results"
                               ? "border-b-2 border-bad text-bad font-semibold pb-0.5"
                               : "border-b-2 border-transparent text-slate-700"
-                          }`}
+                            }`}
                         >
                           “The Tenant shall provide a security deposit equivalent to three (3) months' rent prior to the move-in date.”
                         </p>
@@ -355,11 +345,10 @@ export default function LandingPage() {
                       </div>
 
                       <div
-                        className={`rounded-lg p-2.5 transition-all duration-700 ease-out ${
-                          stage === "results"
+                        className={`rounded-lg p-2.5 transition-all duration-700 ease-out ${stage === "results"
                             ? "border border-warn-line bg-warn-bg/60 text-warn shadow-2xs"
                             : "border border-slate-100 bg-slate-50/50 text-slate-700"
-                        }`}
+                          }`}
                       >
                         <div className="flex items-center justify-between">
                           <span className="font-bold text-[11px]">Clause 8.1: Overnight Guests</span>
@@ -370,11 +359,10 @@ export default function LandingPage() {
                           )}
                         </div>
                         <p
-                          className={`mt-1 transition-all duration-700 ${
-                            stage === "results"
+                          className={`mt-1 transition-all duration-700 ${stage === "results"
                               ? "border-b-2 border-warn-solid text-warn font-semibold pb-0.5"
                               : "border-b-2 border-transparent text-slate-700"
-                          }`}
+                            }`}
                         >
                           “No visitors or overnight guests are permitted under any circumstances without written consent.”
                         </p>
@@ -386,11 +374,10 @@ export default function LandingPage() {
                       </div>
 
                       <div
-                        className={`rounded-lg p-2.5 transition-all duration-700 ease-out ${
-                          stage === "results"
+                        className={`rounded-lg p-2.5 transition-all duration-700 ease-out ${stage === "results"
                             ? "border border-ok-line bg-ok-bg/50 text-ok shadow-2xs"
                             : "border border-slate-100 bg-slate-50/50 text-slate-700"
-                        }`}
+                          }`}
                       >
                         <div className="flex items-center justify-between">
                           <span className="font-bold text-[11px]">Clause 12.4: Reporting Repairs</span>
@@ -401,11 +388,10 @@ export default function LandingPage() {
                           )}
                         </div>
                         <p
-                          className={`mt-1 transition-all duration-700 ${
-                            stage === "results"
+                          className={`mt-1 transition-all duration-700 ${stage === "results"
                               ? "border-b-2 border-ok text-ok font-semibold pb-0.5"
                               : "border-b-2 border-transparent text-slate-700"
-                          }`}
+                            }`}
                         >
                           “The Tenant agrees to notify the Landlord of any urgent structural repairs within 48 hours.”
                         </p>
@@ -458,7 +444,7 @@ export default function LandingPage() {
             <h3 className="font-display text-xl font-bold text-brand-dark">
               Catch Unfair Rules
             </h3>
-            <p className="mt-2.5 text-sm text-mute leading-relaxed">
+            <p className="mt-2.5 text-md text-mute leading-relaxed">
               We flag rules that aren't legal - like asking for three months rent up front, turning up unannounced or charging unreasonable fees.
             </p>
           </div>
@@ -470,7 +456,7 @@ export default function LandingPage() {
             <h3 className="font-display text-xl font-bold text-brand-dark">
               Simple English Explanations
             </h3>
-            <p className="mt-2.5 text-sm text-mute leading-relaxed">
+            <p className="mt-2.5 text-md text-mute leading-relaxed">
               Leases are filled with confusing legal words. We rewrite the tricky bits so you actually understand what you're agreeing to.
             </p>
           </div>
@@ -482,7 +468,7 @@ export default function LandingPage() {
             <h3 className="font-display text-xl font-bold text-brand-dark">
               Rent Caps and Dates
             </h3>
-            <p className="mt-2.5 text-sm text-mute leading-relaxed">
+            <p className="mt-2.5 text-md text-mute leading-relaxed">
               Check if rent hikes stay within the 2% cap, and whether any notice to leave gives you the time the law requires.
             </p>
           </div>
@@ -509,7 +495,7 @@ export default function LandingPage() {
                 <Upload size={19} className="text-brand" />
                 Upload your agreement
               </div>
-              <p className="mt-2 text-sm text-mute leading-relaxed">
+              <p className="mt-2 text-md text-mute leading-relaxed">
                 Upload your rental agreement to get started.
               </p>
             </div>
@@ -522,7 +508,7 @@ export default function LandingPage() {
                 <FileSearch size={19} className="text-brand" />
                 We check the rules
               </div>
-              <p className="mt-2 text-sm text-mute leading-relaxed">
+              <p className="mt-2 text-md text-mute leading-relaxed">
                 Review potential issues against Irish tenancy guidance.
               </p>
             </div>
@@ -535,7 +521,7 @@ export default function LandingPage() {
                 <CircleCheck size={19} className="text-brand" />
                 You get a clear report
               </div>
-              <p className="mt-2 text-sm text-mute leading-relaxed">
+              <p className="mt-2 text-md text-mute leading-relaxed">
                 Read clear explanations and relevant sources.
               </p>
             </div>
@@ -590,7 +576,7 @@ export default function LandingPage() {
             Upload your lease right now for a simplified breakdown.
           </p>
 
-          <div className="mt-8 flex flex-wrap justify-center items-center gap-3">
+          <div className="mt-8 flex flex-wrap justify-center items-center gap-8">
             <Link
               href="/register"
               className={getStartedClass}
@@ -599,7 +585,7 @@ export default function LandingPage() {
             </Link>
             <Link
               href="/login"
-              className="inline-flex min-h-12 items-center rounded-xl border border-white/30 px-6 py-3 font-medium text-white hover:bg-white/10 transition-all"
+              className="inline-flex text-2xl min-h-12 items-center rounded-xl border border-white/30 px-8 py-4 font-bold text-white hover:bg-white/10 transition-all"
             >
               Login
             </Link>
