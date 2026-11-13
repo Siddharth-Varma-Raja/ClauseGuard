@@ -1,957 +1,304 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  ArrowLeft,
-  ArrowRight,
-  Banknote,
-  CheckCircle2,
-  DoorOpen,
-  FileText,
-  Gavel,
-  LoaderCircle,
-  Sparkles,
-  UploadCloud,
-} from "lucide-react";
+import { ArrowLeft, ArrowRight, House } from "lucide-react";
 import { checkNotice, errorMessage, getAnalyses, getAnalysis, getNotices } from "@/lib/api";
 import { buildNoticeAnswers } from "@/lib/notice-answers";
-import { fmtDate, todayIso } from "@/lib/format";
+import { noticeType } from "@/lib/notice-meta";
+import { euro, fmtDate } from "@/lib/format";
 import type { NoticeSummary, NoticeType } from "@/lib/notice-types";
 import PageTour from "@/components/PageTour";
-import { NOTICES_UPLOAD_TOUR, NOTICES_FORM_TOUR, NOTICE_DETAILS_TOUR } from "@/lib/tours";
+import ProcessingCard from "@/components/lease/ProcessingCard";
+import TypeTiles from "@/components/notices/TypeTiles";
+import LeasePicker, { type NoticeLease } from "@/components/notices/LeasePicker";
+import PastChecks from "@/components/notices/PastChecks";
+import NoticeDetails, { QUESTIONS, QUESTIONS_PER_PAGE, type Values } from "@/components/notices/NoticeDetails";
+import LivePanel from "@/components/notices/LivePanel";
+import { NOTICE_DETAILS_TOUR, NOTICES_FORM_TOUR } from "@/lib/tours";
 
-type LeaseOption = {
-  id: string;
-  label: string;
-  propertyAddress?: string | null;
-  tenancyStart?: string | null;
-  monthlyRent?: number | null;
-  termMonths?: number | null;
-};
+const CHECK_STEPS = ["Reading your answers", "Working out the dates", "Comparing with Irish tenancy law", "Writing up your result"];
+const STEP_INTERVAL_MS = 1500;
+const MAX_LEASES = 10;
 
-const TERMINATION_REASONS = [
-  { value: "sale", label: "The landlord is selling the property" },
-  { value: "own_use", label: "The landlord is moving in" },
-  { value: "family", label: "A family member of the landlord is moving in" },
-  { value: "refurbishment", label: "Major refurbishment of the property" },
-  { value: "breach", label: "I broke a term of the lease (e.g. rent arrears)" },
-  { value: "other", label: "Another reason / no reason given" },
-];
+const card = "rounded-2xl border border-[#d5e3e4] bg-white shadow-soft";
+const primary =
+  "inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-xl bg-brand pl-5 pr-4 text-[15px] font-semibold text-white shadow-[0_6px_16px_-6px_rgb(14_85_96/0.6)] hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand";
 
-const noticeTypes = [
-  { value: "termination", title: "Notice of termination", description: "The landlord says the tenancy is ending.", Icon: Gavel },
-  { value: "rent", title: "Rent increase", description: "The landlord wants to raise the rent.", Icon: Banknote },
-  { value: "entry", title: "Entry or inspection", description: "The landlord wants to visit the property.", Icon: DoorOpen },
-  { value: "other", title: "Something else", description: "Another letter or message about the tenancy.", Icon: FileText },
-] as const;
-
-function noticeTitle(type: NoticeType) {
-  return noticeTypes.find((item) => item.value === type)?.title ?? "Notice";
-}
-
-function verdictStyle(verdict: string) {
-  if (verdict === "valid") return "bg-emerald-50 text-emerald-800 border-emerald-200";
-  if (verdict === "attention") return "bg-amber-50 text-amber-800 border-amber-200";
-  if (verdict === "invalid") return "bg-red-50 text-red-800 border-red-200";
-  return "bg-slate-100 text-slate-700 border-slate-200";
-}
-
-function InputField({
-  label,
-  name,
-  type = "text",
-  required = false,
-  placeholder,
-  hint,
-  defaultValue,
-  value,
-  onChange,
-  badge,
-}: {
-  label: string;
-  name: string;
-  type?: string;
-  required?: boolean;
-  placeholder?: string;
-  hint?: string;
-  defaultValue?: string | number;
-  value?: string | number;
-  onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  badge?: React.ReactNode;
-}) {
-  return (
-    <div className="min-w-0">
-      <div className="mb-1.5 flex flex-wrap items-center justify-between gap-1.5">
-        <label htmlFor={name} className="block text-sm font-semibold text-brand-dark">
-          {label}{required && <span aria-hidden="true"> *</span>}
-        </label>
-        {badge}
-      </div>
-      <input
-        id={name}
-        name={name}
-        type={type}
-        required={required}
-        placeholder={placeholder}
-        defaultValue={defaultValue}
-        value={value}
-        onChange={onChange}
-        step={type === "number" ? "0.01" : undefined}
-        min={type === "number" ? "0" : undefined}
-        className="min-h-11 w-full rounded-xl border border-line bg-white px-3 py-2.5 text-base text-slate-900 outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
-      />
-      {hint && <p className="mt-1 text-sm text-mute">{hint}</p>}
-    </div>
-  );
-}
-
-function SelectField({
-  label,
-  name,
-  options,
-  defaultValue,
-  value,
-  onChange,
-}: {
-  label: string;
-  name: string;
-  options: { value: string; label: string }[];
-  defaultValue?: string;
-  value?: string;
-  onChange?: (e: React.ChangeEvent<HTMLSelectElement>) => void;
-}) {
-  return (
-    <div className="min-w-0">
-      <label htmlFor={name} className="mb-1.5 block text-sm font-semibold text-brand-dark">{label}</label>
-      <select
-        id={name}
-        name={name}
-        defaultValue={defaultValue}
-        value={value}
-        onChange={onChange}
-        className="min-h-11 w-full rounded-xl border border-line bg-white px-3 py-2.5 text-base text-slate-900 outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
-      >
-        {options.map((o) => (
-          <option key={o.value} value={o.value}>{o.label}</option>
-        ))}
-      </select>
-    </div>
-  );
-}
-
-function CheckField({
-  name,
-  children,
-  defaultChecked,
-  checked,
-  onChange,
-}: {
-  name: string;
-  children: React.ReactNode;
-  defaultChecked?: boolean;
-  checked?: boolean;
-  onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
-}) {
-  return (
-    <label className="flex min-h-11 cursor-pointer items-start gap-3 rounded-xl border border-line bg-white p-3 text-sm leading-5 hover:bg-surface">
-      <input
-        name={name}
-        type="checkbox"
-        defaultChecked={defaultChecked}
-        checked={checked}
-        onChange={onChange}
-        className="mt-1 size-4 shrink-0 accent-teal-700"
-      />
-      <span>{children}</span>
-    </label>
+async function loadLeases(): Promise<NoticeLease[]> {
+  const list = await getAnalyses();
+  return Promise.all(
+    list.slice(0, MAX_LEASES).map(async (item) => {
+      const fallback = { id: item.id, address: item.propertyAddress || item.fileName || "Lease", tenancyStart: null, monthlyRent: null };
+      try {
+        const detail = await getAnalysis(item.id);
+        if (!detail) return fallback;
+        return {
+          id: item.id,
+          address: detail.propertyAddress || fallback.address,
+          tenancyStart: detail.tenancyStart ? detail.tenancyStart.slice(0, 10) : null,
+          monthlyRent: detail.monthlyRentCents ? detail.monthlyRentCents / 100 : null,
+        };
+      } catch {
+        return fallback;
+      }
+    }),
   );
 }
 
 export default function NoticesPage() {
   const router = useRouter();
-  const [mode, setMode] = useState<"upload" | "form">("upload");
-  const [type, setType] = useState<NoticeType>("termination");
   const [step, setStep] = useState<1 | 2>(1);
+  const [type, setType] = useState<NoticeType | null>(null);
+  const [leases, setLeases] = useState<NoticeLease[]>([]);
+  const [loadingLeases, setLoadingLeases] = useState(true);
+  const [leaseChoice, setLeaseChoice] = useState("");
+  const [values, setValues] = useState<Values>({ reason: "other" });
   const [notices, setNotices] = useState<NoticeSummary[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [historyError, setHistoryError] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
-
-  const [leases, setLeases] = useState<LeaseOption[]>([]);
-  const [selectedLeaseId, setSelectedLeaseId] = useState<string>("");
-
-  const [formTenancyStart, setFormTenancyStart] = useState<string>("");
-  const [currentRentVal, setCurrentRentVal] = useState<number | null>(null);
-  const [newRentVal, setNewRentVal] = useState<number | null>(null);
-  const [isRpz, setIsRpz] = useState(true);
-
-  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
-  const [uploadNoticeType, setUploadNoticeType] = useState<NoticeType>("termination");
-  const [uploadTenancyStart, setUploadTenancyStart] = useState<string>("");
-  const [uploadServiceDate, setUploadServiceDate] = useState<string>(todayIso());
-  const [uploadTerminationDate, setUploadTerminationDate] = useState<string>("");
-  const [uploadCurrentRent, setUploadCurrentRent] = useState<string>("");
-  const [uploadNewRent, setUploadNewRent] = useState<string>("");
-  const [uploadReason, setUploadReason] = useState<string>("sale");
-  const [uploadDescription, setUploadDescription] = useState<string>("");
-  const [uploadIsWritten, setUploadIsWritten] = useState(true);
-  const [uploadIsSigned, setUploadIsSigned] = useState(true);
-  const [uploadHasStatutoryDeclaration, setUploadHasStatutoryDeclaration] = useState(true);
-  const [uploadCopySentToRtb, setUploadCopySentToRtb] = useState(true);
-  const [uploadDisputeRights, setUploadDisputeRights] = useState(true);
-  const [uploadInRpz, setUploadInRpz] = useState(true);
-  const [uploadHasThreeComparables, setUploadHasThreeComparables] = useState(true);
+  const [progress, setProgress] = useState(0);
+  const [questionPage, setQuestionPage] = useState(0);
+  const [showMissing, setShowMissing] = useState(false);
 
   useEffect(() => {
     getNotices()
       .then(setNotices)
-      .catch((err: unknown) => setHistoryError(errorMessage(err, "Previous checks could not be loaded.")))
+      .catch((err: unknown) => setHistoryError(errorMessage(err, "Your past checks could not be loaded.")))
       .finally(() => setLoadingHistory(false));
 
-    getAnalyses()
-      .then(async (list) => {
-        if (!list || list.length === 0) return;
-        const items = await Promise.all(
-          list.slice(0, 10).map(async (item) => {
-            try {
-              const detail = await getAnalysis(item.id);
-              const rent = detail?.monthlyRentCents ? detail.monthlyRentCents / 100 : null;
-              const address = detail?.propertyAddress || item.propertyAddress || item.fileName || "Lease Agreement";
-              const start = detail?.tenancyStart ? `Started ${fmtDate(detail.tenancyStart)}` : "";
-              const rentText = rent ? `€${rent}/mo` : "";
-              const details = [start, rentText].filter(Boolean).join(" • ");
-              return {
-                id: item.id,
-                label: details ? `${address} (${details})` : address,
-                propertyAddress: detail?.propertyAddress || item.propertyAddress,
-                tenancyStart: detail?.tenancyStart || null,
-                monthlyRent: rent,
-                termMonths: detail?.termMonths || null,
-              };
-            } catch {
-              return {
-                id: item.id,
-                label: item.fileName || "Lease Agreement",
-                propertyAddress: item.propertyAddress,
-                tenancyStart: null,
-                monthlyRent: null,
-                termMonths: null,
-              };
-            }
-          })
-        );
-        setLeases(items);
-      })
-      .catch(() => { });
+    loadLeases()
+      .then(setLeases)
+      .catch(() => setLeases([]))
+      .finally(() => setLoadingLeases(false));
   }, []);
 
-  const activeLease = leases.find((l) => l.id === selectedLeaseId) ?? null;
+  const lease = leases.find((item) => item.id === leaseChoice) ?? null;
 
-  function handleLeaseChange(leaseId: string) {
-    setSelectedLeaseId(leaseId);
-    const chosen = leases.find((l) => l.id === leaseId);
-    if (chosen) {
-      if (chosen.tenancyStart) {
-        setFormTenancyStart(chosen.tenancyStart);
-        setUploadTenancyStart(chosen.tenancyStart);
-      }
-      if (chosen.monthlyRent) {
-        setCurrentRentVal(chosen.monthlyRent);
-        setUploadCurrentRent(String(chosen.monthlyRent));
-      }
-    } else {
-      setFormTenancyStart("");
-      setUploadTenancyStart("");
-      setCurrentRentVal(null);
-      setUploadCurrentRent("");
-    }
+  function setValue(name: string, value: string) {
+    setValues((current) => ({ ...current, [name]: value }));
   }
 
-  function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploadedFile(file);
-
-    const name = file.name.toLowerCase();
-    if (name.includes("rent") || name.includes("increase") || name.includes("review")) {
-      setUploadNoticeType("rent");
-    } else if (name.includes("entry") || name.includes("inspect") || name.includes("visit")) {
-      setUploadNoticeType("entry");
-    } else {
-      setUploadNoticeType("termination");
-    }
+  function chooseLease(next: string) {
+    const before = leases.find((item) => item.id === leaseChoice);
+    const after = leases.find((item) => item.id === next);
+    setValues((current) => {
+      const updated = { ...current };
+      if (before?.tenancyStart && updated.tenancyStart === before.tenancyStart) delete updated.tenancyStart;
+      if (before?.monthlyRent && Number(updated.currentRent) === before.monthlyRent) delete updated.currentRent;
+      if (after?.tenancyStart && !updated.tenancyStart) updated.tenancyStart = after.tenancyStart;
+      if (after?.monthlyRent && !updated.currentRent) updated.currentRent = String(after.monthlyRent);
+      return updated;
+    });
+    setLeaseChoice(next);
   }
 
-  async function handleUploadSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  function goTo(next: 1 | 2) {
     setError("");
-
-    const form = new FormData();
-    if (uploadNoticeType === "termination") {
-      if (!uploadTenancyStart) {
-        setError("Please enter the date your tenancy started.");
-        return;
-      }
-      if (!uploadServiceDate || !uploadTerminationDate) {
-        setError("Please fill in both the notice date and the termination date.");
-        return;
-      }
-      form.append("tenancyStart", uploadTenancyStart);
-      form.append("serviceDate", uploadServiceDate);
-      form.append("terminationDate", uploadTerminationDate);
-      form.append("reason", uploadReason);
-      if (uploadIsWritten) form.append("isWritten", "on");
-      if (uploadIsSigned) form.append("isSigned", "on");
-      if (uploadHasStatutoryDeclaration) form.append("hasStatutoryDeclaration", "on");
-      if (uploadCopySentToRtb) form.append("copySentToRtb", "on");
-      if (uploadDisputeRights) form.append("disputeRights", "on");
-    } else if (uploadNoticeType === "rent") {
-      if (!uploadCurrentRent || !uploadNewRent) {
-        setError("Please enter both current and new rent amounts.");
-        return;
-      }
-      if (!uploadServiceDate || !uploadTerminationDate) {
-        setError("Please fill in the date on the notice and the date new rent starts.");
-        return;
-      }
-      form.append("currentRent", uploadCurrentRent);
-      form.append("newRent", uploadNewRent);
-      form.append("serviceDate", uploadServiceDate);
-      form.append("effectiveDate", uploadTerminationDate);
-      if (uploadInRpz) form.append("inRpz", "on");
-      if (uploadHasThreeComparables) form.append("hasThreeComparables", "on");
-    } else if (uploadNoticeType === "entry") {
-      form.append("toldAt", uploadServiceDate ? `${uploadServiceDate}T09:00` : `${todayIso()}T09:00`);
-      form.append("visitAt", uploadTerminationDate ? `${uploadTerminationDate}T10:00` : `${todayIso()}T10:00`);
-      form.append("agreedTime", "on");
-    } else {
-      form.append("description", uploadDescription || `Uploaded notice document: ${uploadedFile?.name || "Notice letter"}`);
-    }
-
-    const built = buildNoticeAnswers(uploadNoticeType, form);
-    if (!built.ok) {
-      setError(built.error);
-      return;
-    }
-
-    if (selectedLeaseId) {
-      built.answers.linkedLeaseId = selectedLeaseId;
-    }
-
-    setSubmitting(true);
-    try {
-      const result = await checkNotice({ type: uploadNoticeType, answers: built.answers });
-      if (activeLease) {
-        try {
-          localStorage.setItem(
-            `cg_notice_lease_${result.id}`,
-            JSON.stringify({
-              id: activeLease.id,
-              address: activeLease.propertyAddress || activeLease.label,
-              monthlyRent: activeLease.monthlyRent,
-              tenancyStart: activeLease.tenancyStart,
-            })
-          );
-        } catch { }
-      }
-      router.push(`/notices/${result.id}`);
-    } catch (err) {
-      setError(errorMessage(err, "We couldn't check this notice. Please try again."));
-      setSubmitting(false);
-    }
+    setShowMissing(false);
+    setQuestionPage(0);
+    setStep(next);
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!type) return;
     setError("");
 
-    const built = buildNoticeAnswers(type, new FormData(event.currentTarget));
+    const questions = QUESTIONS[type];
+    const firstMissing = questions.findIndex((item) => !values[item.name]);
+    if (firstMissing >= 0) {
+      setShowMissing(true);
+      setQuestionPage(Math.floor(firstMissing / QUESTIONS_PER_PAGE));
+      setError("Answer every question about the notice. Pick Not sure if you don't know.");
+      return;
+    }
+
+    const questionNames = new Set(questions.map((item) => item.name));
+    const form = new FormData();
+    for (const [name, value] of Object.entries(values)) {
+      if (!questionNames.has(name)) form.append(name, value);
+      else if (value === "yes") form.append(name, "on");
+    }
+
+    const built = buildNoticeAnswers(type, form);
     if (!built.ok) {
       setError(built.error);
       return;
     }
-
-    if (selectedLeaseId) {
-      built.answers.linkedLeaseId = selectedLeaseId;
-    }
+    const note = (values.note ?? "").trim();
+    if (note) built.answers.note = note;
+    if (lease) built.answers.linkedLeaseId = lease.id;
 
     setSubmitting(true);
+    setProgress(0);
+    const timer = setInterval(() => setProgress((p) => Math.min(p + 1, CHECK_STEPS.length - 1)), STEP_INTERVAL_MS);
     try {
       const result = await checkNotice({ type, answers: built.answers });
-      if (activeLease) {
+      setProgress(CHECK_STEPS.length);
+      if (lease) {
         try {
-          localStorage.setItem(
-            `cg_notice_lease_${result.id}`,
-            JSON.stringify({
-              id: activeLease.id,
-              address: activeLease.propertyAddress || activeLease.label,
-              monthlyRent: activeLease.monthlyRent,
-              tenancyStart: activeLease.tenancyStart,
-            })
-          );
-        } catch { }
+          localStorage.setItem(`cg_notice_lease_${result.id}`, JSON.stringify(lease));
+        } catch {}
       }
       router.push(`/notices/${result.id}`);
     } catch (err) {
       setError(errorMessage(err, "We couldn't check this notice. Please try again."));
       setSubmitting(false);
+    } finally {
+      clearInterval(timer);
     }
   }
 
-  const rentDiff = currentRentVal && newRentVal ? newRentVal - currentRentVal : null;
-  const rentPct = currentRentVal && newRentVal ? ((newRentVal - currentRentVal) / currentRentVal) * 100 : null;
+  if (submitting) {
+    return <ProcessingCard steps={CHECK_STEPS} current={progress} title="Checking your notice" subtitle="This usually takes a few seconds. Keep this page open." />;
+  }
 
-  const uploadCurrNum = Number(uploadCurrentRent);
-  const uploadNewNum = Number(uploadNewRent);
-  const uploadRentDiff = uploadCurrNum > 0 && uploadNewNum > 0 ? uploadNewNum - uploadCurrNum : null;
-  const uploadRentPct = uploadCurrNum > 0 && uploadNewNum > 0 ? ((uploadNewNum - uploadCurrNum) / uploadCurrNum) * 100 : null;
+  const chosenType = type ? noticeType(type) : null;
+  const filled = lease
+    ? [
+        type === "rent" && lease.monthlyRent ? { label: "Current rent", value: `${euro(lease.monthlyRent)} a month` } : null,
+        type === "termination" && lease.tenancyStart ? { label: "Tenancy started", value: fmtDate(lease.tenancyStart) } : null,
+      ].filter((item): item is { label: string; value: string } => item !== null)
+    : [];
+  const hasSide = step === 1 || type !== "other" || !!lease;
 
   return (
-    <main className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6 sm:py-10">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
-        <Link href="/dashboard" className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-brand hover:underline focus-visible:outline-2 focus-visible:outline-offset-4">
-          <ArrowLeft size={18} aria-hidden="true" />
-          Back to dashboard
-        </Link>
-        <PageTour key={`${mode}-${step}`} tourId="notices" steps={mode === "upload" ? NOTICES_UPLOAD_TOUR : step === 1 ? NOTICES_FORM_TOUR : NOTICE_DETAILS_TOUR} />
-      </div>
-
-      <header data-tour="notice-intro">
-        <h1 className="font-display text-3xl font-semibold tracking-tight text-brand-dark sm:text-4xl">Check a notice</h1>
-        <p className="mt-2 text-base leading-7 text-mute sm:text-lg">
-          Verify termination notices, rent reviews, and inspection requests against statutory Irish tenancy rules.
-        </p>
-      </header>
-
-      <div className="mt-8 flex rounded-xl bg-surface p-1" data-tour="notice-mode">
-        <button
-          type="button"
-          onClick={() => setMode("upload")}
-          className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 text-xs sm:text-sm font-semibold transition ${mode === "upload" ? "bg-white text-brand-dark shadow-sm" : "text-mute hover:text-ink"
-            }`}
-        >
-          <UploadCloud size={16} />
-          Upload Notice Letter (Fastest)
-        </button>
-        <button
-          type="button"
-          onClick={() => setMode("form")}
-          className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 text-xs sm:text-sm font-semibold transition ${mode === "form" ? "bg-white text-brand-dark shadow-sm" : "text-mute hover:text-ink"
-            }`}
-        >
-          <FileText size={16} />
-          Quick Form
-        </button>
-      </div>
-
-      {mode === "upload" ? (
-        <section className="mt-6 rounded-2xl border border-line bg-white p-4 shadow-soft sm:p-6" data-tour="notice-start">
-          <div className="flex items-center gap-2">
-            <Sparkles size={18} className="text-brand" />
-            <h2 className="text-xl font-semibold text-brand-dark">Upload Landlord Notice</h2>
+    <div className="-m-6 min-h-screen bg-[#eaf1f2] p-4 sm:p-6 md:-m-8 md:p-8">
+      <div className="mx-auto flex max-w-[1240px] flex-col lg:min-h-[calc(100dvh-4rem)]">
+        <div className="flex items-start justify-between gap-4">
+          <div data-tour="notice-intro">
+            <h1 className="font-display text-2xl font-semibold text-brand-dark sm:text-[30px] sm:leading-tight">Check a notice</h1>
+            <p className="mt-1 text-sm text-mute sm:text-[15px]">Find out if a notice from your landlord follows Irish tenancy law.</p>
           </div>
-          <p className="mt-1 text-sm text-mute">
-            Drop the PDF or photo of the letter you received from your landlord to verify it automatically.
-          </p>
+          <PageTour key={step} tourId="notices" steps={step === 1 ? NOTICES_FORM_TOUR : NOTICE_DETAILS_TOUR} />
+        </div>
 
-          {error && <p role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</p>}
+        <div className={`mt-5 grid flex-1 grid-cols-1 gap-5 ${hasSide ? (step === 1 ? "lg:grid-cols-[minmax(0,1fr)_360px]" : "lg:grid-cols-[minmax(0,1fr)_340px]") : ""}`}>
+          {step === 1 ? (
+            <section data-tour="notice-start" className={`flex flex-col ${card}`}>
+              <div className="flex flex-1 flex-col px-4 pb-5 pt-5 sm:px-6">
+                <h2 className="text-[15px] font-semibold text-brand-dark">What is the notice about?</h2>
+                <div className="mt-3">
+                  <TypeTiles value={type} onChange={setType} />
+                </div>
 
-          {leases.length > 0 && (
-            <div className="mt-5 rounded-xl border border-line bg-surface/40 p-3 sm:p-4">
-              <label htmlFor="uploadLinkedLease" className="mb-1.5 block text-sm font-semibold text-brand-dark">
-                Which uploaded lease is this notice for? <span className="text-xs font-normal text-mute">(Optional)</span>
-              </label>
-              <select
-                id="uploadLinkedLease"
-                value={selectedLeaseId}
-                onChange={(e) => handleLeaseChange(e.target.value)}
-                className="min-h-11 w-full rounded-xl border border-line bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
-              >
-                <option value="">None / I will enter details manually</option>
-                {leases.map((l) => (
-                  <option key={l.id} value={l.id}>
-                    {l.label}
-                  </option>
-                ))}
-              </select>
-              {activeLease && (
-                <p className="mt-2 flex items-center gap-1.5 text-xs text-brand font-medium">
-                  <CheckCircle2 size={14} />
-                  Connected to {activeLease.propertyAddress || activeLease.label}. Tenancy dates and rent pre-filled.
-                </p>
-              )}
-            </div>
-          )}
+                <h2 className="mt-6 text-[15px] font-semibold text-brand-dark lg:[@media(max-height:800px)]:mt-4">Is it about one of your leases?</h2>
+                <div data-tour="notice-lease" className="mt-3">
+                  {loadingLeases ? (
+                    <div className="skeleton h-14 rounded-xl" />
+                  ) : leases.length === 0 ? (
+                    <p className="text-sm text-mute">You haven&apos;t uploaded a lease yet, so you&apos;ll fill in the details yourself.</p>
+                  ) : (
+                    <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-6">
+                      <p className="text-[13.5px] leading-snug text-mute md:max-w-[300px]">Pick it and we&apos;ll fill in your rent and the date your tenancy started.</p>
+                      <div className="md:w-[380px] md:shrink-0">
+                        <LeasePicker leases={leases} value={leaseChoice} onChange={chooseLease} />
+                      </div>
+                    </div>
+                  )}
+                </div>
 
-          {!uploadedFile ? (
-            <label className="mt-5 flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-brand/30 bg-brand-soft/20 px-6 py-10 text-center cursor-pointer hover:border-brand hover:bg-brand-soft/30 transition">
-              <UploadCloud size={36} className="text-brand" />
-              <span className="mt-3 block text-base font-semibold text-brand-dark">Choose file or drag & drop</span>
-              <span className="mt-1 block text-xs text-mute">PDF, JPG, PNG or WEBP (Max 25 MB)</span>
-              <input
-                type="file"
-                accept=".pdf,.png,.jpg,.jpeg,.webp"
-                onChange={handleFileSelected}
-                className="sr-only"
-              />
-            </label>
-          ) : (
-            <form onSubmit={handleUploadSubmit} className="mt-6 space-y-5">
-              <div className="flex items-center justify-between rounded-xl border border-line bg-surface/60 p-3">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <FileText size={20} className="text-brand shrink-0" />
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-brand-dark truncate">{uploadedFile.name}</p>
-                    <p className="text-xs text-mute">{(uploadedFile.size / 1024).toFixed(0)} KB • Ready to check</p>
+                <div className="mt-auto pt-6 lg:[@media(max-height:800px)]:pt-4">
+                  <div className="flex flex-col-reverse gap-3 border-t border-line pt-4 sm:flex-row sm:items-center sm:justify-end">
+                    {!type && <p className="text-sm text-mute">Choose what the notice is about to continue.</p>}
+                    <button data-tour="notice-continue" type="button" disabled={!type} onClick={() => goTo(2)} className={primary}>
+                      Continue
+                      <ArrowRight size={17} aria-hidden />
+                    </button>
                   </div>
                 </div>
+              </div>
+            </section>
+          ) : (
+            <form data-tour="notice-start" noValidate onSubmit={handleSubmit} className={`flex flex-col ${card}`}>
+              <div className="flex flex-1 flex-col gap-4 px-4 pb-5 pt-5 sm:px-6">
+                <h2 className="text-[15px] font-semibold text-brand-dark">Fill in the details from the notice</h2>
+                <div className="flex flex-wrap items-center gap-2 text-[13px]">
+                  {chosenType && (
+                    <span className="inline-flex items-center gap-1.5 rounded-lg bg-brand-soft px-2.5 py-1 font-semibold text-brand-dark">
+                      <chosenType.Icon size={14} aria-hidden />
+                      {chosenType.title}
+                    </span>
+                  )}
+                  {lease && (
+                    <span className="inline-flex max-w-full items-center gap-1.5 rounded-lg bg-brand-soft px-2.5 py-1 font-semibold text-brand-dark">
+                      <House size={14} aria-hidden className="shrink-0" />
+                      <span className="truncate">{lease.address}</span>
+                    </span>
+                  )}
+                  <button type="button" onClick={() => goTo(1)} className="ml-1 cursor-pointer font-semibold text-brand hover:underline">
+                    Change
+                  </button>
+                </div>
+                {type && (
+                  <NoticeDetails
+                    type={type}
+                    values={values}
+                    lease={lease}
+                    questionPage={questionPage}
+                    showMissing={showMissing}
+                    onChange={setValue}
+                    onQuestionPage={setQuestionPage}
+                  />
+                )}
+              </div>
+              <div className="flex flex-wrap items-center gap-3 border-t border-line px-4 py-4 sm:flex-nowrap sm:px-6">
                 <button
                   type="button"
-                  onClick={() => setUploadedFile(null)}
-                  className="text-xs font-semibold text-mute hover:text-bad"
+                  onClick={() => goTo(1)}
+                  className="inline-flex h-11 shrink-0 cursor-pointer items-center gap-2 rounded-xl border border-[#cfdcde] bg-white px-4 text-sm font-semibold text-brand-dark hover:bg-surface"
                 >
-                  Change file
+                  <ArrowLeft size={16} aria-hidden />
+                  Back
                 </button>
-              </div>
-
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <SelectField
-                  label="What kind of notice did you receive?"
-                  name="uploadNoticeType"
-                  value={uploadNoticeType}
-                  onChange={(e) => setUploadNoticeType(e.target.value as NoticeType)}
-                  options={[
-                    { value: "termination", label: "Notice of termination (Eviction)" },
-                    { value: "rent", label: "Rent increase notice" },
-                    { value: "entry", label: "Inspection / visit request" },
-                    { value: "other", label: "Other landlord letter" },
-                  ]}
-                />
-
-                <InputField
-                  label="Date on the notice letter"
-                  name="uploadServiceDate"
-                  type="date"
-                  required
-                  value={uploadServiceDate}
-                  onChange={(e) => setUploadServiceDate(e.target.value)}
-                />
-
-                {uploadNoticeType === "termination" && (
-                  <>
-                    <InputField
-                      label="When did your tenancy start?"
-                      name="uploadTenancyStart"
-                      type="date"
-                      required
-                      value={uploadTenancyStart}
-                      onChange={(e) => setUploadTenancyStart(e.target.value)}
-                      badge={
-                        activeLease?.tenancyStart ? (
-                          <span className="inline-flex items-center rounded-md bg-brand-soft px-2 py-0.5 text-xs font-semibold text-brand">
-                            ✓ From selected lease
-                          </span>
-                        ) : null
-                      }
-                    />
-
-                    <InputField
-                      label="Stated date the tenancy ends"
-                      name="uploadTerminationDate"
-                      type="date"
-                      required
-                      placeholder="Date on letter"
-                      value={uploadTerminationDate}
-                      onChange={(e) => setUploadTerminationDate(e.target.value)}
-                    />
-
-                    <div className="sm:col-span-2">
-                      <SelectField
-                        label="Reason given on notice"
-                        name="uploadReason"
-                        value={uploadReason}
-                        onChange={(e) => setUploadReason(e.target.value)}
-                        options={TERMINATION_REASONS}
-                      />
-                    </div>
-
-                    <div className="sm:col-span-2">
-                      <p className="mb-2 text-sm font-semibold text-brand-dark">Notice format details</p>
-                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                        <CheckField name="uploadIsWritten" checked={uploadIsWritten} onChange={(e) => setUploadIsWritten(e.target.checked)}>
-                          It's a written letter (not a text or call)
-                        </CheckField>
-                        <CheckField name="uploadIsSigned" checked={uploadIsSigned} onChange={(e) => setUploadIsSigned(e.target.checked)}>
-                          It's signed by landlord or agent
-                        </CheckField>
-                        <CheckField name="uploadHasStatutoryDeclaration" checked={uploadHasStatutoryDeclaration} onChange={(e) => setUploadHasStatutoryDeclaration(e.target.checked)}>
-                          Statutory declaration included
-                        </CheckField>
-                        <CheckField name="uploadCopySentToRtb" checked={uploadCopySentToRtb} onChange={(e) => setUploadCopySentToRtb(e.target.checked)}>
-                          Copy sent to the RTB
-                        </CheckField>
-                      </div>
-                    </div>
-                  </>
-                )}
-
-                {uploadNoticeType === "rent" && (
-                  <>
-                    <InputField
-                      label="Current monthly rent (€)"
-                      name="uploadCurrentRent"
-                      type="number"
-                      placeholder="e.g. 1800"
-                      required
-                      value={uploadCurrentRent}
-                      onChange={(e) => setUploadCurrentRent(e.target.value)}
-                      badge={
-                        activeLease?.monthlyRent ? (
-                          <span className="inline-flex items-center rounded-md bg-brand-soft px-2 py-0.5 text-xs font-semibold text-brand">
-                            ✓ From selected lease
-                          </span>
-                        ) : null
-                      }
-                    />
-
-                    <InputField
-                      label="New monthly rent (€)"
-                      name="uploadNewRent"
-                      type="number"
-                      placeholder="e.g. 1950"
-                      required
-                      value={uploadNewRent}
-                      onChange={(e) => setUploadNewRent(e.target.value)}
-                    />
-
-                    {uploadRentDiff !== null && uploadRentPct !== null && (
-                      <div className="rounded-xl border border-line bg-surface/70 p-3.5 text-sm sm:col-span-2">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <span className="font-semibold text-brand-dark">
-                            Proposed increase: {uploadRentDiff > 0 ? "+" : ""}€{Math.round(uploadRentDiff)}/month ({uploadRentPct.toFixed(1)}%)
-                          </span>
-                          {uploadRentDiff > 0 && (
-                            <span
-                              className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-semibold ${uploadRentPct > 2 && uploadInRpz
-                                ? "border-red-200 bg-red-50 text-red-800"
-                                : "border-emerald-200 bg-emerald-50 text-emerald-800"
-                                }`}
-                            >
-                              {uploadRentPct > 2 && uploadInRpz ? "⚠️ Exceeds 2% RPZ cap" : "✓ Within 2% RPZ cap"}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="sm:col-span-2">
-                      <InputField
-                        label="Date new rent starts"
-                        name="uploadTerminationDate"
-                        type="date"
-                        required
-                        value={uploadTerminationDate}
-                        onChange={(e) => setUploadTerminationDate(e.target.value)}
-                      />
-                    </div>
-
-                    <div className="sm:col-span-2">
-                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                        <CheckField name="uploadInRpz" checked={uploadInRpz} onChange={(e) => setUploadInRpz(e.target.checked)}>
-                          My home is in a Rent Pressure Zone (RPZ)
-                        </CheckField>
-                        <CheckField name="uploadHasThreeComparables" checked={uploadHasThreeComparables} onChange={(e) => setUploadHasThreeComparables(e.target.checked)}>
-                          Lists 3 similar rental comparables
-                        </CheckField>
-                      </div>
-                    </div>
-                  </>
-                )}
-
-                {uploadNoticeType === "entry" && (
-                  <div className="sm:col-span-2">
-                    <InputField
-                      label="Date of planned visit"
-                      name="uploadTerminationDate"
-                      type="date"
-                      required
-                      value={uploadTerminationDate}
-                      onChange={(e) => setUploadTerminationDate(e.target.value)}
-                    />
-                  </div>
-                )}
-
-                {uploadNoticeType === "other" && (
-                  <div className="sm:col-span-2">
-                    <label htmlFor="uploadDescription" className="mb-1.5 block text-sm font-semibold text-brand-dark">
-                      What does the letter or notice say?
-                    </label>
-                    <textarea
-                      id="uploadDescription"
-                      rows={4}
-                      value={uploadDescription}
-                      onChange={(e) => setUploadDescription(e.target.value)}
-                      placeholder="Describe what the landlord is asking or stating in the document..."
-                      className="w-full rounded-xl border border-line bg-white p-3 text-sm text-slate-900 outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
-                    />
-                  </div>
-                )}
-              </div>
-
-              <div className="flex justify-end pt-2">
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-brand px-6 py-3 font-semibold text-white hover:bg-brand-dark disabled:opacity-60"
-                >
-                  {submitting && <LoaderCircle size={18} className="animate-spin" aria-hidden="true" />}
-                  {submitting ? "Verifying notice…" : "Verify notice now"}
+                <p role="alert" className="order-last w-full text-sm leading-snug text-bad sm:order-none sm:w-auto sm:flex-1 sm:text-right">
+                  {error}
+                </p>
+                <button type="submit" className={`${primary} ml-auto shrink-0 sm:ml-0`}>
+                  Check this notice
+                  <ArrowRight size={17} aria-hidden />
                 </button>
               </div>
             </form>
           )}
-        </section>
-      ) : step === 1 ? (
-        <section data-tour="notice-start" className="mt-6 rounded-2xl border border-line bg-white p-4 shadow-soft sm:p-6">
-          <h2 className="text-xl font-semibold text-brand-dark">What kind of notice is it?</h2>
-          <div role="radiogroup" aria-label="Notice type" className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {noticeTypes.map(({ value, title, description, Icon }) => (
-              <button
-                key={value}
-                type="button"
-                role="radio"
-                aria-checked={type === value}
-                onClick={() => setType(value)}
-                className={`flex min-h-24 items-start gap-3 rounded-2xl border-2 p-4 text-left transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand ${type === value ? "border-brand bg-brand-soft/60" : "border-line hover:border-brand/50"
-                  }`}
-              >
-                <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-white text-brand shadow-sm">
-                  <Icon size={20} aria-hidden="true" />
-                </span>
-                <span className="min-w-0">
-                  <span className="block font-semibold text-brand-dark">{title}</span>
-                  <span className="mt-1 block text-sm leading-5 text-mute">{description}</span>
-                </span>
-              </button>
-            ))}
-          </div>
-          <div className="mt-6 flex justify-end">
-            <button
-              data-tour="notice-continue"
-              type="button"
-              onClick={() => setStep(2)}
-              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-brand px-5 py-3 font-semibold text-white hover:bg-brand-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-            >
-              Continue <ArrowRight size={18} aria-hidden="true" />
-            </button>
-          </div>
-        </section>
-      ) : (
-        <form data-tour="notice-start" onSubmit={handleSubmit} className="mt-6 rounded-2xl border border-line bg-white p-4 shadow-soft sm:p-6">
-          <h2 className="text-xl font-semibold text-brand-dark">About your {noticeTitle(type).toLowerCase()}</h2>
-          <p className="mt-1 text-sm text-mute">Fields marked with * are required.</p>
 
-          {leases.length > 0 && (
-            <div className="mt-4 rounded-xl border border-line bg-surface/50 p-3.5">
-              <label htmlFor="formLinkedLease" className="mb-1.5 block text-sm font-semibold text-brand-dark">
-                Which uploaded lease is this notice for? <span className="text-xs font-normal text-mute">(Optional)</span>
-              </label>
-              <select
-                id="formLinkedLease"
-                value={selectedLeaseId}
-                onChange={(e) => handleLeaseChange(e.target.value)}
-                className="min-h-11 w-full rounded-xl border border-line bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
-              >
-                <option value="">None / Enter details manually</option>
-                {leases.map((l) => (
-                  <option key={l.id} value={l.id}>
-                    {l.label}
-                  </option>
-                ))}
-              </select>
-              {activeLease && (
-                <p className="mt-2 flex items-center gap-1.5 text-xs text-brand font-medium">
-                  <CheckCircle2 size={14} />
-                  Referencing &quot;{activeLease.propertyAddress || activeLease.label}&quot; — lease details pre-filled below.
-                </p>
-              )}
-            </div>
-          )}
-
-          {error && <p role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</p>}
-
-          {type === "termination" && (
-            <>
-              <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <InputField
-                  label="When did your tenancy start?"
-                  name="tenancyStart"
-                  type="date"
-                  required
-                  value={formTenancyStart}
-                  onChange={(e) => setFormTenancyStart(e.target.value)}
-                  badge={
-                    activeLease?.tenancyStart ? (
-                      <span className="inline-flex items-center rounded-md bg-brand-soft px-2 py-0.5 text-xs font-semibold text-brand">
-                        ✓ From selected lease
-                      </span>
-                    ) : null
-                  }
-                />
-                <InputField label="Date on the notice" name="serviceDate" type="date" required hint="The date it was given to you." />
-                <InputField label="Date the tenancy ends" name="terminationDate" type="date" required />
-                <SelectField label="Reason given on the notice" name="reason" options={TERMINATION_REASONS} />
-              </div>
-              <fieldset className="mt-5">
-                <legend className="mb-2 text-sm font-semibold text-brand-dark">Tick everything that applies</legend>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  <CheckField name="isWritten" defaultChecked={true}>It's a written letter (not a text or call)</CheckField>
-                  <CheckField name="isSigned" defaultChecked={true}>It's signed by the landlord or agent</CheckField>
-                  <CheckField name="hasStatutoryDeclaration" defaultChecked={true}>A signed statutory declaration came with it</CheckField>
-                  <CheckField name="copySentToRtb" defaultChecked={true}>It says a copy was sent to the RTB</CheckField>
-                  <CheckField name="disputeRights" defaultChecked={true}>It says I can refer a dispute to the RTB</CheckField>
-                </div>
-              </fieldset>
-            </>
-          )}
-
-          {type === "rent" && (
-            <>
-              <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <InputField
-                  label="Current monthly rent (€)"
-                  name="currentRent"
-                  type="number"
-                  placeholder="e.g. 1800"
-                  required
-                  value={currentRentVal !== null ? currentRentVal : ""}
-                  onChange={(e) => setCurrentRentVal(Number(e.target.value) || null)}
-                  badge={
-                    activeLease?.monthlyRent ? (
-                      <span className="inline-flex items-center rounded-md bg-brand-soft px-2 py-0.5 text-xs font-semibold text-brand">
-                        ✓ From selected lease
-                      </span>
-                    ) : null
-                  }
-                />
-                <InputField
-                  label="New monthly rent (€)"
-                  name="newRent"
-                  type="number"
-                  placeholder="e.g. 1950"
-                  required
-                  onChange={(e) => setNewRentVal(Number(e.target.value) || null)}
-                />
-
-                {rentDiff !== null && rentPct !== null && (
-                  <div className="rounded-xl border border-line bg-surface/70 p-3.5 text-sm sm:col-span-2">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <span className="font-semibold text-brand-dark">
-                        Proposed increase: {rentDiff > 0 ? "+" : ""}€{Math.round(rentDiff)}/month ({rentPct.toFixed(1)}%)
-                      </span>
-                      {rentDiff > 0 && (
-                        <span
-                          className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-semibold ${rentPct > 2 && isRpz
-                            ? "border-red-200 bg-red-50 text-red-800"
-                            : "border-emerald-200 bg-emerald-50 text-emerald-800"
-                            }`}
-                        >
-                          {rentPct > 2 && isRpz ? "⚠️ Exceeds 2% RPZ cap" : "✓ Within 2% RPZ cap"}
-                        </span>
-                      )}
-                    </div>
-                  </div>
+          {step === 1 ? (
+            <PastChecks notices={notices} loading={loadingHistory} error={historyError} />
+          ) : (
+            hasSide && (
+              <div data-tour="notice-numbers" className="flex flex-col gap-4 self-start">
+                {type && <LivePanel type={type} values={values} />}
+                {lease && (
+                  <section className={`${card} p-5`}>
+                    <p className="flex items-center gap-2 text-[15px] font-semibold text-brand-dark">
+                      <House size={16} aria-hidden className="text-brand" />
+                      {filled.length ? "Filled in from your lease" : "Linked to your lease"}
+                    </p>
+                    <dl className="mt-3 space-y-2 text-[13.5px]">
+                      <div className="flex justify-between gap-4">
+                        <dt className="text-mute">Lease</dt>
+                        <dd className="truncate text-right font-semibold">{lease.address}</dd>
+                      </div>
+                      {filled.map((item) => (
+                        <div key={item.label} className="flex justify-between gap-4">
+                          <dt className="text-mute">{item.label}</dt>
+                          <dd className="text-right font-semibold tabular-nums">{item.value}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                    <p className="mt-3 text-xs text-mute">
+                      {filled.length ? "If anything has changed since, edit it in the form." : "Your result will link back to this lease."}
+                    </p>
+                  </section>
                 )}
-
-                <InputField label="Date on the letter" name="serviceDate" type="date" required />
-                <InputField label="Date the new rent starts" name="effectiveDate" type="date" required />
-                <InputField label="When did your rent last change?" name="lastReviewDate" type="date" hint="Leave blank if it never has." />
               </div>
-              <fieldset className="mt-5">
-                <legend className="mb-2 text-sm font-semibold text-brand-dark">Tick everything that applies</legend>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  <CheckField name="inRpz" defaultChecked={true} onChange={(e) => setIsRpz(e.target.checked)}>
-                    My home is in a Rent Pressure Zone
-                  </CheckField>
-                  <CheckField name="hasThreeComparables" defaultChecked={true}>The letter lists 3 similar homes and their rents</CheckField>
-                </div>
-              </fieldset>
-            </>
+            )
           )}
-
-          {type === "entry" && (
-            <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <InputField label="When were you told about the visit?" name="toldAt" type="datetime-local" required />
-              <InputField label="When is the visit?" name="visitAt" type="datetime-local" required />
-              <div className="grid gap-2 sm:col-span-2">
-                <CheckField name="isEmergency">It's a genuine emergency (e.g. a leak or fire)</CheckField>
-                <CheckField name="agreedTime" defaultChecked={true}>The time was agreed with me</CheckField>
-              </div>
-            </div>
-          )}
-
-          {type === "other" && (
-            <div className="mt-5">
-              <label htmlFor="description" className="mb-1.5 block text-sm font-semibold text-brand-dark">What does the letter say? *</label>
-              <textarea id="description" name="description" rows={5} maxLength={2000} required className="w-full rounded-xl border border-line bg-white px-3 py-3 text-base outline-none focus:border-brand focus:ring-2 focus:ring-brand/20" />
-              <p className="mt-1 text-sm text-mute">Maximum 2,000 characters.</p>
-            </div>
-          )}
-
-          <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <button
-              type="button"
-              onClick={() => { setError(""); setStep(1); }}
-              className="min-h-11 rounded-xl border border-line bg-white px-4 py-2.5 font-semibold text-brand-dark hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-            >
-              Back
-            </button>
-            <button
-              type="submit"
-              disabled={submitting}
-              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-brand px-5 py-3 font-semibold text-white hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-            >
-              {submitting && <LoaderCircle size={18} className="animate-spin" aria-hidden="true" />}
-              {submitting ? "Checking…" : "Check notice"}
-            </button>
-          </div>
-        </form>
-      )}
-
-      <section data-tour="previous-checks" className="mt-10 sm:mt-12">
-        <h2 className="mb-4 text-xl font-semibold text-brand-dark">Previous checks</h2>
-        {loadingHistory ? (
-          <p className="rounded-xl border border-line bg-white p-4 text-sm text-mute">Loading previous checks…</p>
-        ) : historyError ? (
-          <p role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">{historyError}</p>
-        ) : notices.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-line bg-white/70 px-5 py-8 text-center">
-            <p className="font-semibold text-brand-dark">No previous checks yet</p>
-            <p className="mt-1 text-sm text-mute">Your completed notice checks will appear here.</p>
-          </div>
-        ) : (
-          <div className="overflow-hidden rounded-2xl border border-line bg-white shadow-soft">
-            {notices.map((notice) => (
-              <Link key={notice.id} href={`/notices/${notice.id}`} className="flex min-h-16 flex-col gap-2 border-b border-line p-4 last:border-b-0 hover:bg-surface focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-brand sm:flex-row sm:items-center sm:justify-between">
-                <span className="min-w-0">
-                  <span className="block font-semibold text-brand-dark">{noticeTitle(notice.type)}</span>
-                  <span className="mt-1 block text-sm text-mute">{notice.summary}</span>
-                </span>
-                <span className={`inline-flex w-fit shrink-0 rounded-full border px-2.5 py-1 text-xs font-semibold ${verdictStyle(notice.verdict)}`}>
-                  {notice.verdict === "valid" ? "Looks valid" : notice.verdict === "attention" ? "Needs review" : notice.verdict === "invalid" ? "Likely not valid" : "For information"}
-                </span>
-              </Link>
-            ))}
-          </div>
-        )}
-      </section>
-
-      <p className="mt-6 text-xs leading-relaxed text-mute">
-        ClauseGuard provides general information, not legal advice. Check important questions with the RTB or Threshold.
-      </p>
-    </main>
+        </div>
+      </div>
+    </div>
   );
 }

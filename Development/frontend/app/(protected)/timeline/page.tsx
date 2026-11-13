@@ -79,7 +79,15 @@ export default function TimelinePage() {
   useEffect(() => {
     let cancelled = false;
     getEvents()
-      .then((data) => !cancelled && setEvents([...data].sort(byDate)))
+      .then((data) => {
+        if (cancelled) return;
+        setEvents([...data].sort(byDate));
+        const asked = new URLSearchParams(window.location.search).get("date");
+        if (asked && /^\d{4}-\d{2}-\d{2}$/.test(asked)) {
+          setDay(asked);
+          setMonth(monthStart(asked));
+        }
+      })
       .catch((err) => !cancelled && setLoadError(errorMessage(err, "Your timeline could not be loaded.")));
     getAnalyses()
       .then((list) => {

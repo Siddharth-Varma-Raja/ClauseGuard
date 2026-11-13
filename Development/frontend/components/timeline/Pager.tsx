@@ -2,7 +2,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 
 export default function Pager({ page, pages, label, onChange }: { page: number; pages: number; label: string; onChange: (page: number) => void }) {
   if (pages <= 1) return null;
-  const button = "grid size-8 cursor-pointer place-items-center rounded-lg border border-line bg-white text-brand-dark hover:border-brand/40 disabled:cursor-default disabled:opacity-40";
+  const button = "grid size-8 cursor-pointer place-items-center rounded-full border border-line bg-white text-brand-dark hover:border-brand/40 disabled:cursor-default disabled:opacity-40";
   return (
     <div role="group" aria-label={label} className="flex items-center gap-1.5">
       <button type="button" onClick={() => onChange(page - 1)} disabled={page === 0} aria-label="Previous page" className={button}>
