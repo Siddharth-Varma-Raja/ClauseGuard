@@ -1,96 +1,123 @@
 import Link from "next/link";
-import { ArrowRight, ChevronRight, CircleCheck, FileText, TriangleAlert } from "lucide-react";
+import { ArrowRight, ChevronRight, CircleCheck, Clock, FileText, TriangleAlert } from "lucide-react";
 import { flaggedClauses, leaseName } from "@/lib/dashboard";
-import type { Analysis, AnalysisSummary } from "@/lib/notice-types";
-import { STATUS, STATUS_ORDER } from "@/lib/status";
+import { openedAgo } from "@/lib/leaseVisits";
+import type { Analysis, AnalysisSummary, Status } from "@/lib/notice-types";
 import { cn } from "@/lib/cn";
-import Tooltip from "../ui/Tooltip";
 
-function formatCreated(iso: string) {
+const BAR: { key: Status; colour: string; label: string }[] = [
+  { key: "red", colour: "bg-bad-solid", label: "High risk" },
+  { key: "amber", colour: "bg-warn-solid", label: "Worth asking about" },
+  { key: "green", colour: "bg-ok-solid", label: "Fine" },
+  { key: "grey", colour: "bg-neu-solid", label: "For information" },
+];
+
+function uploadedAt(iso: string) {
   const date = new Date(iso);
-  return Number.isNaN(date.getTime()) ? "" : date.toLocaleDateString("en-IE", { day: "numeric", month: "short" });
+  if (Number.isNaN(date.getTime())) return "";
+  const day = date.toLocaleDateString("en-IE", { day: "numeric", month: "short", year: "numeric" });
+  const time = date.toLocaleTimeString("en-IE", { hour: "2-digit", minute: "2-digit" });
+  return `Uploaded ${day} at ${time}`;
 }
 
-function Verdict({ lease, detail }: { lease: AnalysisSummary; detail?: Analysis }) {
+function Badge({ lease, detail }: { lease: AnalysisSummary; detail?: Analysis }) {
   const left = detail ? flaggedClauses(detail).filter((c) => !c.reviewed) : [];
   const red = detail ? left.filter((c) => c.status === "red").length : lease.counts.red;
   const amber = detail ? left.filter((c) => c.status === "amber").length : lease.counts.amber;
   const hadFlags = lease.counts.red + lease.counts.amber > 0;
-
-  if (red > 0) return <Badge tone="bad" text={`${red} high risk`} />;
-  if (amber > 0) return <Badge tone="warn" text={`${amber} to check`} />;
-  return <Badge tone="ok" text={hadFlags && detail ? "Reviewed" : "Looks fine"} />;
-}
-
-function Badge({ tone, text }: { tone: "bad" | "warn" | "ok"; text: string }) {
+  const tone = red > 0 ? "bad" : amber > 0 ? "warn" : "ok";
+  const text = red > 0 ? `${red} high risk` : amber > 0 ? `${amber} to ask about` : hadFlags && detail ? "Reviewed" : "Looks fine";
   const Icon = tone === "ok" ? CircleCheck : TriangleAlert;
   return (
     <span
       className={cn(
-        "inline-flex w-32 shrink-0 items-center justify-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold",
+        "inline-flex w-[132px] shrink-0 items-center justify-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold",
         tone === "bad" && "border-bad-line bg-bad-bg text-bad",
         tone === "warn" && "border-warn-line bg-warn-bg text-warn",
         tone === "ok" && "border-ok-line bg-ok-bg text-ok",
       )}
     >
-      <Icon size={14} />
+      <Icon size={13} aria-hidden />
       {text}
     </span>
   );
 }
 
-function LeaseRow({ lease, detail }: { lease: AnalysisSummary; detail?: Analysis }) {
+function LeaseRow({ lease, detail, opened }: { lease: AnalysisSummary; detail?: Analysis; opened?: number }) {
   const { counts } = lease;
   const total = counts.red + counts.amber + counts.green + counts.grey;
-  const flagged = detail ? flaggedClauses(detail) : [];
-  const reviewed = flagged.filter((c) => c.reviewed).length;
-  const progress = !detail ? "" : flagged.length === 0 ? " · nothing flagged" : ` · ${reviewed} of ${flagged.length} reviewed`;
+  const seen = openedAgo(opened);
 
   return (
     <li>
       <Link
         href={`/lease/${lease.id}`}
-        className="group flex flex-wrap items-center gap-4 rounded-2xl border border-line bg-white p-4 transition hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-soft sm:flex-nowrap"
+        className="group grid grid-cols-[44px_minmax(0,1fr)_16px] items-center gap-x-4 gap-y-2 rounded-xl px-2 py-3 hover:bg-surface focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand md:grid-cols-[44px_minmax(0,1.5fr)_minmax(0,1.2fr)_150px_132px_16px]"
       >
-        <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-brand-soft text-brand">
-          <FileText size={21} />
+        <span className="grid size-11 place-items-center rounded-xl bg-brand-soft text-brand">
+          <FileText size={20} aria-hidden />
         </span>
-        <div className="min-w-0 flex-1">
-          <p className="truncate font-semibold text-ink group-hover:text-brand">{leaseName(lease.fileName)}</p>
-          <p className="truncate text-sm text-mute">Uploaded {formatCreated(lease.createdAt)}</p>
-        </div>
-        <div className="w-full sm:w-44">
-          <p className="text-xs text-mute">
-            {total} clauses{progress}
-          </p>
-          <Tooltip text={STATUS_ORDER.filter((s) => counts[s] > 0).map((s) => `${counts[s]} ${STATUS[s].label}`).join(", ")} className="mt-1.5 w-full">
-            <div className="animate-grow flex h-2 w-full gap-0.5 overflow-hidden rounded-full bg-line">
-              {STATUS_ORDER.map((s) =>
-                counts[s] > 0 ? <span key={s} className={STATUS[s].solid} style={{ width: `${(counts[s] / total) * 100}%` }} /> : null,
-              )}
-            </div>
-          </Tooltip>
-        </div>
-        <Verdict lease={lease} detail={detail} />
-        <ChevronRight size={20} className="hidden shrink-0 text-neu-solid transition-transform group-hover:translate-x-0.5 sm:block" />
+        <span className="min-w-0">
+          <span className="block truncate text-[15px] font-semibold text-ink group-hover:text-brand">{lease.propertyAddress || leaseName(lease.fileName)}</span>
+          <span className="block truncate text-[12.5px] text-mute">{lease.fileName}</span>
+        </span>
+        <ChevronRight size={18} aria-hidden className="text-[#a9babd] transition-transform group-hover:translate-x-0.5 md:order-last" />
+        <span className="col-span-3 col-start-1 min-w-0 md:col-span-1 md:col-start-auto">
+          <span className="flex items-center gap-1.5 text-[13px] tabular-nums text-ink">
+            <Clock size={13} aria-hidden className="shrink-0 text-brand" />
+            {uploadedAt(lease.createdAt)}
+          </span>
+          {seen && <span className="mt-0.5 block pl-5 text-xs text-mute">{seen}</span>}
+        </span>
+        <span className="col-span-3 col-start-1 min-w-0 md:col-span-1 md:col-start-auto">
+          <span className="flex h-2 gap-0.5 overflow-hidden rounded-full bg-line">
+            {BAR.map((part) => (counts[part.key] > 0 ? <span key={part.key} className={part.colour} style={{ width: `${(counts[part.key] / total) * 100}%` }} /> : null))}
+          </span>
+          <span className="mt-1 block text-[11.5px] tabular-nums text-mute">{total} points checked</span>
+        </span>
+        <span className="col-span-3 col-start-1 md:col-span-1 md:col-start-auto">
+          <Badge lease={lease} detail={detail} />
+        </span>
       </Link>
     </li>
   );
 }
 
-export default function LeaseList({ leases, details, totalCount }: { leases: AnalysisSummary[]; details: Analysis[]; totalCount: number }) {
+export default function LeaseList({
+  leases,
+  details,
+  totalCount,
+  opened,
+}: {
+  leases: AnalysisSummary[];
+  details: Analysis[];
+  totalCount: number;
+  opened: Record<string, number>;
+}) {
+  const used = BAR.filter((part) => leases.some((lease) => lease.counts[part.key] > 0));
+
   return (
-    <section data-tour="my-leases" className="rounded-3xl border border-line bg-white p-5 shadow-soft sm:p-6">
-      <div className="flex items-center justify-between gap-4">
-        <h2 className="font-display text-xl font-semibold text-brand-dark">My leases</h2>
-        <Link href="/lease" className="inline-flex items-center gap-1 text-sm font-semibold text-brand hover:underline">
-          View all {totalCount}
-          <ArrowRight size={15} />
-        </Link>
+    <section data-tour="my-leases" className="rounded-3xl border border-[#d5e3e4] bg-white p-5 shadow-soft">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <h2 className="font-display text-[21px] font-semibold text-brand-dark">My leases</h2>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+          <p className="flex flex-wrap gap-x-3 gap-y-1 text-[11.5px] text-mute">
+            {used.map((part) => (
+              <span key={part.key} className="flex items-center gap-1.5">
+                <span className={`size-2 rounded-full ${part.colour}`} />
+                {part.label}
+              </span>
+            ))}
+          </p>
+          <Link href="/lease" className="inline-flex items-center gap-1 text-[13px] font-semibold text-brand hover:underline">
+            View all {totalCount}
+            <ArrowRight size={14} aria-hidden />
+          </Link>
+        </div>
       </div>
-      <ul className="mt-4 space-y-3">
+      <ul className="mt-3 divide-y divide-line border-t border-line">
         {leases.map((lease) => (
-          <LeaseRow key={lease.id} lease={lease} detail={details.find((d) => d.id === lease.id)} />
+          <LeaseRow key={lease.id} lease={lease} detail={details.find((d) => d.id === lease.id)} opened={opened[lease.id]} />
         ))}
       </ul>
     </section>

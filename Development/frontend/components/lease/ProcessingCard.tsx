@@ -3,7 +3,17 @@ import Card from "@/components/ui/Card";
 
 const LINE_WIDTHS = [92, 78, 86, 64, 90, 72, 84, 58, 88, 70];
 
-export default function ProcessingCard({ steps, current }: { steps: string[]; current: number }) {
+export default function ProcessingCard({
+    steps,
+    current,
+    title = "Reviewing your lease",
+    subtitle = "This usually takes under a minute. Keep this page open.",
+}: {
+    steps: string[];
+    current: number;
+    title?: string;
+    subtitle?: string;
+}) {
     const progress = current / steps.length;
     const linesRead = Math.round(progress * LINE_WIDTHS.length);
 
@@ -27,8 +37,8 @@ export default function ProcessingCard({ steps, current }: { steps: string[]; cu
                     <div className="grid size-12 place-items-center rounded-xl bg-brand-soft text-brand-dark">
                         <FileSearchCorner size={24} />
                     </div>
-                    <h1 className="mt-5 font-display text-3xl font-semibold text-brand-dark">Reviewing your lease</h1>
-                    <p className="mt-2 text-mute">This usually takes under a minute. Keep this page open.</p>
+                    <h1 className="mt-5 font-display text-3xl font-semibold text-brand-dark">{title}</h1>
+                    <p className="mt-2 text-mute">{subtitle}</p>
 
                     <div className="mt-6 h-2 overflow-hidden rounded-full bg-surface">
                         <div
