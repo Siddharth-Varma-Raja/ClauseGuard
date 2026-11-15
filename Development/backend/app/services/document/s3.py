@@ -13,6 +13,7 @@ import boto3
 from botocore.exceptions import BotoCoreError, ClientError
 
 from app.config import settings
+from app.core.cache import lease_text_cache
 
 logger = logging.getLogger(__name__)
 
@@ -96,12 +97,17 @@ def download_text_from_s3(object_key: str) -> str:
     S3DownloadError
         On any AWS or network failure.
     """
+    cached = lease_text_cache.get(object_key)
+    if cached is not None:
+        return cached
+
     bucket = settings.s3_bucket_name
     try:
         s3 = _client()
         response = s3.get_object(Bucket=bucket, Key=object_key)
         content = response["Body"].read().decode("utf-8")
         logger.info("Downloaded object from S3: s3://%s/%s", bucket, object_key)
+        lease_text_cache.set(object_key, content)
         return content
     except (BotoCoreError, ClientError) as exc:
         logger.exception("S3 download failed for key '%s'.", object_key)
@@ -113,6 +119,8 @@ def delete_from_s3(object_key: str) -> None:
     Permanently delete an object from S3.
     Used for GDPR compliance when an analysis is deleted.
     """
+    # Drop the cached copy first so it is gone even if the S3 call fails.
+    lease_text_cache.delete(object_key)
     bucket = settings.s3_bucket_name
     try:
         s3 = _client()
