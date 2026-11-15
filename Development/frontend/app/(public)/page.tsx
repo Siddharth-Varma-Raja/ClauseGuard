@@ -130,10 +130,10 @@ export default function LandingPage() {
   }, [stage]);
 
   return (
-    <main className="overflow-hidden">
+    <main className="overflow-clip">
       <RedirectIfSignedIn />
 
-      <section data-tour="hero" className={`relative overflow-hidden ${gradientClass} text-white py-14 sm:py-16`}>
+      <section data-tour="hero" className={`relative overflow-clip ${gradientClass} text-white py-14 sm:py-16`}>
         <span className="pointer-events-none absolute -bottom-24 -right-16 size-64 rounded-full bg-white/5" />
 
         <div className="relative mx-auto max-w-7xl px-4 sm:px-6">
@@ -212,8 +212,8 @@ export default function LandingPage() {
                 <div className="relative mt-3 flex-1 rounded-xl bg-white p-4 sm:p-5 text-ink shadow-md overflow-hidden flex flex-col justify-between">
                   <div
                     className={`absolute inset-0 bg-white/95 backdrop-blur-xs rounded-xl flex flex-col items-center justify-center p-6 text-center transition-all duration-700 z-20 ${stage === "upload"
-                        ? "opacity-100 pointer-events-auto scale-100"
-                        : "opacity-0 pointer-events-none scale-95"
+                      ? "opacity-100 pointer-events-auto scale-100"
+                      : "opacity-0 pointer-events-none scale-95"
                       }`}
                   >
                     <div className="size-16 rounded-2xl bg-brand-soft text-brand grid place-items-center mb-3 shadow-xs">
@@ -317,8 +317,8 @@ export default function LandingPage() {
                     <div className="space-y-2 text-xs leading-relaxed">
                       <div
                         className={`rounded-lg p-2.5 transition-all duration-700 ease-out ${stage === "results"
-                            ? "border border-bad-line bg-bad-bg/60 text-bad shadow-2xs"
-                            : "border border-slate-100 bg-slate-50/50 text-slate-700"
+                          ? "border border-bad-line bg-bad-bg/60 text-bad shadow-2xs"
+                          : "border border-slate-100 bg-slate-50/50 text-slate-700"
                           }`}
                       >
                         <div className="flex items-center justify-between">
@@ -331,8 +331,8 @@ export default function LandingPage() {
                         </div>
                         <p
                           className={`mt-1 transition-all duration-700 ${stage === "results"
-                              ? "border-b-2 border-bad text-bad font-semibold pb-0.5"
-                              : "border-b-2 border-transparent text-slate-700"
+                            ? "border-b-2 border-bad text-bad font-semibold pb-0.5"
+                            : "border-b-2 border-transparent text-slate-700"
                             }`}
                         >
                           “The Tenant shall provide a security deposit equivalent to three (3) months' rent prior to the move-in date.”
@@ -346,8 +346,8 @@ export default function LandingPage() {
 
                       <div
                         className={`rounded-lg p-2.5 transition-all duration-700 ease-out ${stage === "results"
-                            ? "border border-warn-line bg-warn-bg/60 text-warn shadow-2xs"
-                            : "border border-slate-100 bg-slate-50/50 text-slate-700"
+                          ? "border border-warn-line bg-warn-bg/60 text-warn shadow-2xs"
+                          : "border border-slate-100 bg-slate-50/50 text-slate-700"
                           }`}
                       >
                         <div className="flex items-center justify-between">
@@ -360,8 +360,8 @@ export default function LandingPage() {
                         </div>
                         <p
                           className={`mt-1 transition-all duration-700 ${stage === "results"
-                              ? "border-b-2 border-warn-solid text-warn font-semibold pb-0.5"
-                              : "border-b-2 border-transparent text-slate-700"
+                            ? "border-b-2 border-warn-solid text-warn font-semibold pb-0.5"
+                            : "border-b-2 border-transparent text-slate-700"
                             }`}
                         >
                           “No visitors or overnight guests are permitted under any circumstances without written consent.”
@@ -375,8 +375,8 @@ export default function LandingPage() {
 
                       <div
                         className={`rounded-lg p-2.5 transition-all duration-700 ease-out ${stage === "results"
-                            ? "border border-ok-line bg-ok-bg/50 text-ok shadow-2xs"
-                            : "border border-slate-100 bg-slate-50/50 text-slate-700"
+                          ? "border border-ok-line bg-ok-bg/50 text-ok shadow-2xs"
+                          : "border border-slate-100 bg-slate-50/50 text-slate-700"
                           }`}
                       >
                         <div className="flex items-center justify-between">
@@ -389,8 +389,8 @@ export default function LandingPage() {
                         </div>
                         <p
                           className={`mt-1 transition-all duration-700 ${stage === "results"
-                              ? "border-b-2 border-ok text-ok font-semibold pb-0.5"
-                              : "border-b-2 border-transparent text-slate-700"
+                            ? "border-b-2 border-ok text-ok font-semibold pb-0.5"
+                            : "border-b-2 border-transparent text-slate-700"
                             }`}
                         >
                           “The Tenant agrees to notify the Landlord of any urgent structural repairs within 48 hours.”
