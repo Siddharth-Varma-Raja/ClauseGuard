@@ -207,6 +207,20 @@ body {
   }
 }
 
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+  }
+
+  to {
+    transform: none;
+  }
+}
+
+.animate-slide-in {
+  animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
 .animate-fade-up {
   animation: fadeUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
@@ -246,6 +260,7 @@ body {
 @media (prefers-reduced-motion: reduce) {
 
   .animate-fade-up,
+  .animate-slide-in,
   .stagger>*,
   .skeleton,
   .animate-ring,
@@ -259,5 +274,28 @@ body {
 
   html {
     scroll-behavior: auto;
+  }
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 14mm;
+  }
+
+  html {
+    font-size: 11px;
+  }
+
+  body,
+  main,
+  div:has(> main) {
+    background: #fff !important;
+  }
+
+  * {
+    box-shadow: none !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
   }
 }

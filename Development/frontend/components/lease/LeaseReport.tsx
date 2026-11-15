@@ -1,16 +1,27 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
-import { ArrowLeft, BookOpen, CalendarPlus, Check, ChevronDown, CircleCheck, Download, ExternalLink, FileSearch, Loader2 } from "lucide-react";
-import Card from "@/components/ui/Card";
+import { ArrowLeft, ChevronRight, Download, Info } from "lucide-react";
 import Alert from "@/components/ui/Alert";
-import StatusBadge from "@/components/ui/StatusBadge";
-import { STATUS, STATUS_ORDER, overallStatus } from "@/lib/notice-status";
 import { addEvent, errorMessage, getEvents } from "@/lib/api";
-import { cn } from "@/lib/cn";
 import type { Analysis, Clause, NewTimelineEvent, Status } from "@/lib/notice-types";
+import LandlordEmailPanel from "@/components/review/LandlordEmailPanel";
+import { loadRaised, saveRaised } from "@/lib/raisedClauses";
+import { OlderVersionNote, PrintHeader } from "./ReportExtras";
+import { CountBoxes, LeaseDetails, NextSteps, ShortAnswer } from "./ReportSummary";
+import FlaggedClauses from "./FlaggedClauses";
+import AllClauses from "./AllClauses";
+import Overview from "@/components/report/Overview";
+import AllTab from "@/components/report/AllTab";
+import DetailsTab from "@/components/report/DetailsTab";
+import { useAuth } from "@/components/auth/AuthProvider";
+
+import { cn } from "@/lib/cn";
+import { pdf } from "@react-pdf/renderer";
+import ReportPdf from "../report/ReportPdf";
 
 function longDate(value: string | null) {
   if (!value) return "—";
@@ -38,151 +49,26 @@ function termEnd(startIso: string, months: number) {
   return end.toISOString().slice(0, 10);
 }
 
-function Donut({ counts, total }: { counts: Record<Status, number>; total: number }) {
-  const r = 50;
-  const circumference = 2 * Math.PI * r;
-  const gap = total > 1 ? 2 : 0;
-  let offset = 0;
-
-  return (
-    <svg viewBox="0 0 120 120" className="size-40 shrink-0 sm:size-44" role="img" aria-label={`${total} clauses`}>
-      <circle cx="60" cy="60" r={r} fill="none" stroke="var(--color-line)" strokeWidth="14" />
-      {total > 0 &&
-        STATUS_ORDER.filter((s) => counts[s] > 0).map((s) => {
-          const length = (counts[s] / total) * circumference;
-          const segment = (
-            <circle
-              key={s}
-              cx="60"
-              cy="60"
-              r={r}
-              fill="none"
-              stroke={STATUS[s].colour}
-              strokeWidth="14"
-              strokeDasharray={`${Math.max(length - gap, 0)} ${circumference}`}
-              strokeDashoffset={-offset}
-              transform="rotate(-90 60 60)"
-            />
-          );
-          offset += length;
-          return segment;
-        })}
-      <text x="60" y="62" textAnchor="middle" className="fill-brand-dark font-display" fontSize="26" fontWeight="600">
-        {total}
-      </text>
-      <text x="60" y="80" textAnchor="middle" className="fill-mute" fontSize="9">
-        clauses
-      </text>
-    </svg>
-  );
-}
-
-function ClauseRow({ analysisId, clause, open, onToggle }: { analysisId: string; clause: Clause; open: boolean; onToggle: () => void }) {
-  const style = STATUS[clause.status] ?? STATUS.grey;
-  const number = clause.number && clause.number !== "0" ? `#${clause.number}` : "–";
-
-  return (
-    <li className="break-inside-avoid border-b border-line last:border-b-0">
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-2 px-4 py-4 sm:px-6">
-        <span className={cn("h-10 w-1.5 shrink-0 rounded-full", style.solid)} aria-hidden />
-        <button
-          type="button"
-          onClick={onToggle}
-          aria-expanded={open}
-          className="flex min-w-0 flex-1 cursor-pointer items-center gap-4 text-left"
-        >
-          <span className="w-10 shrink-0 text-mute">{number}</span>
-          <span className="min-w-0 flex-1 font-semibold text-ink">
-            {clause.title}
-            {clause.reviewed && <Check size={15} className="ml-2 inline text-ok" aria-label="Reviewed" />}
-          </span>
-          <ChevronDown size={18} className={cn("shrink-0 text-mute transition-transform print:hidden", open && "rotate-180")} />
-        </button>
-        <div className="flex shrink-0 sm:w-48">
-          <StatusBadge status={clause.status} size="sm" />
-        </div>
-        <span className="w-36 text-sm text-mute">
-          Risk: <strong className="text-ink">{style.risk}</strong>
-        </span>
-        <Link
-          href={`/lease/${analysisId}?clause=${encodeURIComponent(clause.id)}`}
-          className="text-sm font-semibold text-brand-dark hover:underline print:hidden"
-        >
-          View in document
-        </Link>
-      </div>
-
-      {open && (
-        <div className="space-y-4 px-4 pb-6 sm:pl-[5.25rem] sm:pr-6">
-          <blockquote className="border-l-2 border-line pl-4 font-serif italic text-mute">“{clause.text}”</blockquote>
-          {clause.confidence !== "high" && (
-            <p className="text-xs text-mute">ClauseGuard is {clause.confidence === "medium" ? "fairly" : "not very"} confident about this result.</p>
-          )}
-          <div>
-            <h4 className="font-semibold text-ink">What it means</h4>
-            <p className="mt-1 leading-relaxed text-mute">{clause.explanation}</p>
-          </div>
-          {clause.reason && (
-            <div>
-              <h4 className="font-semibold text-ink">Why ClauseGuard flagged this</h4>
-              <p className="mt-1 leading-relaxed text-mute">{clause.reason}</p>
-            </div>
-          )}
-          {clause.nextSteps.length > 0 && (
-            <div>
-              <h4 className="font-semibold text-ink">What you can do</h4>
-              <ul className="mt-2 space-y-2">
-                {clause.nextSteps.map((step) => (
-                  <li key={step} className="flex gap-2.5 text-sm leading-relaxed text-ink">
-                    <CircleCheck size={17} className="mt-0.5 shrink-0 text-brand" />
-                    {step}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-          {clause.sources.length > 0 && (
-            <div>
-              <h4 className="flex items-center gap-2 font-semibold text-ink">
-                <BookOpen size={16} className="text-mute" /> Sources
-              </h4>
-              <ul className="mt-2 space-y-1.5 text-sm">
-                {clause.sources.map((source, i) => (
-                  <li key={`${source.title}-${i}`}>
-                    {source.url ? (
-                      <a href={source.url} target="_blank" rel="noreferrer" className="inline-flex items-start gap-1.5 font-medium text-brand hover:underline">
-                        {source.title}
-                        <ExternalLink size={13} className="mt-0.5 shrink-0 print:hidden" />
-                      </a>
-                    ) : (
-                      <span className="font-medium text-ink">{source.title}</span>
-                    )}
-                    {source.note && <span className="text-mute"> — {source.note}</span>}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
-      )}
-    </li>
-  );
-}
+type Tab = "overview" | "all" | "details";
 
 export default function LeaseReport({ analysis }: { analysis: Analysis }) {
   const { clauses } = analysis;
   const counts: Record<Status, number> = { red: 0, amber: 0, green: 0, grey: 0 };
   clauses.forEach((c) => counts[c.status]++);
   const total = clauses.length;
-  const verdict = overallStatus(counts);
-  const VerdictIcon = STATUS[verdict.status].Icon;
+  const flagged = (["red", "amber"] as const).flatMap((s) => clauses.filter((c) => c.status === s));
 
-  const [filter, setFilter] = useState<"all" | Status>("all");
-  const [openIds, setOpenIds] = useState<Set<string>>(new Set());
-  const [printing, setPrinting] = useState(false);
+  const router = useRouter();
+  const { user } = useAuth();
+
+  const [tab, setTab] = useState<Tab>("overview");
+  const [risk, setRisk] = useState<Status | null>(null);
+  const [emailOpen, setEmailOpen] = useState(false);
+  const [emailIds, setEmailIds] = useState<string[]>([]);
+  const [, setRaised] = useState(() => loadRaised(analysis.id));
   const [timeline, setTimeline] = useState<{ busy: boolean; tone?: "success" | "error"; text?: string }>({ busy: false });
-
-  const shown = filter === "all" ? clauses : clauses.filter((c) => c.status === filter);
+  const [printing, setPrinting] = useState(false);
+  const tabsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const before = () => flushSync(() => setPrinting(true));
@@ -195,188 +81,233 @@ export default function LeaseReport({ analysis }: { analysis: Analysis }) {
     };
   }, []);
 
-  function toggle(id: string) {
-    setOpenIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+  async function downloadReport() {
+    var name = user?.displayName || "User";
+    var email = user?.email || "";
+    try {
+      const blob = await pdf(
+        <ReportPdf
+          analysis={analysis}
+          leaseName={leaseName}
+          end={end}
+          userName={name}
+          userEmail={email}
+        />
+      ).toBlob();
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      link.href = url;
+      link.download = `${leaseName}-ClauseGuard-Report.pdf`;
+      link.click();
+
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Failed to generate PDF:", error);
+    }
+  }
+
+  const left = flagged.filter((c) => !c.reviewed).length;
+  const start = analysis.tenancyStart?.slice(0, 10) ?? null;
+  const end = start && analysis.termMonths ? termEnd(start, analysis.termMonths) : null;
+  const leaseName = analysis.fileName.replace(/\.[a-z0-9]+$/i, "").replace(/_/g, " ");
+
+  function go(next: Tab) {
+    setTab(next);
+    const top = tabsRef.current?.getBoundingClientRect().top ?? 0;
+    if (top < 0) tabsRef.current?.scrollIntoView({ behavior: "smooth" });
+  }
+
+  function open(c: Clause) {
+    router.push(`/lease/${analysis.id}?clause=${encodeURIComponent(c.id)}`);
+  }
+
+  function openEmail() {
+    if (emailIds.length === 0) setEmailIds(flagged.map((c) => c.id));
+    setEmailOpen(true);
   }
 
   async function addDatesToTimeline() {
-    if (!analysis.tenancyStart) {
-      setTimeline({ busy: false, tone: "error", text: "We couldn't find a start date in this lease." });
-      return;
-    }
+    if (!start) return;
     const note = `From your lease: ${analysis.fileName}`;
-    const wanted: NewTimelineEvent[] = [{ title: "Tenancy starts", date: analysis.tenancyStart, kind: "event", note }];
-    if (analysis.termMonths) {
-      wanted.push({ title: "Fixed term ends", date: termEnd(analysis.tenancyStart, analysis.termMonths), kind: "deadline", note });
-    }
-
+    const wanted: NewTimelineEvent[] = [{ title: "Tenancy starts", date: start, kind: "event", note }];
+    if (end) wanted.push({ title: "Fixed term ends", date: end, kind: "deadline", note });
     setTimeline({ busy: true });
     try {
       const existing = await getEvents();
       const missing = wanted.filter((w) => !existing.some((e) => e.title === w.title && e.date === w.date));
       for (const event of missing) await addEvent(event);
-      setTimeline({
-        busy: false,
-        tone: "success",
-        text: missing.length
-          ? `Added ${missing.length} ${missing.length === 1 ? "date" : "dates"} to your timeline.`
-          : "These dates are already on your timeline.",
-      });
+      setTimeline({ busy: false, tone: "success", text: missing.length ? `Added ${missing.length} dates to your timeline.` : "These dates are already on your timeline." });
     } catch (err) {
       setTimeline({ busy: false, tone: "error", text: errorMessage(err, "The dates couldn't be added. Try again.") });
     }
   }
 
-  const facts: [string, string][] = [
-    ["Uploaded", longDate(analysis.createdAt)],
-    ["Property", analysis.propertyAddress ?? "—"],
-    ["Monthly rent", euroFromCents(analysis.monthlyRentCents)],
-    ["Deposit", euroFromCents(analysis.depositCents)],
-    ["Starts", longDate(analysis.tenancyStart)],
-    ["Term", analysis.termMonths ? `${analysis.termMonths} months` : "—"],
+  const tabs: { id: Tab; label: string; intro?: { title: string; text: string } }[] = [
+    { id: "overview", label: "Overview" },
+    { id: "details", label: "Lease details", intro: { title: "Lease details", text: "The key facts we found in your lease. Check they match what you agreed." } },
+    { id: "all", label: "All clauses", intro: { title: `All ${total} clauses`, text: "Every clause in your lease, in order. Select a clause to open it in Lease viewer." } },
   ];
+  const money = (cents: number | null) => (cents == null ? null : new Intl.NumberFormat("en-IE", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(cents / 100));
+  const printRows: [string, string | null][] = [
+    ["Lease file", analysis.fileName],
+    ["Monthly rent", money(analysis.monthlyRentCents)],
+    ["Deposit", money(analysis.depositCents)],
+    ["Start date", start],
+    ["Fixed term ends", end],
+    ["Size", `${analysis.pageCount} pages, ${total} clauses`],
+  ];
+  const at = tabs.findIndex((t) => t.id === tab);
+  const current = tabs[at];
+  const nextTab = tabs[at + 1];
 
   return (
-    <div className="mx-auto max-w-5xl">
-      <style>{`@media print { header, [data-tour="tour-button"] { display: none !important; } body { background: white; } }`}</style>
+    <div className="mx-auto max-w-[1240px]">
+      <PrintHeader analysis={analysis} />
 
-      <Link href="/lease" className="mb-4 inline-flex min-h-11 items-center gap-2 rounded-lg text-brand hover:underline print:hidden">
+      <style>{`@media print { header { display: none !important; } body { background: white; } }`}</style>
+
+      <Link href="/lease" className="inline-flex min-h-11 items-center gap-2 rounded-lg text-brand hover:underline print:hidden">
         <ArrowLeft size={18} />
         Back to my leases
       </Link>
 
-      <Card className="break-inside-avoid p-6 sm:p-10">
-        <div className="flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
-          <div className="min-w-0 flex-1">
-            <span className={cn("inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm font-semibold", STATUS[verdict.status].badge)}>
-              <VerdictIcon size={16} aria-hidden />
-              {verdict.label}
-            </span>
-            <h1 className="mt-4 break-words font-display text-3xl font-semibold text-brand-dark sm:text-4xl">{analysis.fileName}</h1>
-
-            <dl className="mt-5 grid gap-x-10 gap-y-3 sm:grid-cols-2">
-              {facts.map(([label, value]) => (
-                <div key={label}>
-                  <dt className="inline text-mute">{label}: </dt>
-                  <dd className="inline font-medium text-ink">{value}</dd>
-                </div>
-              ))}
-            </dl>
-
-            <div className="mt-7 flex flex-wrap gap-3 print:hidden">
-              <button
-                type="button"
-                onClick={() => {
-                  flushSync(() => setPrinting(true));
-                  window.print();
-                }}
-                title="Opens the print dialog — choose “Save as PDF”"
-                className="inline-flex min-h-12 cursor-pointer items-center gap-2 rounded-xl bg-brand-dark px-5 font-semibold text-white hover:bg-brand"
-              >
-                <Download size={18} /> Download PDF report
-              </button>
-            </div>
-          </div>
-
-          <div className="flex flex-col items-center gap-6 self-center sm:flex-row">
-            <Donut counts={counts} total={total} />
-            <ul className="space-y-2.5 text-sm">
-              {STATUS_ORDER.map((s) => (
-                <li key={s} className="flex items-center gap-3">
-                  <span className={cn("size-3 shrink-0 rounded-full", STATUS[s].solid)} aria-hidden />
-                  <span className="w-40 text-ink">{STATUS[s].label}</span>
-                  <span className="font-semibold text-ink">{counts[s]}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
+      <div className="mt-2 flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="font-display text-3xl font-semibold tracking-tight text-brand-dark sm:text-4xl">{leaseName}</h1>
+          <p className="mt-1 text-mute">
+            Lease report
+            {start && end ? `, tenancy ${new Date(`${start}T00:00:00`).toLocaleDateString("en-IE", { day: "numeric", month: "short", year: "numeric" })} to ${new Date(`${end}T00:00:00`).toLocaleDateString("en-IE", { day: "numeric", month: "short", year: "numeric" })}` : ""}
+          </p>
         </div>
+        <div className="flex gap-3 print:hidden">
+          <button
+            type="button"
+            onClick={downloadReport}
+            className="inline-flex min-h-14 cursor-pointer items-center gap-2.5 rounded-full bg-brand-dark px-7 text-lg font-semibold text-white shadow-[0_10px_24px_-10px_rgb(10_59_67/0.6)] transition hover:-translate-y-0.5 hover:bg-brand"
+          >
+            <Download size={20} />
+            Download PDF
+          </button>
+        </div>
+      </div>
 
-        {total > 0 && (
-          <div className="mt-8 flex h-2.5 overflow-hidden rounded-full bg-line" aria-hidden>
-            {STATUS_ORDER.map((s) => counts[s] > 0 && <div key={s} className={STATUS[s].solid} style={{ flexGrow: counts[s] }} />)}
+      <div role="note" aria-label="Important" className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 rounded-[24px] border border-[#d5dde1] bg-[#eef2f4] px-5 py-3.5">
+        <span className="inline-flex items-center gap-2.5 font-bold text-ink">
+          <Info size={20} className="text-neu" />
+          Not legal advice
+        </span>
+        <p className="w-full text-ink/85 sm:w-auto sm:min-w-0 sm:flex-1">ClauseGuard gives automated, informational analysis. It is not legal advice.</p>
+      </div>
+
+      <OlderVersionNote analysis={analysis} />
+
+      <div ref={tabsRef} className="sticky top-16 z-20 md:top-0 -mx-2 mt-5 bg-white/70 px-2 py-2 backdrop-blur print:hidden">
+        <div role="tablist" aria-label="Report sections, read them in order" className="flex gap-1.5 overflow-x-auto rounded-full border border-[#cfe1e2] bg-white p-1.5 shadow-soft">
+          {tabs.map((t, i) => {
+            const on = tab === t.id;
+            return (
+              <button
+                key={t.id}
+                type="button"
+                role="tab"
+                aria-selected={on}
+                onClick={() => go(t.id)}
+                className={cn(
+                  "inline-flex min-h-12 shrink-0 cursor-pointer items-center gap-2.5 rounded-full px-5 font-semibold transition-colors lg:flex-1 lg:justify-center",
+                  on ? "bg-brand-dark text-white" : "text-ink/70 hover:bg-surface hover:text-ink",
+                )}
+              >
+                <span className={cn("grid size-6 place-items-center rounded-full text-xs font-bold", on ? "bg-white text-brand-dark" : "bg-surface text-mute")}>{i + 1}</span>
+                {t.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div key={tab} role="tabpanel" aria-label={current?.label} className="animate-fade-up mt-5 print:hidden">
+        {current?.intro && (
+          <div className="mb-5">
+            <h2 className="font-display text-3xl font-semibold text-brand-dark">{current.intro.title}</h2>
+            <p className="mt-1 text-lg text-mute">{current.intro.text}</p>
           </div>
         )}
-      </Card>
+        {tab === "overview" && (
+          <Overview
+            clauses={clauses}
+            counts={counts}
+            left={left}
+            onPick={(s: Status) => {
+              setRisk(s);
+              go("all");
+            }}
+            onOpen={open}
+            onIssues={() => {
+              const first = flagged.find((c) => !c.reviewed) ?? flagged[0];
+              if (first) open(first);
+            }}
+            onEmail={openEmail}
+          />
+        )}
 
-      <div className="mt-5 flex flex-wrap items-center gap-x-8 gap-y-3 px-2 print:hidden">
-        <Link href={`/lease/${analysis.id}`} className="inline-flex items-center gap-2 font-semibold text-brand-dark hover:underline">
-          <FileSearch size={18} /> Open annotated review
-        </Link>
-        <button
-          type="button"
-          onClick={addDatesToTimeline}
-          disabled={timeline.busy}
-          className="inline-flex cursor-pointer items-center gap-2 font-semibold text-brand-dark hover:underline disabled:opacity-60"
-        >
-          {timeline.busy ? <Loader2 size={18} className="animate-spin" /> : <CalendarPlus size={18} />}
-          Add lease dates to my timeline
-        </button>
+        {tab === "all" && <AllTab clauses={clauses} risk={risk} onRisk={setRisk} onOpen={open} />}
+        {tab === "details" && <DetailsTab analysis={analysis} end={end} busy={timeline.busy} onAddDates={addDatesToTimeline} />}
+
+        {tab !== "overview" && (
+          <div className="mt-8 flex flex-wrap items-center justify-between gap-3 rounded-[28px] border border-[#cfe1e2] bg-white px-6 py-5">
+            <p className="text-mute">
+              {nextTab ? (
+                <>
+                  Next: <span className="font-semibold text-ink">{nextTab.label}</span>. {nextTab.intro?.text.split(".")[0]}.
+                </>
+              ) : (
+                "You've reached the end of the report."
+              )}
+            </p>
+            <button
+              type="button"
+              onClick={() => go(nextTab ? nextTab.id : "overview")}
+              className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-full bg-brand-dark px-5 font-semibold text-white hover:bg-brand"
+            >
+              {nextTab ? `Go to ${nextTab.label}` : "Back to the summary"}
+              <ChevronRight size={17} />
+            </button>
+          </div>
+        )}
       </div>
-      {timeline.text && timeline.tone && (
-        <div className="mt-3 print:hidden">
-          <Alert tone={timeline.tone}>
-            {timeline.text}{" "}
-            {timeline.tone === "success" && (
-              <Link href="/timeline" className="underline">
-                Open timeline
-              </Link>
-            )}
-          </Alert>
+
+      {printing && (
+        <div className="hidden print:block">
+          <ShortAnswer counts={counts} total={total} />
+          <CountBoxes counts={counts} />
+          <LeaseDetails rows={printRows} missing={[]} />
+          <NextSteps counts={counts} onDownload={downloadReport} onEmail={openEmail} />
+          <FlaggedClauses analysisId={analysis.id} clauses={clauses} printing raised={null} onEmail={openEmail} />
+          <AllClauses analysisId={analysis.id} clauses={clauses} printing />
         </div>
       )}
 
-      <h2 className="mt-10 font-display text-3xl font-semibold text-brand-dark">All clauses</h2>
+      {timeline.text && timeline.tone && (
+        <div className="mt-4 print:hidden">
+          <Alert tone={timeline.tone}>{timeline.text}</Alert>
+        </div>
+      )}
 
-      <div role="tablist" aria-label="Filter clauses" className="mt-4 flex flex-wrap gap-2 print:hidden">
-        {(["all", ...STATUS_ORDER] as const).map((key) => {
-          const active = filter === key;
-          const label = key === "all" ? "All" : STATUS[key].label;
-          const count = key === "all" ? total : counts[key];
-          return (
-            <button
-              key={key}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              onClick={() => setFilter(key)}
-              className={cn(
-                "cursor-pointer rounded-full border px-4 py-2 text-sm font-medium transition-colors",
-                active ? "border-brand-dark bg-brand-dark text-white" : "border-line bg-white text-ink hover:bg-surface",
-              )}
-            >
-              {label} <span className={active ? "text-white/70" : "text-mute"}>{count}</span>
-            </button>
-          );
-        })}
-      </div>
-
-      <Card className="mt-4 overflow-hidden">
-        {(printing ? clauses : shown).length === 0 ? (
-          <p className="p-8 text-center text-mute">No clauses in this group.</p>
-        ) : (
-          <ul>
-            {(printing ? clauses : shown).map((clause) => (
-              <ClauseRow
-                key={clause.id}
-                analysisId={analysis.id}
-                clause={clause}
-                open={printing || openIds.has(clause.id)}
-                onToggle={() => toggle(clause.id)}
-              />
-            ))}
-          </ul>
-        )}
-      </Card>
-
-      <p className="mt-8 text-center text-sm text-mute">
-        ClauseGuard gives automated, informational analysis. It is not legal advice.
-      </p>
+      {emailOpen && (
+        <LandlordEmailPanel
+          analysis={analysis}
+          selectedIds={emailIds}
+          onChangeSelected={setEmailIds}
+          onClose={() => setEmailOpen(false)}
+          onSent={(sent: Clause[]) => {
+            setRaised(saveRaised(analysis.id, sent));
+            setEmailIds([]);
+            setEmailOpen(false);
+          }}
+        />
+      )}
     </div>
   );
 }

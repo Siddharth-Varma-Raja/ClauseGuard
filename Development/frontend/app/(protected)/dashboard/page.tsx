@@ -1,21 +1,21 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Clock } from "lucide-react";
+import { FileCheck } from "lucide-react";
 import PageTour from "@/components/PageTour";
 import DashboardSkeleton from "@/components/dashboard/DashboardSkeleton";
 import ErrorState from "@/components/ui/ErrorState";
-import Spotlight from "@/components/dashboard/Spotlight";
-import AlsoOnList from "@/components/dashboard/AlsoOnList";
+import RentalOverview from "@/components/dashboard/RentalOverview";
+import ActionList from "@/components/dashboard/ActionList";
 import LeaseList from "@/components/dashboard/LeaseList";
-import UpcomingDates from "@/components/dashboard/UpcomingDates";
-import QuickActions from "@/components/dashboard/QuickActions";
+import TimelineStrip from "@/components/dashboard/TimelineStrip";
 import UploadBox from "@/components/lease/UploadBox";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { DASHBOARD_TOUR, NEW_USER_TOUR } from "@/lib/tours";
 import { errorMessage, getAnalyses, getAnalysis, getEvents, getNotices } from "@/lib/api";
-import { allClearItem, buildItems, flaggedClauses, greeting, upcomingEvents } from "@/lib/dashboard";
-import { daysUntil, relativeDays } from "@/lib/format";
+import { buildItems, greeting } from "@/lib/dashboard";
+import { leaseOpenedTimes } from "@/lib/leaseVisits";
 import type { Analysis, AnalysisSummary, NoticeSummary, TimelineEvent } from "@/lib/notice-types";
 import FeatureTiles from "@/components/dashboard/FeatureTiles";
 import UploadLeaseButton from "@/components/ui/UploadLeaseButton";
@@ -28,6 +28,7 @@ type DashboardData = {
   details: Analysis[];
   events: TimelineEvent[];
   notices: NoticeSummary[];
+  opened: Record<string, number>;
 };
 
 async function loadDashboard(): Promise<DashboardData> {
@@ -38,7 +39,7 @@ async function loadDashboard(): Promise<DashboardData> {
   ]);
   const found = await Promise.all(leases.slice(0, MAX_LEASES_CHECKED).map((lease) => getAnalysis(lease.id).catch(() => null)));
   const details = found.filter((analysis): analysis is Analysis => analysis !== null);
-  return { leases, details, events, notices };
+  return { leases, details, events, notices, opened: leaseOpenedTimes() };
 }
 
 export default function Dashboard() {
@@ -68,14 +69,9 @@ export default function Dashboard() {
   const today = new Date().toLocaleDateString("en-IE", { weekday: "long", day: "numeric", month: "long" });
 
   const items = data ? buildItems(data.details, data.events, data.notices) : [];
-  const spotlight = items[0] ?? (data ? allClearItem(data.leases) : null);
-  const others = items.slice(1).filter((item) => item.kind !== "deadline" && item.kind !== "date");
-
-  const toCheck = data ? data.details.reduce((sum, d) => sum + flaggedClauses(d).filter((c) => !c.reviewed).length, 0) : 0;
-  const nextEvent = data ? upcomingEvents(data.events)[0] : undefined;
 
   return (
-    <main className="mx-auto max-w-6xl">
+    <main className="mx-auto max-w-[1240px]">
       {isNewUser && (
         <>
           <PageTour key="new" tourId="dashboard-new" steps={NEW_USER_TOUR} />
@@ -97,27 +93,18 @@ export default function Dashboard() {
             <h1 className="mt-1.5 font-display text-3xl font-semibold tracking-tight text-brand-dark sm:text-4xl">
               {`${greeting()}${firstName ? `, ${firstName}` : ""}`}
             </h1>
-            {data && (toCheck > 0 || nextEvent) ? (
-              <div className="mt-3 flex flex-wrap gap-2 text-sm font-medium">
-                {toCheck > 0 && (
-                  <span className="inline-flex items-center gap-2 rounded-full border border-warn-line bg-warn-bg px-3 py-1.5 text-warn">
-                    <span className="size-2 rounded-full bg-warn-solid" />
-                    {toCheck} {toCheck === 1 ? "clause" : "clauses"} to check
-                  </span>
-                )}
-                {nextEvent && (
-                  <span className="inline-flex items-center gap-2 rounded-full border border-line bg-white px-3 py-1.5 text-ink">
-                    <Clock size={15} className="text-brand" />
-                    {nextEvent.title} {relativeDays(daysUntil(nextEvent.date))}
-                  </span>
-                )}
-              </div>
-            ) : null}
           </div>
           {data && (
-            <div className="flex w-full sm:mt-4 sm:w-auto">
+            <div className="grid w-full grid-cols-1 gap-2.5 sm:mt-4 sm:flex sm:w-auto">
               <PageTour key="returning" tourId="dashboard" steps={DASHBOARD_TOUR} />
-              <UploadLeaseButton large className="w-full sm:w-auto" />
+              <Link
+                href="/notices"
+                className="inline-flex items-center justify-center gap-2 rounded-full border border-[#cfe3e4] bg-white px-5 py-3.5 font-semibold text-brand-dark transition-all hover:-translate-y-0.5 hover:border-brand"
+              >
+                <FileCheck size={18} className="text-brand" aria-hidden />
+                Check a notice
+              </Link>
+              <UploadLeaseButton large className="justify-center sm:justify-start" />
             </div>
           )}
         </div>
@@ -127,20 +114,19 @@ export default function Dashboard() {
         <div className="mt-8">
           <ErrorState message={error} onRetry={retry} />
         </div>
-      ) : !data || !spotlight ? (
+      ) : !data ? (
         <DashboardSkeleton />
       ) : isNewUser ? null : (
         <>
-          <div className="stagger mt-6 grid gap-5 *:min-w-0 lg:grid-cols-[7fr_5fr]">
-            <Spotlight item={spotlight} />
-            <AlsoOnList items={others} latest={data.details[0] ?? null} />
+          <div className={`stagger mt-6 grid gap-5 *:min-w-0 ${data.details.length > 0 ? "lg:grid-cols-[7fr_5fr]" : ""}`}>
+            {data.details.length > 0 ? <RentalOverview leases={data.details} events={data.events} /> : null}
+            <ActionList items={items} />
           </div>
-          <div className="stagger mt-5 grid gap-5 *:min-w-0 lg:grid-cols-[8fr_4fr]" style={{ "--delay": "200ms" } as React.CSSProperties}>
-            <LeaseList leases={data.leases.slice(0, RECENT_COUNT)} details={data.details} totalCount={data.leases.length} />
-            <UpcomingDates events={data.events} />
+          <div className="animate-fade-up mt-5" style={{ animationDelay: "200ms" }}>
+            <LeaseList leases={data.leases.slice(0, RECENT_COUNT)} details={data.details} totalCount={data.leases.length} opened={data.opened} />
           </div>
-          <div className="animate-fade-up" style={{ animationDelay: "400ms" }}>
-            <QuickActions />
+          <div className="animate-fade-up mt-5" style={{ animationDelay: "350ms" }}>
+            <TimelineStrip events={data.events} lease={data.details[0]} />
           </div>
         </>
       )}

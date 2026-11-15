@@ -11,12 +11,13 @@ export default function AuthLayout({
   return (
     <div className="flex min-h-screen">
       <RedirectIfSignedIn />
-      <aside className="hidden flex-1 flex-col justify-between bg-brand-dark p-10 text-white lg:flex xl:p-16">
-        <Link href="/" className="w-fit">
+      <aside className="relative hidden flex-1 flex-col justify-between overflow-hidden bg-[radial-gradient(120%_140%_at_100%_0%,#1d6b73_0%,#0a3b43_55%,#082d33_100%)] p-10 text-white lg:flex xl:p-16">
+        <span className="pointer-events-none absolute -bottom-24 -right-16 size-64 rounded-full bg-white/5" />
+        <Link href="/" className="relative w-fit">
           <Logo light/>
         </Link>
 
-        <div className="max-w-xl">
+        <div className="relative max-w-xl">
           <h1 className="font-display text-4xl font-semibold leading-tight xl:text-5xl">
             Understand your lease before you sign it.
           </h1>
@@ -44,12 +45,12 @@ export default function AuthLayout({
           </ul>
         </div>
 
-        <p className="text-sm text-white/70">
+        <p className="relative text-sm text-white/70">
           ClauseGuard provides information, not legal advice.
         </p>
       </aside>
 
-      <main className="flex w-full items-center justify-center px-5 py-10 sm:px-10 lg:w-[540px] lg:shrink-0">
+      <main className="flex w-full items-center justify-center px-5 py-6 sm:px-10 lg:w-[540px] lg:shrink-0">
         <div className="w-full max-w-sm">
           <Link
             href="/"

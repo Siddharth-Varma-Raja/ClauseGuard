@@ -1,11 +1,13 @@
 "use client";
 
 import { Fragment, useState, useSyncExternalStore, useRef, useEffect } from "react";
-import { ArrowRight, Check, ChevronDown, ChevronLeft, ChevronRight, CircleCheck, Copy, FileText, X, MessageCircleQuestion } from "lucide-react";
+import { ArrowRight, Check, ChevronDown, ChevronLeft, ChevronRight, CircleCheck, Copy, FileText, Mail, X, MessageCircleQuestion } from "lucide-react";
 import type { Analysis, Clause, Status } from "@/lib/notice-types";
+import AddToEmailButton from "@/components/review/AddToEmailButton";
 import KeyLeaseDetails from "@/components/review/KeyLeaseDetails";
 import { STATUS, STATUS_ORDER } from "@/lib/status";
 import { cn } from "@/lib/cn";
+import Tooltip from "../ui/Tooltip";
 
 const GROUP_HINT: Record<Status, string> = {
   red: "May be unfair or unlawful",
@@ -19,11 +21,15 @@ export default function ReviewSummary({
   clauses,
   onOpenClause,
   onAskClause,
+  emailIds = [],
+  onToggleEmail,
 }: {
   analysis: Analysis;
   clauses: Clause[];
   onOpenClause: (clause: Clause) => void;
   onAskClause: (clause: Clause) => void;
+  emailIds?: string[];
+  onToggleEmail?: (clause: Clause) => void;
 }) {
   const countOf = (status: Status) => clauses.filter((c) => c.status === status).length;
   const [active, setActive] = useState<Status>(() => STATUS_ORDER.find((s) => countOf(s) > 0) ?? "red");
@@ -61,9 +67,11 @@ export default function ReviewSummary({
                   )}
                 >
                   <span className="flex items-center justify-between">
-                    <span className={cn("grid size-9 place-items-center rounded-xl text-white", style.solid)}>
-                      <style.Icon size={18} />
-                    </span>
+                    <Tooltip text={`${style.label}: ${style.hint}`}>
+                      <span className={cn("grid size-9 place-items-center rounded-xl text-white", style.solid)}>
+                        <style.Icon size={18} aria-hidden />
+                      </span>
+                    </Tooltip>
                     <span className="font-display text-3xl font-semibold text-ink">{count}</span>
                   </span>
                   <span className={cn("mt-3 block font-semibold", style.text)}>{style.label}</span>
@@ -77,7 +85,16 @@ export default function ReviewSummary({
         <KeyLeaseDetails analysis={analysis} />
       </div>
 
-      <ClauseList key={active} status={active} clauses={shown} allClauses={clauses} onOpenClause={onOpenClause} onAskClause={onAskClause} />
+      <ClauseList
+        key={active}
+        status={active}
+        clauses={shown}
+        allClauses={clauses}
+        onOpenClause={onOpenClause}
+        onAskClause={onAskClause}
+        emailIds={emailIds}
+        onToggleEmail={onToggleEmail}
+      />
     </section>
   );
 }
@@ -86,13 +103,15 @@ const ANIMATION = 450;
 
 
 function ClauseList({
-  status, clauses, allClauses, onOpenClause, onAskClause,
+  status, clauses, allClauses, onOpenClause, onAskClause, emailIds, onToggleEmail,
 }: {
   status: Status;
   clauses: Clause[];
   allClauses: Clause[];
   onOpenClause: (clause: Clause) => void;
   onAskClause: (clause: Clause) => void;
+  emailIds: string[];
+  onToggleEmail?: (clause: Clause) => void;
 }) {
   const columns = useIsTwoColumns() ? 2 : 1;
   const [openId, setOpenId] = useState<string | null>(null);
@@ -187,6 +206,7 @@ function ClauseList({
                   clause={clause}
                   index={r * columns + i}
                   open={clause.id === openId}
+                  inEmail={emailIds.includes(clause.id)}
                   onToggle={() => toggle(clause.id)}
                 />
               ))}
@@ -201,6 +221,12 @@ function ClauseList({
                   onClosed={() => setClosingId((id) => (id === panelClause.id ? null : id))}
                   onOpenInLease={() => onOpenClause(panelClause)}
                   onAsk={() => onAskClause(panelClause)}
+                  inEmail={emailIds.includes(panelClause.id)}
+                  onToggleEmail={
+                    onToggleEmail && (panelClause.status === "red" || panelClause.status === "amber")
+                      ? () => onToggleEmail(panelClause)
+                      : undefined
+                  }
                 />
               )}
             </Fragment>
@@ -227,7 +253,7 @@ function loadPerPage(): number {
 }
 
 function savePerPage(value: number) {
-    localStorage.setItem(PER_PAGE_KEY, value === 0 ? "all" : String(value));
+  localStorage.setItem(PER_PAGE_KEY, value === 0 ? "all" : String(value));
 }
 
 function pageNumbers(page: number, pageCount: number): (number | "…")[] {
@@ -291,11 +317,13 @@ function ClauseCard({
   clause,
   index,
   open,
+  inEmail,
   onToggle,
 }: {
   clause: Clause;
   index: number;
   open: boolean;
+  inEmail: boolean;
   onToggle: () => void;
 }) {
   const style = STATUS[clause.status];
@@ -321,6 +349,12 @@ function ClauseCard({
               Page {clause.page}
             </span>
             <span className="text-xs font-medium text-mute">Clause {clause.number}</span>
+            {inEmail && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-brand-soft px-2 py-0.5 text-xs font-semibold text-brand-dark">
+                <Mail size={12} />
+                In email
+              </span>
+            )}
             {clause.reviewed && (
               <span className="inline-flex items-center gap-1 rounded-full bg-ok-bg px-2 py-0.5 text-xs font-semibold text-ok">
                 <Check size={12} />
@@ -331,8 +365,9 @@ function ClauseCard({
           <span className="mt-2 block font-semibold text-ink">{clause.title}</span>
           <span className="mt-1 line-clamp-2 block text-sm leading-relaxed text-mute">{clause.explanation}</span>
         </span>
-        <PlusMinus open={open} />
-        <span className="sr-only">{open ? "Close this clause" : "Read this clause"}</span>
+        <Tooltip text={open ? "Close this clause" : "Read this clause here"} side="left">
+          <PlusMinus open={open} />
+        </Tooltip>
       </button>
     </li>
   );
@@ -368,6 +403,8 @@ export function DetailsPanel({
   onClosed,
   onOpenInLease,
   onAsk,
+  inEmail = false,
+  onToggleEmail,
 }: {
   clause: Clause;
   allClauses: Clause[];
@@ -377,6 +414,8 @@ export function DetailsPanel({
   onClosed?: () => void;
   onOpenInLease: () => void;
   onAsk: () => void;
+  inEmail?: boolean;
+  onToggleEmail?: () => void;
 }) {
   const style = STATUS[clause.status];
   const ref = useRef<HTMLLIElement>(null);
@@ -414,9 +453,9 @@ export function DetailsPanel({
   const reference = `Clause ${clause.number}, page ${clause.page} – ${clause.title}`;
 
   async function copyReference() {
-      await navigator.clipboard.writeText(reference);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+    await navigator.clipboard.writeText(reference);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   }
   const onClosedRef = useRef(onClosed);
   useEffect(() => {
@@ -532,6 +571,7 @@ export function DetailsPanel({
                   >
                     <MessageCircleQuestion size={18} />
                   </button>
+                  {onToggleEmail && <AddToEmailButton added={inEmail} onToggle={onToggleEmail} />}
                 </div>
               </div>
 

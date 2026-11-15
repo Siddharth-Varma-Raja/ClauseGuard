@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, FileText } from "lucide-react";
+import { ArrowRight, FileText, History } from "lucide-react";
 import type { AnalysisSummary } from "@/lib/notice-types";
 import { STATUS, STATUS_ORDER } from "@/lib/status";
 import { cn } from "@/lib/cn";
@@ -32,6 +32,13 @@ export default function AnalysisCard({ analysis }: { analysis: AnalysisSummary }
                 <p className="truncate text-sm text-mute">
                     {[analysis.propertyAddress, formatCreated(analysis.createdAt)].filter(Boolean).join(" · ")}
                 </p>
+
+                {(analysis.versionCount ?? 1) > 1 && (
+                    <p className="mt-1 inline-flex items-center gap-1.5 rounded-full bg-brand-soft px-2.5 py-0.5 text-xs font-semibold text-brand-dark">
+                        <History size={12} aria-hidden />
+                        Version {analysis.version} of {analysis.versionCount}
+                    </p>
+                )}
 
                 <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs" aria-label={`${total} clauses checked`}>
                     {STATUS_ORDER.filter((s) => counts[s] > 0).map((s) => (

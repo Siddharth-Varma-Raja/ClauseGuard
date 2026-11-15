@@ -9,21 +9,8 @@ import Logo from "./ui/Logo";
 import { START_TOUR, TOUR_GONE, TOUR_READY } from "./PageTour";
 import { auth } from "@/lib/firebase";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { NAV_ITEMS, isActive, initialsOf } from "@/lib/nav";
 import { cn } from "@/lib/cn";
-
-const NAV_ITEMS = [
-    { label: "Dashboard", href: "/dashboard" },
-    { label: "My leases", href: "/lease" },
-    { label: "Notices", href: "/notices" },
-    { label: "Timeline", href: "/timeline" },
-];
-
-function initialsOf(name: string) {
-    const parts = name.trim().split(/\s+/).filter(Boolean);
-    if (parts.length === 0) return "?";
-    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-}
 
 export default function AppHeader() {
     const router = useRouter();
@@ -59,10 +46,6 @@ export default function AppHeader() {
         return () => window.removeEventListener("keydown", onKey);
     }, [menuOpen, profileOpen]);
 
-    function isActive(href: string) {
-        if (href === "/lease") return pathname === "/lease" || (pathname.startsWith("/lease/") && !pathname.startsWith("/lease/new") && !pathname.startsWith("/lease/try"));
-        return pathname === href || pathname.startsWith(`${href}/`);
-    }
 
     function closeMenus() {
         setMenuOpen(false);
@@ -76,27 +59,11 @@ export default function AppHeader() {
     }
 
     return (
-        <header className="sticky top-0 z-40 border-b border-line bg-white/95 backdrop-blur">
-            <div className="flex h-16 items-center gap-4 px-4 sm:px-6 lg:gap-8 lg:px-8">
+        <header className="sticky top-0 z-40 border-b border-line bg-white/95 backdrop-blur md:hidden">
+            <div className="flex h-16 items-center gap-4 px-4 sm:px-6">
                 <Link href="/dashboard" onClick={closeMenus}>
                     <Logo />
                 </Link>
-
-                <nav aria-label="Main" className="hidden items-center gap-1 md:flex">
-                    {NAV_ITEMS.map((item) => (
-                        <Link
-                            key={item.href}
-                            href={item.href}
-                            aria-current={isActive(item.href) ? "page" : undefined}
-                            className={cn(
-                                "rounded-full px-4 py-2 text-sm font-medium transition-colors",
-                                isActive(item.href) ? "bg-brand-soft font-semibold text-brand-dark" : "text-mute hover:bg-surface hover:text-brand-dark",
-                            )}
-                        >
-                            {item.label}
-                        </Link>
-                    ))}
-                </nav>
 
                 <div className="ml-auto flex items-center gap-2 sm:gap-3">
                     {hasTour && (
@@ -123,7 +90,7 @@ export default function AppHeader() {
                         }}
                         aria-label={menuOpen ? "Close menu" : "Open menu"}
                         aria-expanded={menuOpen}
-                        className="grid size-10 cursor-pointer place-items-center rounded-full border border-line text-brand-dark hover:bg-surface md:hidden"
+                        className="grid size-10 cursor-pointer place-items-center rounded-full border border-line text-brand-dark hover:bg-surface"
                     >
                         {menuOpen ? <X size={20} /> : <Menu size={20} />}
                     </button>
@@ -188,18 +155,19 @@ export default function AppHeader() {
             </div>
 
             {menuOpen && (
-                <nav aria-label="Main" className="animate-pop-in border-t border-line bg-white px-4 py-3 md:hidden">
+                <nav aria-label="Main" className="animate-pop-in border-t border-line bg-white px-4 py-3">
                     {NAV_ITEMS.map((item) => (
                         <Link
                             key={item.href}
                             href={item.href}
                             onClick={closeMenus}
-                            aria-current={isActive(item.href) ? "page" : undefined}
+                            aria-current={isActive(pathname, item.href) ? "page" : undefined}
                             className={cn(
-                                "block rounded-xl px-4 py-3 text-sm font-medium",
-                                isActive(item.href) ? "bg-brand-soft font-semibold text-brand-dark" : "text-mute hover:bg-surface",
+                                "flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium",
+                                isActive(pathname, item.href) ? "bg-brand-soft font-semibold text-brand-dark" : "text-mute hover:bg-surface",
                             )}
                         >
+                            <item.Icon size={18} />
                             {item.label}
                         </Link>
                     ))}

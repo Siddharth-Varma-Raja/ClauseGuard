@@ -22,6 +22,10 @@ export type DashboardItem = {
   end?: string;
 };
 
+export function leaseTitle(analysis: Pick<AnalysisSummary, "propertyAddress" | "fileName">) {
+  return analysis.propertyAddress || leaseName(analysis.fileName);
+}
+
 export function leaseName(fileName: string) {
   return fileName.replace(/\.[a-z0-9]+$/i, "").replace(/[_]+/g, " ").trim() || "Your lease";
 }
@@ -60,9 +64,7 @@ function deadlineItems(events: TimelineEvent[]): DashboardItem[] {
       tone: soon ? "warn" : "brand",
       label: soon ? "Next deadline" : "Coming up",
       title: event.title,
-      text: after
-        ? `${fmtDate(event.date)} · After that: ${after.title} on ${fmtDate(after.date)}`
-        : `${fmtDate(event.date)}${event.note ? ` · ${event.note}` : ""}`,
+      text: event.note || (after ? `${fmtDate(event.date)} · then ${after.title} on ${fmtDate(after.date)}` : fmtDate(event.date)),
       href: "/timeline",
       action: "Open timeline",
       days,
@@ -85,8 +87,8 @@ function reviewItems(details: Analysis[]): DashboardItem[] {
         priority: redLeft > 0 ? 2 : 4,
         tone: redLeft > 0 ? "bad" : "warn",
         label: done > 0 ? "Your review" : "Needs action",
-        title: done > 0 ? "Pick up where you left off" : redLeft > 0 ? `${plural(redLeft, "high-risk clause")} to review` : `${plural(left.length, "clause")} to check`,
-        text: `${leaseName(analysis.fileName)} · Next up: Clause ${next.number}, ${next.title}`,
+        title: done > 0 ? "Finish reviewing your lease" : redLeft > 0 ? `Review ${plural(redLeft, "high-risk point")} in your lease` : "Look at the points worth asking about",
+        text: `${leaseTitle(analysis)} · ${plural(left.length, "point")} left, next: ${next.title}`,
         href: `/lease/${analysis.id}`,
         action: done > 0 ? "Continue review" : "Review now",
         done,
@@ -122,11 +124,11 @@ function depositItems(details: Analysis[]): DashboardItem[] {
       {
         key: `deposit-${analysis.id}`,
         kind: "deposit",
-        priority: 4,
-        tone: "warn",
+        priority: 3,
+        tone: "bad",
         label: "Worth knowing",
-        title: "Your deposit may be over the limit",
-        text: `${leaseName(analysis.fileName)} · A deposit can't be more than one month's rent.`,
+        title: "Your deposit is above the legal limit",
+        text: `${leaseTitle(analysis)} · It can't be more than one month's rent`,
         href: `/lease/${analysis.id}`,
         action: "See the lease",
         rent: rent / 100,
@@ -154,7 +156,7 @@ function milestoneItems(details: Analysis[], events: TimelineEvent[]): Dashboard
       tone: "brand",
       label: "Your tenancy",
       title,
-      text: "We found these dates in your lease. Add them to your timeline to get reminders.",
+      text: "Add the key dates from your lease to your timeline to get reminders",
       href: "/timeline",
       action: "Add them to my timeline",
       start,
@@ -173,7 +175,7 @@ function setupItems(events: TimelineEvent[]): DashboardItem[] {
       tone: "brand",
       label: "Get reminders",
       title: "Add your rent day",
-      text: "Add rent day or a notice period and ClauseGuard will remind you before it's due.",
+      text: "We'll remind you before it's due",
       href: "/timeline",
       action: "Add a date",
     },
@@ -189,21 +191,6 @@ export function buildItems(details: Analysis[], events: TimelineEvent[], notices
     ...milestoneItems(details, events),
     ...setupItems(events),
   ].sort((a, b) => a.priority - b.priority);
-}
-
-export function allClearItem(leases: AnalysisSummary[]): DashboardItem {
-  const total = leases.reduce((sum, l) => sum + l.counts.red + l.counts.amber + l.counts.green + l.counts.grey, 0);
-  return {
-    key: "clear",
-    kind: "clear",
-    priority: 99,
-    tone: "ok",
-    label: "All clear",
-    title: "Your lease is checked and up to date",
-    text: `${plural(total, "clause")} checked · nothing needs your action right now.`,
-    href: "/lease",
-    action: "View my leases",
-  };
 }
 
 export function greeting() {

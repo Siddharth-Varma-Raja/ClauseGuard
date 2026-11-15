@@ -8,6 +8,7 @@ import type { Analysis } from "@/lib/notice-types";
 import LoadingState from "@/components/ui/LoadingState";
 import { ButtonLink, Button } from "@/components/ui/Button";
 import { errorMessage, getAnalysis } from "@/lib/api";
+import { markLeaseOpened } from "@/lib/leaseVisits";
 import ReviewWorkspace from "@/components/ReviewWorkspace";
 
 
@@ -25,7 +26,11 @@ export default function LeaseReviewPage() {
     useEffect(() => {
         let cancelled = false;
         getAnalysis(id)
-            .then((analysis) => !cancelled && setState(analysis ? { kind: "ready", analysis } : { kind: "not-found" }))
+            .then((analysis) => {
+                if (cancelled) return;
+                if (analysis) markLeaseOpened(id);
+                setState(analysis ? { kind: "ready", analysis } : { kind: "not-found" });
+            })
             .catch((err) => !cancelled && setState({ kind: "error", message: errorMessage(err, "We couldn't load this lease.") }));
         return () => {
             cancelled = true;
@@ -52,7 +57,9 @@ export default function LeaseReviewPage() {
         return <ErrorCard title="We couldn't load this lease" text={state.message} onRetry={retry} />;
     }
 
-    return <ReviewWorkspace analysis={state.analysis} />;
+    if (state.analysis.id !== id) return <LoadingState label="Loading your lease…" />;
+
+    return <ReviewWorkspace key={state.analysis.id} analysis={state.analysis} />;
 }
 
 function ErrorCard({ title, text, onRetry }: { title: string; text: string; onRetry?: () => void }) {

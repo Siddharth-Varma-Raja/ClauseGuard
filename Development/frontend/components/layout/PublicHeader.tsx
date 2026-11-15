@@ -5,7 +5,7 @@ import { ButtonLink } from "@/components/ui/Button";
 export default function PublicHeader() {
   return (
     <header className="sticky top-0 z-40 border-b border-line bg-white/95 backdrop-blur">
-      <div className="mx-auto flex h-16 max-w-6xl items-center gap-4 px-4 sm:px-6">
+      <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4 sm:px-6">
         <Link href="/" >
           <Logo />
         </Link>
@@ -13,18 +13,10 @@ export default function PublicHeader() {
         <nav className="ml-auto flex items-center gap-2">
           <Link
             href="/login"
-            className="inline-flex min-h-11 items-center rounded-lg px-4 py-2 font-semibold text-brand-dark hover:bg-surface"
+            className="inline-flex min-h-11 min-w-30 justify-center text-lg items-center rounded-lg px-4 py-2 font-semibold text-white bg-brand-dark hover:bg-brand"
           >
             Log in
           </Link>
-
-          <ButtonLink
-            href="/register"
-            size="md"
-            className="min-h-11"
-          >
-            Sign up
-          </ButtonLink>
         </nav>
       </div>
     </header>
