@@ -23,7 +23,8 @@ from app.schemas.document import (
     DocumentResponse,
     DocumentUploadResponse,
 )
-from app.services.document.pipeline import PipelineError, run_upload_pipeline 
+from app.services.document.pipeline import PipelineError, run_upload_pipeline
+from app.services.document.s3 import delete_from_s3
 
 logger = logging.getLogger(__name__)
 
@@ -266,9 +267,9 @@ async def delete_document(
    
     if doc.s3_key:
         try:
-            logger.info(f"Deleted S3 object: {doc.s3_key}")
+            delete_from_s3(doc.s3_key)
         except Exception as e:
-            logger.error(f"Failed to delete S3 object {doc.s3_key}: {e}")
+            logger.error(f"Failed to delete stored object {doc.s3_key}: {e}")
 
     doc.is_deleted = True
     doc.deleted_at = datetime.now(timezone.utc)
