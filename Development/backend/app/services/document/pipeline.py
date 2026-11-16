@@ -1,11 +1,11 @@
 """
 Document Processing Pipeline
 ==============================
-Orchestrates the three steps that happen before a file lands in S3:
+Orchestrates the three steps that happen before a file lands in GCS:
 
     1. Text Extraction  (extractor.py)  — PDF or image via OCR
     2. PII / Clause Redaction  (redactor.py ← teammate's code)
-    3. S3 Upload  (s3.py)
+    3. GCS Upload  (gcs.py)
 
 Why a dedicated pipeline module?
 ---------------------------------
@@ -20,7 +20,7 @@ import uuid
 
 from app.services.document.extractor import extract_text
 from app.services.document.redactor import RedactionError, redact
-from app.services.document.s3 import S3UploadError, upload_text_to_s3
+from app.services.document.gcs import upload_text_to_gcs, GCSUploadError
 from document_checker.diff_engine import TemplateDiffEngine
 
 logger = logging.getLogger(__name__)
@@ -45,13 +45,13 @@ def run_upload_pipeline(
     file_bytes: bytes,
     user_id: str,
     content_type: str,
-    s3_key_prefix: str = "documents/",
+    gcs_key_prefix: str = "documents/",
 ) -> dict:
     """
     Run the full Extract → Validate Lease → Redact → Upload pipeline.
     """
     unique_id = str(uuid.uuid4())
-    s3_key = f"{s3_key_prefix}{user_id}/{unique_id}.txt"
+    gcs_key = f"{gcs_key_prefix}{user_id}/{unique_id}.txt"
 
     # ── Step 1: Extract ───────────────────────────────────────────────
     logger.info(
@@ -104,17 +104,17 @@ def run_upload_pipeline(
 
     logger.info("[pipeline] Redaction complete — %d chars remaining.", len(redacted_text))
 
-    # ── Step 3: Upload ────────────────────────────────────────────────
-    logger.info("[pipeline] Uploading to S3 key '%s'.", s3_key)
+    # ── Step 4: Upload ────────────────────────────────────────────────
+    logger.info("[pipeline] Uploading to GCS key '%s'.", gcs_key)
     try:
-        s3_uri = upload_text_to_s3(redacted_text, s3_key)
-    except S3UploadError as exc:
-        raise PipelineError(f"S3 upload failed: {exc}", step="upload") from exc
+        gcs_uri = upload_text_to_gcs(redacted_text, gcs_key)
+    except GCSUploadError as exc:
+        raise PipelineError(f"GCS upload failed: {exc}", step="upload") from exc
 
-    logger.info("[pipeline] Pipeline complete → %s", s3_uri)
+    logger.info("[pipeline] Pipeline complete → %s", gcs_uri)
     return {
-        "s3_uri": s3_uri,
-        "s3_key": s3_key,
+        "gcs_uri": gcs_uri,
+        "gcs_key": gcs_key,
         "char_count": len(redacted_text),
-        "redacted_text": redacted_text,   # in memory only; used by the analysis step, never stored
+        "redacted_text": redacted_text,  
     }
