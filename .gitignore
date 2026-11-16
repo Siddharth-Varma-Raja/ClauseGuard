@@ -55,3 +55,6 @@ openapi.yaml
 # GCP Secrets
 secrets/
 gcp-key.json
+
+# Claude Code
+.claude/
