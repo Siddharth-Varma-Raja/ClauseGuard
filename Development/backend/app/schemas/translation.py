@@ -91,7 +91,7 @@ class UploadLeaseResponse(CamelBaseModel):
     file_name: str
     file_size_bytes: int
     status: str
-    s3_key: str | None = None
+    gcs_key: str | None = None
     char_count: int | None = None
     counts: StatusCounts | None = None
 
