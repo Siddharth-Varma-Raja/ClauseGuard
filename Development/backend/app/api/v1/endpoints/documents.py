@@ -4,7 +4,7 @@ Document API Endpoints
 POST   /analyses/upload   — Upload a PDF, Word, or image → pipeline → save to MySQL
 GET    /analyses/          — List the current user's analyses
 GET    /analyses/{id}      — Get a single analysis by ID
-DELETE /analyses/{id}      — Delete an analysis and wipe its S3 file
+DELETE /analyses/{id}      — Delete an analysis and wipe its GCS file
 """
 
 import logging
@@ -24,7 +24,7 @@ from app.schemas.document import (
     DocumentUploadResponse,
 )
 from app.services.document.pipeline import PipelineError, run_upload_pipeline
-from app.services.document.s3 import delete_from_s3
+from app.services.document.storage import delete_from_gcs
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +55,7 @@ _MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024
     description=(
         "Upload a file (max 25 MB). The server validates the file contents, "
         "extracts text, applies PII/clause redaction, and stores the processed "
-        "result in S3. The original file is never persisted."
+        "result in GCS. The original file is never persisted."
     ),
 )
 async def upload_document(
@@ -143,14 +143,14 @@ async def upload_document(
         ) from exc
 
     # ── Update document with pipeline results ──────────────────────────────
-    doc.s3_uri = result["s3_uri"]
-    doc.s3_key = result["s3_key"]
+    doc.gcs_uri = result["gcs_uri"]
+    doc.gcs_key = result["gcs_key"]
     doc.char_count = result["char_count"]
     doc.status = DocumentStatus.COMPLETED
     await db.commit()
     await db.refresh(doc)
 
-    logger.info("Document saved — id=%s s3_key=%s", doc.id, doc.s3_key)
+    logger.info("Document saved — id=%s gcs_key=%s", doc.id, doc.gcs_key)
 
     return DocumentUploadResponse(
         message="Document processed and uploaded successfully.",
@@ -239,8 +239,8 @@ async def get_document(
 @router.delete(
     "/{document_id}",
     status_code=status.HTTP_200_OK,
-    summary="Delete an analysis and wipe S3 data",
-    description="Soft-deletes the database record and permanently wipes the file from S3.",
+    summary="Delete an analysis and wipe GCS data",
+    description="Soft-deletes the database record and permanently wipes the file from GCS.",
 )
 async def delete_document(
     document_id: str,
@@ -265,14 +265,15 @@ async def delete_document(
         )
 
    
-    if doc.s3_key:
+    if doc.gcs_key:
         try:
-            delete_from_s3(doc.s3_key)
+            delete_from_gcs(doc.gcs_key)
         except Exception as e:
-            logger.error(f"Failed to delete stored object {doc.s3_key}: {e}")
+            logger.error(f"Failed to delete stored object {doc.gcs_key}: {e}")
 
     doc.is_deleted = True
     doc.deleted_at = datetime.now(timezone.utc)
     await db.commit()
 
     return {"message": "Analysis and associated files deleted successfully.", "id": doc.id}
+```[cite: 17]

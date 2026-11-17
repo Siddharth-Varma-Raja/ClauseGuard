@@ -5,7 +5,7 @@ Orchestrates the three steps that happen before a file lands in GCS:
 
     1. Text Extraction  (extractor.py)  — PDF or image via OCR
     2. PII / Clause Redaction  (redactor.py ← teammate's code)
-    3. GCS Upload  (gcs.py)
+    3. GCS Upload  (storage.py)
 
 Why a dedicated pipeline module?
 ---------------------------------
@@ -20,7 +20,7 @@ import uuid
 
 from app.services.document.extractor import extract_text
 from app.services.document.redactor import RedactionError, redact
-from app.services.document.gcs import upload_text_to_gcs, GCSUploadError
+from app.services.document.storage import upload_text_to_gcs, GCSStorageError
 from document_checker.diff_engine import TemplateDiffEngine
 
 logger = logging.getLogger(__name__)
@@ -108,7 +108,7 @@ def run_upload_pipeline(
     logger.info("[pipeline] Uploading to GCS key '%s'.", gcs_key)
     try:
         gcs_uri = upload_text_to_gcs(redacted_text, gcs_key)
-    except GCSUploadError as exc:
+    except GCSStorageError as exc:
         raise PipelineError(f"GCS upload failed: {exc}", step="upload") from exc
 
     logger.info("[pipeline] Pipeline complete → %s", gcs_uri)
@@ -118,3 +118,4 @@ def run_upload_pipeline(
         "char_count": len(redacted_text),
         "redacted_text": redacted_text,  
     }
+```[cite: 16]
