@@ -1,5 +1,6 @@
-import { signOut } from "firebase/auth";
+import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth } from "./firebase";
+import { cachedGet, clearApiCache } from "./apiCache";
 import type {
   NoticeInput,
   NoticeSummary,
@@ -51,6 +52,8 @@ export function errorMessage(error: unknown, fallback = "Something went wrong. P
 type RequestOptions = RequestInit & {
   auth?: boolean;
   timeoutMs?: number;
+  /** For POSTs that change no stored data (questions, email drafts): keep the GET cache. */
+  keepCache?: boolean;
 };
 
 async function send<T>(path: string, options: RequestOptions = {}): Promise<T> {
@@ -58,7 +61,8 @@ async function send<T>(path: string, options: RequestOptions = {}): Promise<T> {
     throw new ApiError(503, "The backend is not connected. Set NEXT_PUBLIC_API_URL in .env.local.");
   }
 
-  const { auth: needsAuth = true, timeoutMs = DEFAULT_TIMEOUT_MS, ...init } = options;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { auth: needsAuth = true, timeoutMs = DEFAULT_TIMEOUT_MS, keepCache, ...init } = options;
   const headers = new Headers(init.headers);
 
   if (needsAuth) {
@@ -98,7 +102,40 @@ async function send<T>(path: string, options: RequestOptions = {}): Promise<T> {
   return (await response.json()) as T;
 }
 
+// Clear cached data when the signed-in account changes (sign-out included).
+let cacheOwner: string | null = null;
+if (typeof window !== "undefined") {
+  onAuthStateChanged(auth, (user) => {
+    const uid = user?.uid ?? null;
+    if (uid !== cacheOwner) {
+      clearApiCache();
+      cacheOwner = uid;
+    }
+  });
+}
+
+/**
+ * GETs go through the in-memory cache (see apiCache.ts). Any other method
+ * clears it once it finishes, unless the call is marked `keepCache`.
+ */
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const method = (options.method ?? "GET").toUpperCase();
+  const uid = auth.currentUser?.uid;
+
+  if (method === "GET" && uid && options.auth !== false) {
+    return cachedGet(`${uid} ${path}`, () => requestUncached<T>(path, options));
+  }
+  if (method === "GET" || options.keepCache) {
+    return requestUncached<T>(path, options);
+  }
+  try {
+    return await requestUncached<T>(path, options);
+  } finally {
+    clearApiCache();
+  }
+}
+
+async function requestUncached<T>(path: string, options: RequestOptions = {}): Promise<T> {
   try {
     return await send<T>(path, options);
   } catch (error) {
@@ -195,6 +232,7 @@ export async function generateLandlordEmail(analysisId: string, clauses: Clause[
     "/notices/generate-landlord-email",
     {
       method: "POST",
+      keepCache: true,
       body: JSON.stringify({
         detected_deviations: clauses.map((c) => `Clause ${c.number} (${c.title}): ${c.reason || c.explanation}`),
       }),
@@ -221,7 +259,7 @@ export async function askAboutClause(analysisId: string, clauseId: string, quest
   if (isSampleId(analysisId)) return SAMPLE_ANSWER;
   const result = await request<{ answer: string }>(
     `/analyses/${id(analysisId)}/clauses/${id(clauseId)}/questions`,
-    { method: "POST", body: JSON.stringify({ question, history }) },
+    { method: "POST", keepCache: true, body: JSON.stringify({ question, history }) },
   );
   return result.answer;
 }
@@ -230,6 +268,7 @@ export async function askAboutLease(analysisId: string, question: string, histor
   if (isSampleId(analysisId)) return SAMPLE_ANSWER;
   const result = await request<{ answer: string }>(`/analyses/${id(analysisId)}/questions`, {
     method: "POST",
+    keepCache: true,
     body: JSON.stringify({ question, history }),
   });
   return result.answer;

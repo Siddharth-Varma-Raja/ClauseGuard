@@ -276,4 +276,3 @@ async def delete_document(
     await db.commit()
 
     return {"message": "Analysis and associated files deleted successfully.", "id": doc.id}
-```[cite: 17]

@@ -20,6 +20,7 @@ from sqlalchemy import (
     Enum,
     ForeignKey,
     Index,
+    Integer,
     String,
     Text,
 )
@@ -60,6 +61,12 @@ class Document(Base):
         String(64), nullable=False, index=True,
         comment="SHA-256 hex digest of the original uploaded file bytes",
     )
+
+    # ── Versions ──────────────────────────────────────────────────────────────
+    # An updated lease from the landlord is a new Document. lease_group_id is
+    # the id of version 1 of that lease (NULL on version 1 itself).
+    lease_group_id: Mapped[str | None] = mapped_column(String(36), index=True)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
 
     # ── S3 location ───────────────────────────────────────────────────────────
     s3_key: Mapped[str | None] = mapped_column(String(1024))

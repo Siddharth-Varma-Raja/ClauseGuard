@@ -61,6 +61,15 @@ class AnalysisSummary(CamelBaseModel):
     created_at: str
     property_address: str | None = None
     counts: StatusCounts
+    version: int = 1
+    version_count: int = 1
+
+
+class AnalysisVersionItem(CamelBaseModel):
+    id: str
+    version: int
+    created_at: str
+    counts: StatusCounts
 
 
 class AnalysisDetail(AnalysisSummary):
@@ -70,6 +79,7 @@ class AnalysisDetail(AnalysisSummary):
     term_months: int | None = None
     page_count: int = 1
     clauses: list[ClauseItem] = Field(default_factory=list)
+    versions: list[AnalysisVersionItem] = Field(default_factory=list)
 
 
 class ClauseReviewedRequest(CamelBaseModel):
