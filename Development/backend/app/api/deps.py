@@ -2,6 +2,8 @@ from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import noload
+from starlette.concurrency import run_in_threadpool
 
 from app.core.firebase import verify_id_token
 from app.database import get_db
@@ -16,7 +18,9 @@ async def get_current_user(
     db: AsyncSession = Depends(get_db),
 ) -> User:
     try:
-        decoded = verify_id_token(creds.credentials)
+        # A cache miss is a blocking network call to Firebase: run it in a
+        # worker thread so parallel requests don't queue behind each other.
+        decoded = await run_in_threadpool(verify_id_token, creds.credentials)
     except Exception:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -26,7 +30,11 @@ async def get_current_user(
 
     firebase_uid: str = decoded["uid"]
 
-    result = await db.execute(select(User).where(User.firebase_uid == firebase_uid))
+    # noload: User.documents is lazy="selectin", which would load every one of
+    # the user's documents on every authenticated request. Nothing reads it here.
+    result = await db.execute(
+        select(User).options(noload(User.documents)).where(User.firebase_uid == firebase_uid)
+    )
     user: User | None = result.scalar_one_or_none()
 
     if user is None:

@@ -5,6 +5,7 @@ and Gemini are stubbed, so nothing leaves the machine.
 """
 import asyncio
 import itertools
+import re
 import types
 
 import pytest
@@ -12,6 +13,7 @@ from fastapi import Depends, FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.orm import noload
 
 from app.api import translation_router as tr
 from app.api.deps import get_current_user
@@ -46,7 +48,9 @@ def ctx(monkeypatch):
             yield s
 
     async def user_override(db: AsyncSession = Depends(get_db)):
-        return (await db.execute(select(User).where(User.id == "user-1"))).scalar_one()
+        # Same query as app.api.deps.get_current_user.
+        stmt = select(User).options(noload(User.documents)).where(User.id == "user-1")
+        return (await db.execute(stmt)).scalar_one()
 
     app = FastAPI()
     app.state.limiter = limiter
@@ -71,10 +75,12 @@ def ctx(monkeypatch):
         async with AsyncSession(engine) as s:
             return (await s.execute(stmt)).scalars().all()
 
-    return types.SimpleNamespace(
-        client=TestClient(app), deleted=deleted, revoked=revoked,
+    ns = types.SimpleNamespace(
+        client=TestClient(app), deleted=deleted, revoked=revoked, engine=engine,
         query=lambda stmt: asyncio.run(query(stmt)),
     )
+    yield ns
+    asyncio.run(engine.dispose())
 
 
 def upload(c) -> dict:
@@ -192,3 +198,24 @@ def test_landlord_email_accepts_frontend_payload(ctx, monkeypatch):
                         json={"detected_deviations": ["Clause 3 (Landlord access): no notice"]})
     assert r.status_code == 200, r.text
     assert r.json() == {"emailSubject": "About my lease", "emailBody": "Dear landlord"}
+
+
+# ── Performance: the analyses list must not load every clause ─────────────────
+
+def test_analyses_list_uses_one_query_whatever_the_lease_count(ctx):
+    from sqlalchemy import event
+    for _ in range(5):
+        upload(ctx)
+    statements = []
+    listener = lambda conn, cur, stmt, params, context, many: statements.append(stmt)
+    event.listen(ctx.engine.sync_engine, "before_cursor_execute", listener)
+    try:
+        r = ctx.client.get("/api/analyses")
+    finally:
+        event.remove(ctx.engine.sync_engine, "before_cursor_execute", listener)
+    assert r.status_code == 200 and len(r.json()) == 5
+    assert all(item["counts"]["amber"] == 2 for item in r.json())
+    selects = [s for s in statements if s.lstrip().upper().startswith("SELECT")]
+    print(f"\nGET /analyses with 5 leases ran {len(selects)} SELECTs:", [re.sub(r"\s+", " ", s)[:70] for s in selects])
+    # 1 = the user lookup, 1 = the list itself.
+    assert len(selects) == 2, f"{len(selects)} queries: {selects}"

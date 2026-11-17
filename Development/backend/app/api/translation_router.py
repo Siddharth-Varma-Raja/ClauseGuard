@@ -122,44 +122,47 @@ async def get_analyses(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> List[AnalysisSummary]:
-    """List all analyses for the current authenticated user."""
-    docs_result = await db.execute(
-        select(Document)
+    """
+    List all analyses for the current authenticated user.
+
+    One query, selecting only the columns the list shows. Loading the
+    DocumentReview objects instead would also load every clause and source
+    of every lease (their relationships are lazy="selectin").
+    """
+    rows = await db.execute(
+        select(
+            Document.id,
+            Document.original_filename,
+            Document.created_at,
+            DocumentReview.likely_unenforceable_count,
+            DocumentReview.needs_review_count,
+            DocumentReview.compliant_count,
+            DocumentReview.informational_count,
+            DocumentReview.property_address,
+        )
+        .outerjoin(DocumentReview, DocumentReview.document_id == Document.id)
         .where(
             Document.user_id == current_user.id,
-            Document.is_deleted == False,  
+            Document.is_deleted == False,  # noqa: E712
         )
         .order_by(Document.created_at.desc())
     )
-    docs = docs_result.scalars().all()
 
-    summaries: List[AnalysisSummary] = []
-    for doc in docs:
-        review_result = await db.execute(
-            select(DocumentReview).where(DocumentReview.document_id == doc.id)
+    return [
+        AnalysisSummary(
+            id=r.id,
+            file_name=r.original_filename,
+            created_at=r.created_at.isoformat(),
+            property_address=r.property_address,
+            counts=StatusCounts(
+                red=r.likely_unenforceable_count or 0,
+                amber=r.needs_review_count or 0,
+                green=r.compliant_count or 0,
+                grey=r.informational_count or 0,
+            ),
         )
-        review = review_result.scalar_one_or_none()
-
-        counts = StatusCounts()
-        prop_addr = None
-        if review:
-            counts.red = review.likely_unenforceable_count
-            counts.amber = review.needs_review_count
-            counts.green = review.compliant_count
-            counts.grey = review.informational_count
-            prop_addr = review.property_address
-
-        summaries.append(
-            AnalysisSummary(
-                id=doc.id,
-                file_name=doc.original_filename,
-                created_at=doc.created_at.isoformat(),
-                property_address=prop_addr,
-                counts=counts,
-            )
-        )
-
-    return summaries
+        for r in rows.all()
+    ]
 
 
 @router.get("/analyses/{id}", response_model=AnalysisDetail, tags=["Analyses"])
