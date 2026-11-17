@@ -68,7 +68,7 @@ from app.schemas.translation import (
 )
 from app.services.analysis.persist import save_analysis
 from app.services.document.pipeline import PipelineError, run_upload_pipeline
-from app.services.document.gcs import delete_from_gcs
+from app.services.document.storage import delete_from_gcs
 from app.services.notice_checker import check_notice_rules
 from app.services.email_generator import generate_landlord_email
 
