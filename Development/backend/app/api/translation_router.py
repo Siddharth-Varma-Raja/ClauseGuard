@@ -316,8 +316,9 @@ async def upload_lease(
             user_id=current_user.id,
             content_type=actual_mime_type,
         )
-        doc.gcs_uri = pipeline_result.get("gcs_uri")
-        doc.gcs_key = pipeline_result.get("gcs_key")
+        # The columns keep their original s3_* names but hold the GCS location.
+        doc.s3_uri = pipeline_result.get("gcs_uri")
+        doc.s3_key = pipeline_result.get("gcs_key")
         doc.char_count = pipeline_result.get("char_count")
         doc.status = DocumentStatus.COMPLETED
     except PipelineError as exc:
@@ -364,7 +365,7 @@ async def upload_lease(
         file_name=doc.original_filename,
         file_size_bytes=doc.file_size_bytes,
         status=doc.status.value if hasattr(doc.status, "value") else str(doc.status),
-        gcs_key=doc.gcs_key,
+        gcs_key=doc.s3_key,
         char_count=doc.char_count,
         counts=StatusCounts(
             red=review.likely_unenforceable_count,
@@ -396,3 +397,485 @@ async def set_clause_reviewed(
         )
     )
     clause = result.scalar_one_or_none()
+    if not clause:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Clause or analysis not found.",
+        )
+
+    clause.is_reviewed = body.reviewed
+    clause.updated_at = datetime.now(timezone.utc)
+    await db.commit()
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.delete("/analyses", status_code=status.HTTP_204_NO_CONTENT, tags=["Analyses"])
+async def delete_all_analyses(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Response:
+    """Soft-delete all analyses for the current user and wipe stored files."""
+    docs_result = await db.execute(
+        select(Document).where(
+            Document.user_id == current_user.id,
+            Document.is_deleted == False,  
+        )
+    )
+    docs = docs_result.scalars().all()
+
+    for doc in docs:
+        if doc.s3_key:
+            try:
+                delete_from_gcs(doc.s3_key)
+            except Exception as e:
+                logger.error(f"Error deleting stored file {doc.s3_key}: {e}")
+        doc.is_deleted = True
+        doc.deleted_at = datetime.now(timezone.utc)
+
+    await db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post(
+    "/analyses/{analysis_id}/clauses/{clause_id}/questions",
+    response_model=ClauseQuestionResponse,
+    tags=["Analyses"],
+)
+async def ask_clause_question(
+    analysis_id: str,
+    clause_id: str,
+    body: ClauseQuestionRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> ClauseQuestionResponse:
+    """
+    Ask a targeted question about a specific clause with AI privacy isolation.
+    Sends only the clause text and the question to the AI model.
+    """
+    result = await db.execute(
+        select(ClauseReview)
+        .join(DocumentReview, ClauseReview.review_id == DocumentReview.id)
+        .join(Document, DocumentReview.document_id == Document.id)
+        .where(
+            ClauseReview.id == clause_id,
+            DocumentReview.document_id == analysis_id,
+            Document.user_id == current_user.id,
+            Document.is_deleted == False, 
+        )
+    )
+    clause = result.scalar_one_or_none()
+    if not clause:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Clause or analysis not found.",
+        )
+
+    system_instruction = (
+        "You are the ClauseGuard Legal Assistant. You are an expert in Irish residential tenancy law (Residential Tenancies Acts). "
+        "Answer the tenant's question about the specific lease clause below. "
+        "Evaluate the clause strictly under Irish RTB regulations. "
+        "Return plain text only (do NOT return HTML or markdown tags). "
+        "Keep your answer concise, clear, and actionable in plain English."
+    )
+
+    contents = []
+    for item in body.history:
+        role = "model" if item.get("role") in ["assistant", "model"] else "user"
+        msg_text = item.get("text") or item.get("content") or ""
+        if msg_text:
+            contents.append(types.Content(role=role, parts=[types.Part.from_text(text=msg_text)]))
+
+    prompt = (
+        f"--- LEASE CLAUSE ---\n"
+        f"Title: {clause.clause_title}\n"
+        f"Text: {clause.clause_text}\n"
+        f"-------------------\n\n"
+        f"Tenant Question: {body.question}"
+    )
+    contents.append(types.Content(role="user", parts=[types.Part.from_text(text=prompt)]))
+
+    try:
+        client = get_genai_client()
+        response = client.models.generate_content(
+            model="gemini-3.8-flash",
+            contents=contents,
+            config=types.GenerateContentConfig(
+                system_instruction=system_instruction,
+                temperature=0.2,
+            ),
+        )
+        reply = response.text or "No response could be generated."
+    except Exception as e:
+        logger.error(f"Per-clause AI question error: {e}")
+        reply = (
+            f"Under Irish tenancy law, this clause ('{clause.clause_title}') should be reviewed carefully. "
+            f"Irish Residential Tenancies legislation provides mandatory statutory protections regarding "
+            f"notice periods, peaceful occupation, and rent pressure zone limits that override contradictory contract terms."
+        )
+
+    return ClauseQuestionResponse(answer=reply.strip())
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 2. LANDLORD NOTICES
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+@router.post("/notices/generate-landlord-email", response_model=EmailDraftResponse, tags=["Notices"])
+@limiter.limit("5/minute")
+async def draft_landlord_email(
+    request: Request,
+    body: EmailDraftRequest,
+    current_user: User = Depends(get_current_user),
+    gemini_client: genai.Client = Depends(get_genai_client),
+) -> EmailDraftResponse:
+    """Generates a polite negotiation email based on found lease flaws."""
+    if not body.detected_deviations:
+        raise HTTPException(status_code=400, detail="No deviations provided to discuss.")
+        
+    try:
+        draft_json = await run_in_threadpool(
+            generate_landlord_email,
+            client=gemini_client,
+            deviations=body.detected_deviations,
+            landlord_name=body.landlord_name,
+            tenant_name=body.tenant_name,
+            address=body.property_address
+        )
+        return EmailDraftResponse(
+            email_subject=draft_json["email_subject"],
+            email_body=draft_json["email_body"]
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate draft: {str(e)}")
+
+
+@router.get("/notices", response_model=List[NoticeSummaryItem], tags=["Notices"])
+async def get_notices(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> List[NoticeSummaryItem]:
+    """List notice review summaries for the current user."""
+    result = await db.execute(
+        select(Notice)
+        .where(Notice.user_id == current_user.id)
+        .order_by(Notice.created_at.desc())
+    )
+    notices = result.scalars().all()
+
+    return [
+        NoticeSummaryItem(
+            id=n.id,
+            type=n.notice_type,
+            verdict=n.verdict,
+            summary=n.summary,
+            created_at=n.created_at.isoformat(),
+        )
+        for n in notices
+    ]
+
+
+@router.get("/notices/{id}", response_model=NoticeDetail, tags=["Notices"])
+async def get_notice(
+    id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> NoticeDetail:
+    """Get full evaluation details for a specific notice."""
+    result = await db.execute(
+        select(Notice).where(Notice.id == id, Notice.user_id == current_user.id)
+    )
+    n = result.scalar_one_or_none()
+    if not n:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Notice not found.",
+        )
+
+    checks = json.loads(n.checks_json) if n.checks_json else []
+    key_dates = json.loads(n.key_dates_json) if n.key_dates_json else []
+    next_steps = json.loads(n.next_steps_json) if n.next_steps_json else []
+
+    return NoticeDetail(
+        id=n.id,
+        type=n.notice_type,
+        verdict=n.verdict,
+        summary=n.summary,
+        created_at=n.created_at.isoformat(),
+        checks=[NoticeCheckItem(**c) for c in checks],
+        key_dates=[NoticeKeyDateItem(**kd) for kd in key_dates],
+        next_steps=next_steps,
+    )
+
+
+@router.post("/notices", response_model=CreateNoticeResponse, status_code=status.HTTP_201_CREATED, tags=["Notices"])
+async def create_notice_check(
+    body: NoticeInputRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> CreateNoticeResponse:
+    """Submit a notice for legal compliance verification."""
+    eval_result = check_notice_rules(body.type, body.answers)
+
+    notice = Notice(
+        user_id=current_user.id,
+        notice_type=body.type,
+        verdict=eval_result["verdict"],
+        summary=eval_result["summary"],
+        checks_json=json.dumps(eval_result["checks"]),
+        key_dates_json=json.dumps(eval_result["key_dates"]),
+        next_steps_json=json.dumps(eval_result["next_steps"]),
+        answers_json=json.dumps(body.answers),
+    )
+    db.add(notice)
+    await db.commit()
+    await db.refresh(notice)
+
+    return CreateNoticeResponse(id=notice.id)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 3. TENANCY TIMELINE
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+@router.get("/events", response_model=List[TimelineEventItem], tags=["Timeline"])
+async def get_timeline_events(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> List[TimelineEventItem]:
+    """Retrieve all tenancy timeline events for the current user."""
+    result = await db.execute(
+        select(TimelineEvent)
+        .where(TimelineEvent.user_id == current_user.id)
+        .order_by(TimelineEvent.event_date.asc())
+    )
+    events = result.scalars().all()
+
+    return [
+        TimelineEventItem(
+            id=e.id,
+            title=e.title,
+            date=e.event_date,
+            kind=e.kind,
+            note=e.note or "",
+            done=e.done,
+        )
+        for e in events
+    ]
+
+
+@router.post("/events", response_model=TimelineEventItem, status_code=status.HTTP_201_CREATED, tags=["Timeline"])
+async def add_timeline_event(
+    body: NewTimelineEventRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> TimelineEventItem:
+    """Add a new milestone or deadline to the tenancy timeline."""
+    event = TimelineEvent(
+        user_id=current_user.id,
+        title=body.title,
+        event_date=body.date,
+        kind=body.kind,
+        note=body.note,
+        done=False,
+    )
+    db.add(event)
+    await db.commit()
+    await db.refresh(event)
+
+    return TimelineEventItem(
+        id=event.id,
+        title=event.title,
+        date=event.event_date,
+        kind=event.kind,
+        note=event.note or "",
+        done=event.done,
+    )
+
+
+@router.patch("/events/{id}", status_code=status.HTTP_204_NO_CONTENT, tags=["Timeline"])
+async def set_event_done(
+    id: str,
+    body: TimelineEventUpdateRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Response:
+    """Toggle the completion state of a timeline event."""
+    result = await db.execute(
+        select(TimelineEvent).where(TimelineEvent.id == id, TimelineEvent.user_id == current_user.id)
+    )
+    event = result.scalar_one_or_none()
+    if not event:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found.")
+
+    event.done = body.done
+    await db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.delete("/events/{id}", status_code=status.HTTP_204_NO_CONTENT, tags=["Timeline"])
+async def delete_timeline_event(
+    id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Response:
+    """Delete a tenancy timeline event."""
+    result = await db.execute(
+        select(TimelineEvent).where(TimelineEvent.id == id, TimelineEvent.user_id == current_user.id)
+    )
+    event = result.scalar_one_or_none()
+    if not event:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found.")
+
+    await db.delete(event)
+    await db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 4. USER PREFERENCES & ACCOUNT DATA
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+@router.get("/me/preferences", response_model=PreferencesResponse, tags=["Preferences"])
+async def get_preferences(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> PreferencesResponse:
+    """Get the current user's explanation and notification preferences."""
+    result = await db.execute(
+        select(UserPreference).where(UserPreference.user_id == current_user.id)
+    )
+    pref = result.scalar_one_or_none()
+    if not pref:
+        pref = UserPreference(
+            user_id=current_user.id,
+            explanation_detail="simple",
+            reminders_enabled=True,
+        )
+        db.add(pref)
+        await db.commit()
+        await db.refresh(pref)
+
+    return PreferencesResponse(
+        explanation_detail=pref.explanation_detail,
+        reminders_enabled=pref.reminders_enabled,
+    )
+
+
+@router.patch("/me/preferences", response_model=PreferencesResponse, tags=["Preferences"])
+async def update_preferences(
+    body: PreferencesUpdateRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> PreferencesResponse:
+    """Update explanation detail or reminder preferences."""
+    result = await db.execute(
+        select(UserPreference).where(UserPreference.user_id == current_user.id)
+    )
+    pref = result.scalar_one_or_none()
+    if not pref:
+        pref = UserPreference(user_id=current_user.id)
+        db.add(pref)
+
+    if body.explanation_detail is not None:
+        pref.explanation_detail = body.explanation_detail
+    if body.reminders_enabled is not None:
+        pref.reminders_enabled = body.reminders_enabled
+
+    pref.updated_at = datetime.now(timezone.utc)
+    await db.commit()
+    await db.refresh(pref)
+
+    return PreferencesResponse(
+        explanation_detail=pref.explanation_detail,
+        reminders_enabled=pref.reminders_enabled,
+    )
+
+
+@router.delete("/me", status_code=status.HTTP_204_NO_CONTENT, tags=["Account"])
+async def delete_my_data(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Response:
+    """
+    Cascading account deletion: removes stored files from GCS, soft-deletes/purges
+    analyses, notices, timeline events, preferences, and revokes Firebase tokens.
+    """
+    docs_result = await db.execute(
+        select(Document).where(Document.user_id == current_user.id)
+    )
+    for doc in docs_result.scalars().all():
+        if doc.s3_key:
+            try:
+                delete_from_gcs(doc.s3_key)
+            except Exception as e:
+                logger.error(f"Error deleting stored file {doc.s3_key}: {e}")
+        doc.is_deleted = True
+        doc.deleted_at = datetime.now(timezone.utc)
+
+    notices_result = await db.execute(
+        select(Notice).where(Notice.user_id == current_user.id)
+    )
+    for n in notices_result.scalars().all():
+        await db.delete(n)
+
+    events_result = await db.execute(
+        select(TimelineEvent).where(TimelineEvent.user_id == current_user.id)
+    )
+    for ev in events_result.scalars().all():
+        await db.delete(ev)
+
+    pref_result = await db.execute(
+        select(UserPreference).where(UserPreference.user_id == current_user.id)
+    )
+    for p in pref_result.scalars().all():
+        await db.delete(p)
+
+    current_user.is_active = False
+    current_user.updated_at = datetime.now(timezone.utc)
+    try:
+        revoke_refresh_tokens(current_user.firebase_uid)
+    except Exception as e:
+        logger.warning(f"Failed to revoke Firebase token for {current_user.firebase_uid}: {e}")
+
+    await db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get("/me", response_model=UserProfileResponse, tags=["Account"])
+async def get_my_profile(
+    current_user: User = Depends(get_current_user),
+) -> UserProfileResponse:
+    """Retrieve profile details for the authenticated user."""
+    return UserProfileResponse(
+        id=current_user.id,
+        firebase_uid=current_user.firebase_uid,
+        email=current_user.email,
+        display_name=current_user.display_name,
+        phone_number=current_user.phone_number,
+        role=current_user.role.value if hasattr(current_user.role, "value") else str(current_user.role),
+        is_active=current_user.is_active,
+        created_at=current_user.created_at.isoformat(),
+    )
+
+
+@router.get("/me/gdpr-export", tags=["Account"])
+async def gdpr_export(
+    current_user: User = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Export all stored data for the authenticated user under GDPR Article 15."""
+    return {
+        "user": {
+            "id": current_user.id,
+            "firebaseUid": current_user.firebase_uid,
+            "email": current_user.email,
+            "displayName": current_user.display_name,
+            "phoneNumber": current_user.phone_number,
+            "role": current_user.role.value if hasattr(current_user.role, "value") else str(current_user.role),
+            "createdAt": current_user.created_at.isoformat(),
+        },
+        "exportedAt": datetime.now(timezone.utc).isoformat(),
+    }
