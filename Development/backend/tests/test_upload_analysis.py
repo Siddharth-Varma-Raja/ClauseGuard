@@ -42,7 +42,7 @@ def client(monkeypatch):
     monkeypatch.setattr(
         tr,
         "run_upload_pipeline",
-        lambda **kw: {"s3_uri": "s3://x/y", "s3_key": "y", "char_count": len(LEASE), "redacted_text": LEASE},
+        lambda **kw: {"gcs_uri": "gs://x/y", "gcs_key": "y", "char_count": len(LEASE), "redacted_text": LEASE},
     )
     return TestClient(app)
 

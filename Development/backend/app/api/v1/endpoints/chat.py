@@ -199,4 +199,3 @@ async def clear_chat_history(
     await db.commit()
 
     return {"message": f"Cleared {len(messages)} chat messages for document {document_id}."}
-```[cite: 16]
