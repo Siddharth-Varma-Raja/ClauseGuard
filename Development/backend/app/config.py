@@ -66,4 +66,3 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
-```[cite: 16]

@@ -16,6 +16,7 @@ Why a dedicated pipeline module?
 """
 
 import logging
+import time
 import uuid
 
 from app.services.document.extractor import extract_text
@@ -59,13 +60,17 @@ def run_upload_pipeline(
         user_id,
         content_type,
     )
+    timings: dict[str, float] = {}
+    t0 = time.perf_counter()
     try:
         raw_text = extract_text(file_bytes, content_type)
     except Exception as exc:
         logger.exception("[pipeline] Extraction failed.")
         raise PipelineError(f"Text extraction failed: {exc}", step="extraction") from exc
 
+    timings["extract"] = time.perf_counter() - t0
     logger.info("[pipeline] Extraction complete — %d chars.", len(raw_text))
+    t0 = time.perf_counter()
 
     # ── Step 2: Validate Lease with Template Diff Engine ──────────────
     logger.info("[pipeline] Validating document with TemplateDiffEngine.")
@@ -91,8 +96,11 @@ def run_upload_pipeline(
         len(deviations),
     )
 
+    timings["lease_check"] = time.perf_counter() - t0
+
     # ── Step 3: Redact ────────────────────────────────────────────────
     logger.info("[pipeline] Starting redaction.")
+    t0 = time.perf_counter()
     try:
         redacted_text = redact(raw_text)
     except RedactionError as exc:
@@ -102,7 +110,9 @@ def run_upload_pipeline(
         logger.exception("[pipeline] Unexpected redaction error.")
         raise PipelineError(f"Redaction error: {exc}", step="redaction") from exc
 
+    timings["redact"] = time.perf_counter() - t0
     logger.info("[pipeline] Redaction complete — %d chars remaining.", len(redacted_text))
+    t0 = time.perf_counter()
 
     # ── Step 4: Upload ────────────────────────────────────────────────
     logger.info("[pipeline] Uploading to GCS key '%s'.", gcs_key)
@@ -111,11 +121,16 @@ def run_upload_pipeline(
     except GCSStorageError as exc:
         raise PipelineError(f"GCS upload failed: {exc}", step="upload") from exc
 
+    timings["upload"] = time.perf_counter() - t0
     logger.info("[pipeline] Pipeline complete → %s", gcs_uri)
+    logger.info(
+        "[pipeline] Timings: %s | total %.2fs",
+        ", ".join(f"{k} {v:.2f}s" for k, v in timings.items()),
+        sum(timings.values()),
+    )
     return {
         "gcs_uri": gcs_uri,
         "gcs_key": gcs_key,
         "char_count": len(redacted_text),
         "redacted_text": redacted_text,  
     }
-```[cite: 16]

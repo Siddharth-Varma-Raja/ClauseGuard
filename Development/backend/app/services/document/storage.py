@@ -9,11 +9,7 @@ class GCSStorageError(Exception):
     """Raised when a Google Cloud Storage operation fails."""
     pass
 
-try:
-    from app.core.cache import lease_text_cache
-except ImportError:
-    logger.warning("Could not import lease_text_cache. Using local dictionary fallback.")
-    lease_text_cache = {}
+from app.core.cache import lease_text_cache  # TTLCache: use .get / .set / .delete
 
 def _get_bucket():
     """Helper to initialize the GCS client and target bucket."""
@@ -28,8 +24,8 @@ def upload_text_to_gcs(text_data: str, gcs_key: str) -> str:
         blob = bucket.blob(gcs_key)
         
         blob.upload_from_string(text_data, content_type="text/plain")
-        
-        lease_text_cache[gcs_key] = text_data
+
+        lease_text_cache.set(gcs_key, text_data)
         
         gcs_uri = f"gs://{bucket_name}/{gcs_key}"
         logger.info(f"Successfully uploaded redacted text to {gcs_uri}")
@@ -41,16 +37,17 @@ def upload_text_to_gcs(text_data: str, gcs_key: str) -> str:
 
 def get_text_from_gcs(gcs_key: str) -> str:
     """Retrieves lease text from the in-memory cache, falling back to GCS on a cache miss."""
-    if gcs_key in lease_text_cache:
+    cached = lease_text_cache.get(gcs_key)
+    if cached is not None:
         logger.debug(f"Cache hit for {gcs_key}")
-        return lease_text_cache[gcs_key]
+        return cached
         
     try:
         bucket, _ = _get_bucket()
         blob = bucket.blob(gcs_key)
         text_data = blob.download_as_string().decode("utf-8")
-        
-        lease_text_cache[gcs_key] = text_data
+
+        lease_text_cache.set(gcs_key, text_data)
         return text_data
         
     except NotFound:
@@ -62,7 +59,7 @@ def get_text_from_gcs(gcs_key: str) -> str:
 
 def delete_from_gcs(gcs_key: str) -> None:
     """Idempotently deletes a file from GCS and purges it from the cache."""
-    lease_text_cache.pop(gcs_key, None)
+    lease_text_cache.delete(gcs_key)
     
     try:
         bucket, _ = _get_bucket()
