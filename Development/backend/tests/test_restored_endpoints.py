@@ -219,3 +219,70 @@ def test_analyses_list_uses_one_query_whatever_the_lease_count(ctx):
     print(f"\nGET /analyses with 5 leases ran {len(selects)} SELECTs:", [re.sub(r"\s+", " ", s)[:70] for s in selects])
     # 1 = the user lookup, 1 = the list itself.
     assert len(selects) == 2, f"{len(selects)} queries: {selects}"
+
+
+# ── Lease versions ────────────────────────────────────────────────────────────
+
+def upload_version(c, aid, content=b"%PDF-1.4 updated"):
+    return c.client.post(f"/api/analyses/{aid}/versions",
+                         files={"file": ("lease-v2.pdf", content, "application/pdf")})
+
+
+def test_upload_version_links_to_the_original(ctx):
+    v1 = upload(ctx)["id"]
+    r = upload_version(ctx, v1)
+    assert r.status_code == 201, r.text
+    v2 = r.json()["id"]
+    assert v2 != v1
+
+    for aid, number in ((v1, 1), (v2, 2)):
+        body = ctx.client.get(f"/api/analyses/{aid}").json()
+        assert body["version"] == number and body["versionCount"] == 2
+        assert [(v["id"], v["version"]) for v in body["versions"]] == [(v1, 1), (v2, 2)]
+        assert body["versions"][0]["counts"]["amber"] == 2
+
+    # The list shows the lease once, as its latest version.
+    listed = ctx.client.get("/api/analyses").json()
+    assert [(a["id"], a["version"], a["versionCount"]) for a in listed] == [(v2, 2, 2)]
+
+
+def test_version_of_a_later_version_joins_the_same_lease(ctx):
+    v1 = upload(ctx)["id"]
+    v2 = upload_version(ctx, v1).json()["id"]
+    v3 = upload_version(ctx, v2, b"%PDF-1.4 third").json()["id"]
+    body = ctx.client.get(f"/api/analyses/{v3}").json()
+    assert body["version"] == 3
+    assert [v["id"] for v in body["versions"]] == [v1, v2, v3]
+
+
+def test_same_file_again_is_rejected(ctx):
+    v1 = upload(ctx)["id"]
+    r = upload_version(ctx, v1, b"%PDF-1.4 x")  # identical to the first upload
+    assert r.status_code == 409
+    assert ctx.client.get(f"/api/analyses/{v1}").json()["versionCount"] == 1
+
+
+def test_version_errors(ctx):
+    assert upload_version(ctx, "does-not-exist").status_code == 404
+    v1 = upload(ctx)["id"]
+    r = ctx.client.post(f"/api/analyses/{v1}/versions")
+    assert r.status_code == 422
+    assert r.json()["detail"] == "Choose a lease file to upload."
+
+
+def test_failed_version_is_not_counted(ctx, monkeypatch):
+    v1 = upload(ctx)["id"]
+    real = tr.run_upload_pipeline
+
+    def boom(**kw):
+        raise RuntimeError("extraction crashed")
+
+    monkeypatch.setattr(tr, "run_upload_pipeline", boom)
+    assert upload_version(ctx, v1).status_code == 500
+    monkeypatch.setattr(tr, "run_upload_pipeline", real)
+
+    # Retrying the same file works, and it becomes version 2.
+    r = upload_version(ctx, v1)
+    assert r.status_code == 201, r.text
+    assert ctx.client.get(f"/api/analyses/{r.json()['id']}").json()["version"] == 2
+    assert [a["id"] for a in ctx.client.get("/api/analyses").json()] == [r.json()["id"]]
