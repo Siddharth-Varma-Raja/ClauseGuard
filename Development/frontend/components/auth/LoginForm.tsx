@@ -27,7 +27,7 @@ export default function LoginForm() {
     e.preventDefault();
     setError("");
     setSuccess("");
-    setSubmitting(true);  
+    setSubmitting(true);
     try {
       if (islogin) {
         await signInWithEmailAndPassword(auth, email, password);
@@ -180,12 +180,12 @@ export default function LoginForm() {
               />
             </div>
 
-             <Button
-                type="submit"
-                size="lg"
-                className="w-full"
-              >
-                Send Reset Link
+            <Button
+              type="submit"
+              size="lg"
+              className="w-full"
+            >
+              Send Reset Link
             </Button>
 
             <Button
