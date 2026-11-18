@@ -24,8 +24,10 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # ── Application code ──────────────────────────────────────────────────────────
 COPY . .
 
-# Render dynamically assigns $PORT (default 10000); expose for documentation
-EXPOSE ${PORT:-10000}
+# The host injects $PORT (Cloud Run and Render both set it); 8080 when unset.
+EXPOSE 8080
 
-# Run Alembic migrations on startup, then launch Uvicorn bound to Render's $PORT
-CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-10000}"]
+# Migrations run on start-up by default (Render, local Docker). On Cloud Run
+# they run as a separate job (`clauseguard-migrate`) so scaled-out instances
+# never race each other, and the service sets RUN_MIGRATIONS=false.
+CMD ["sh", "-c", "if [ \"$RUN_MIGRATIONS\" != \"false\" ]; then alembic upgrade head; fi && exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8080}"]

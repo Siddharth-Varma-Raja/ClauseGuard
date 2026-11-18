@@ -143,14 +143,14 @@ async def upload_document(
         ) from exc
 
     # ── Update document with pipeline results ──────────────────────────────
-    doc.gcs_uri = result["gcs_uri"]
-    doc.gcs_key = result["gcs_key"]
+    doc.s3_uri = result["gcs_uri"]
+    doc.s3_key = result["gcs_key"]
     doc.char_count = result["char_count"]
     doc.status = DocumentStatus.COMPLETED
     await db.commit()
     await db.refresh(doc)
 
-    logger.info("Document saved — id=%s gcs_key=%s", doc.id, doc.gcs_key)
+    logger.info("Document saved — id=%s gcs_key=%s", doc.id, doc.s3_key)
 
     return DocumentUploadResponse(
         message="Document processed and uploaded successfully.",
@@ -265,11 +265,11 @@ async def delete_document(
         )
 
    
-    if doc.gcs_key:
+    if doc.s3_key:
         try:
-            delete_from_gcs(doc.gcs_key)
+            delete_from_gcs(doc.s3_key)
         except Exception as e:
-            logger.error(f"Failed to delete stored object {doc.gcs_key}: {e}")
+            logger.error(f"Failed to delete stored object {doc.s3_key}: {e}")
 
     doc.is_deleted = True
     doc.deleted_at = datetime.now(timezone.utc)
