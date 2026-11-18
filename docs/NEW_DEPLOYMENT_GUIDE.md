@@ -16,7 +16,7 @@ Provisioning script: [`infra/gcp/setup_load_balancer.sh`](../infra/gcp/setup_loa
 | 3 | Enable APIs (`STEP=apis`) | §4.1 | 2 min |
 | 4 | Create the 3 secrets in Secret Manager | §3 | 15 min |
 | 5 | Service account, buckets (`STEP=iam`, `STEP=bucket`) | §4.2–4.3 | 5 min |
-| 6 | Copy lease files S3 → GCS | §5 | 15 min |
+| 6 | ~~Copy lease files S3 → GCS~~ **Skipped:** S3 holds test data only | §5 | 0 min |
 | 7 | Build, migrate, deploy Cloud Run (`build`, `migrate`, `service`) | §4.4–4.6 | 15 min |
 | 8 | Load balancer (`STEP=lb`) | §4.7 | 5 min |
 | 9 | Point `api.clauseguard.ie` DNS at the load balancer IP | §6 | 5 min + up to 60 min cert wait |
@@ -237,7 +237,7 @@ cd infra/gcp
 - **Run:** `STEP=bucket ./setup_load_balancer.sh`
 - **Check:** `gcloud storage buckets list --format='table(name,location)'`
 
-**→ Now copy the existing files from S3 (§5).**
+**→ No S3 copy needed (§5): go straight to the build.**
 
 ### 4.4 `STEP=build` — build the container image
 - **What:** creates the Artifact Registry repo `clauseguard` and runs Cloud Build on `Development/backend`. The image is tagged `europe-west1-docker.pkg.dev/<PROJECT_ID>/clauseguard/api:<timestamp>`, and the tag is saved to `infra/gcp/.last_image`.
@@ -253,7 +253,8 @@ cd infra/gcp
 - **Why:**
   - Migrations used to run inside the web container on every start. With several instances starting at once, they could race.
   - A one-off job runs exactly once per deploy.
-  - It also applies **0006**, which rewrites stored `s3://` URIs to `gs://`. Run it **after** the file copy in §5.
+  - On a fresh deploy this applies every migration up to **0006** (lease version columns).
+  - The web service sets `RUN_MIGRATIONS=false`, so it never runs migrations itself.
 - **Run:** `STEP=migrate ./setup_load_balancer.sh`
 - **Check:** the command waits and prints `succeeded`. Logs: `gcloud run jobs executions list --job=clauseguard-migrate --region=europe-west1`
 
@@ -313,13 +314,15 @@ The load balancer, Armor and DNS do not change between deploys.
 
 ---
 
-## 5. Copy existing files from AWS S3 to GCS (one-off)
+## 5. Copy existing files from AWS S3 to GCS (one-off): SKIPPED
+
+> **Not needed for this migration.** The S3 bucket holds test data only, so nothing is copied and no URIs are rewritten. The earlier `0006_rewrite_s3_uris_to_gcs` migration was dropped; revision 0006 is now `0006_add_lease_versions`. Old test rows still point at S3 keys: delete them (or start from an empty `documents` table) so chat and delete don't look for files that aren't in GCS. The steps below are kept only for reference.
 
 **What:** copy every object in the old S3 bucket to `gs://clauseguard-leases-prod`, keeping the same object keys.
 
 **Why:**
 - Each `documents` row stores an `s3_key` such as `documents/<user_id>/<uuid>.txt`. Chat and delete use that key.
-- With the same keys in GCS, existing analyses keep working and no row needs changing apart from the URI rewrite in migration 0006.
+- With the same keys in GCS, existing analyses would keep working (only the informational `s3_uri` column would still say `s3://`).
 
 **How** (Storage Transfer Service):
 
