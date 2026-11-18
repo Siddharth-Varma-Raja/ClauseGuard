@@ -13,7 +13,7 @@ from app.database import get_db
 from app.models.document import Document
 from app.models.user import AuditLog, User
 from app.schemas.user import GdprExportResponse, MessageResponse, ProfileUpdateRequest, UserResponse
-from app.services.document.s3 import delete_from_s3
+from app.services.document.storage import delete_from_gcs
 
 logger = logging.getLogger(__name__)
 
@@ -80,9 +80,9 @@ async def delete_account(
     for doc in user_documents:
         if doc.s3_key:
             try:
-                delete_from_s3(doc.s3_key)
+                delete_from_gcs(doc.s3_key)
             except Exception as e:
-                logger.error(f"Failed to delete S3 file {doc.s3_key} during account deletion: {e}")
+                logger.error(f"Failed to delete GCS file {doc.s3_key} during account deletion: {e}")
         
         doc.is_deleted = True
         doc.deleted_at = datetime.now(timezone.utc)

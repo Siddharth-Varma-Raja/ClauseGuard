@@ -19,7 +19,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFil
 from starlette.concurrency import run_in_threadpool
 from google import genai
 from google.genai import types
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
@@ -44,6 +44,7 @@ from app.models.user import AuditLog, User
 from app.schemas.translation import (
     AnalysisDetail,
     AnalysisSummary,
+    AnalysisVersionItem,
     ClauseItem,
     ClauseQuestionRequest,
     ClauseQuestionResponse,
@@ -68,7 +69,7 @@ from app.schemas.translation import (
 )
 from app.services.analysis.persist import save_analysis
 from app.services.document.pipeline import PipelineError, run_upload_pipeline
-from app.services.document.s3 import delete_from_s3
+from app.services.document.storage import delete_from_gcs
 from app.services.notice_checker import check_notice_rules
 from app.services.email_generator import generate_landlord_email
 
@@ -117,49 +118,98 @@ _MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
+def _counts(row: Any) -> StatusCounts:
+    """StatusCounts from a row or DocumentReview with the four count columns."""
+    return StatusCounts(
+        red=row.likely_unenforceable_count or 0,
+        amber=row.needs_review_count or 0,
+        green=row.compliant_count or 0,
+        grey=row.informational_count or 0,
+    )
+
+
+async def _lease_versions(db: AsyncSession, user_id: str, group_id: str) -> List[AnalysisVersionItem]:
+    """Every saved version of one lease, oldest first."""
+    rows = await db.execute(
+        select(
+            Document.id,
+            Document.version,
+            Document.created_at,
+            DocumentReview.likely_unenforceable_count,
+            DocumentReview.needs_review_count,
+            DocumentReview.compliant_count,
+            DocumentReview.informational_count,
+        )
+        .outerjoin(DocumentReview, DocumentReview.document_id == Document.id)
+        .where(
+            Document.user_id == user_id,
+            Document.is_deleted == False,  # noqa: E712
+            Document.status != DocumentStatus.FAILED,
+            (Document.id == group_id) | (Document.lease_group_id == group_id),
+        )
+        .order_by(Document.version)
+    )
+    return [
+        AnalysisVersionItem(id=r.id, version=r.version, created_at=r.created_at.isoformat(), counts=_counts(r))
+        for r in rows.all()
+    ]
+
+
 @router.get("/analyses", response_model=List[AnalysisSummary], tags=["Analyses"])
 async def get_analyses(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> List[AnalysisSummary]:
-    """List all analyses for the current authenticated user."""
-    docs_result = await db.execute(
-        select(Document)
+    """
+    List all analyses for the current authenticated user.
+
+    One query, selecting only the columns the list shows. Loading the
+    DocumentReview objects instead would also load every clause and source
+    of every lease (their relationships are lazy="selectin").
+    """
+    rows = await db.execute(
+        select(
+            Document.id,
+            Document.lease_group_id,
+            Document.version,
+            Document.original_filename,
+            Document.created_at,
+            DocumentReview.likely_unenforceable_count,
+            DocumentReview.needs_review_count,
+            DocumentReview.compliant_count,
+            DocumentReview.informational_count,
+            DocumentReview.property_address,
+        )
+        .outerjoin(DocumentReview, DocumentReview.document_id == Document.id)
         .where(
             Document.user_id == current_user.id,
-            Document.is_deleted == False,  
+            Document.is_deleted == False,  # noqa: E712
+            # A failed upload of an updated version is not shown.
+            Document.lease_group_id.is_(None) | (Document.status != DocumentStatus.FAILED),
         )
         .order_by(Document.created_at.desc())
     )
-    docs = docs_result.scalars().all()
 
-    summaries: List[AnalysisSummary] = []
-    for doc in docs:
-        review_result = await db.execute(
-            select(DocumentReview).where(DocumentReview.document_id == doc.id)
+    # Show each lease once: its latest version, with how many versions it has.
+    groups: dict[str, list] = {}
+    for r in rows.all():
+        groups.setdefault(r.lease_group_id or r.id, []).append(r)
+
+    latest = [(max(g, key=lambda r: r.version), len(g)) for g in groups.values()]
+    latest.sort(key=lambda item: item[0].created_at, reverse=True)
+
+    return [
+        AnalysisSummary(
+            id=r.id,
+            file_name=r.original_filename,
+            created_at=r.created_at.isoformat(),
+            property_address=r.property_address,
+            counts=_counts(r),
+            version=r.version,
+            version_count=count,
         )
-        review = review_result.scalar_one_or_none()
-
-        counts = StatusCounts()
-        prop_addr = None
-        if review:
-            counts.red = review.likely_unenforceable_count
-            counts.amber = review.needs_review_count
-            counts.green = review.compliant_count
-            counts.grey = review.informational_count
-            prop_addr = review.property_address
-
-        summaries.append(
-            AnalysisSummary(
-                id=doc.id,
-                file_name=doc.original_filename,
-                created_at=doc.created_at.isoformat(),
-                property_address=prop_addr,
-                counts=counts,
-            )
-        )
-
-    return summaries
+        for r, count in latest
+    ]
 
 
 @router.get("/analyses/{id}", response_model=AnalysisDetail, tags=["Analyses"])
@@ -245,12 +295,17 @@ async def get_analysis(
                 )
             )
 
+    versions = await _lease_versions(db, current_user.id, doc.lease_group_id or doc.id)
+
     return AnalysisDetail(
         id=doc.id,
         file_name=doc.original_filename,
         created_at=doc.created_at.isoformat(),
         property_address=prop_address,
         counts=counts,
+        version=doc.version,
+        version_count=len(versions),
+        versions=versions,
         monthly_rent_cents=monthly_rent,
         deposit_cents=deposit,
         tenancy_start=tenancy_start,
@@ -260,19 +315,13 @@ async def get_analysis(
     )
 
 
-@router.post(
-    "/analyses",
-    response_model=UploadLeaseResponse,
-    status_code=status.HTTP_201_CREATED,
-    tags=["Analyses"],
-)
-async def upload_lease(
-    file: UploadFile = File(...),
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-) -> UploadLeaseResponse:
-    """Upload a lease document and run the extraction and analysis pipeline."""
-    # ── 1. Read and validate the uploaded file ─────────────────────────────────
+async def _read_lease_file(file: UploadFile | None) -> tuple[bytes, str]:
+    """Read the upload and check its size and real file type. Returns (bytes, mime type)."""
+    if file is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Choose a lease file to upload.",
+        )
     file_bytes = await file.read()
 
     if len(file_bytes) > _MAX_FILE_SIZE_BYTES:
@@ -292,16 +341,29 @@ async def upload_lease(
             status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
             detail=f"Unsupported file type '{actual_mime_type}'. Supported: PDF, DOCX, Images.",
         )
+    return file_bytes, actual_mime_type
 
-    original_filename = file.filename or "lease.pdf"
 
+async def _analyse_upload(
+    db: AsyncSession,
+    current_user: User,
+    file_bytes: bytes,
+    actual_mime_type: str,
+    original_filename: str,
+    sha256_hash: str,
+    lease_group_id: str | None = None,
+    version: int = 1,
+) -> UploadLeaseResponse:
+    """Save the document, run extraction and analysis, and return the result."""
     # ── 2. Create document record ──────────────────────────────────────────────
     doc = Document(
         user_id=current_user.id,
+        lease_group_id=lease_group_id,
+        version=version,
         original_filename=original_filename,
         content_type=actual_mime_type,
         file_size_bytes=len(file_bytes),
-        sha256_hash=Document.compute_hash(file_bytes),
+        sha256_hash=sha256_hash,
         status=DocumentStatus.PROCESSING,
     )
     db.add(doc)
@@ -316,9 +378,10 @@ async def upload_lease(
             user_id=current_user.id,
             content_type=actual_mime_type,
         )
-        doc.s3_uri = pipeline_result["s3_uri"]
-        doc.s3_key = pipeline_result["s3_key"]
-        doc.char_count = pipeline_result["char_count"]
+        # The columns keep their original s3_* names but hold the GCS location.
+        doc.s3_uri = pipeline_result.get("gcs_uri")
+        doc.s3_key = pipeline_result.get("gcs_key")
+        doc.char_count = pipeline_result.get("char_count")
         doc.status = DocumentStatus.COMPLETED
     except PipelineError as exc:
         doc.status = DocumentStatus.FAILED
@@ -364,7 +427,7 @@ async def upload_lease(
         file_name=doc.original_filename,
         file_size_bytes=doc.file_size_bytes,
         status=doc.status.value if hasattr(doc.status, "value") else str(doc.status),
-        s3_key=doc.s3_key,
+        gcs_key=doc.s3_key,
         char_count=doc.char_count,
         counts=StatusCounts(
             red=review.likely_unenforceable_count,
@@ -372,6 +435,81 @@ async def upload_lease(
             green=review.compliant_count,
             grey=review.informational_count,
         ),
+    )
+
+
+@router.post(
+    "/analyses",
+    response_model=UploadLeaseResponse,
+    status_code=status.HTTP_201_CREATED,
+    tags=["Analyses"],
+)
+async def upload_lease(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> UploadLeaseResponse:
+    """Upload a lease document and run the extraction and analysis pipeline."""
+    file_bytes, mime = await _read_lease_file(file)
+    return await _analyse_upload(
+        db, current_user, file_bytes, mime,
+        original_filename=file.filename or "lease.pdf",
+        sha256_hash=Document.compute_hash(file_bytes),
+    )
+
+
+@router.post(
+    "/analyses/{analysis_id}/versions",
+    response_model=UploadLeaseResponse,
+    status_code=status.HTTP_201_CREATED,
+    tags=["Analyses"],
+)
+async def upload_lease_version(
+    analysis_id: str,
+    file: UploadFile | None = File(None),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> UploadLeaseResponse:
+    """
+    Add an updated lease (e.g. a new draft from the landlord) as the next
+    version of an existing analysis. Earlier versions stay saved.
+    """
+    base = (await db.execute(
+        select(Document.id, Document.lease_group_id).where(
+            Document.id == analysis_id,
+            Document.user_id == current_user.id,
+            Document.is_deleted == False,  # noqa: E712
+        )
+    )).one_or_none()
+    if base is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Analysis not found.")
+    group_id = base.lease_group_id or base.id
+
+    file_bytes, mime = await _read_lease_file(file)
+    sha256_hash = Document.compute_hash(file_bytes)
+
+    saved = (
+        Document.user_id == current_user.id,
+        Document.is_deleted == False,  # noqa: E712
+        Document.status != DocumentStatus.FAILED,
+        (Document.id == group_id) | (Document.lease_group_id == group_id),
+    )
+    latest_version = (await db.execute(select(func.max(Document.version)).where(*saved))).scalar()
+    duplicate = (await db.execute(
+        select(Document.id).where(*saved, Document.sha256_hash == sha256_hash).limit(1)
+    )).first()
+    if duplicate:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This file is the same as a version you already uploaded.",
+        )
+
+    return await _analyse_upload(
+        db, current_user, file_bytes, mime,
+        original_filename=file.filename or "lease.pdf",
+        sha256_hash=sha256_hash,
+        lease_group_id=group_id,
+        version=(latest_version or 1) + 1,
     )
 
 
@@ -414,7 +552,7 @@ async def delete_all_analyses(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> Response:
-    """Soft-delete all analyses for the current user and wipe S3 files."""
+    """Soft-delete all analyses for the current user and wipe stored files."""
     docs_result = await db.execute(
         select(Document).where(
             Document.user_id == current_user.id,
@@ -426,9 +564,9 @@ async def delete_all_analyses(
     for doc in docs:
         if doc.s3_key:
             try:
-                delete_from_s3(doc.s3_key)
+                delete_from_gcs(doc.s3_key)
             except Exception as e:
-                logger.error(f"Error deleting S3 file {doc.s3_key}: {e}")
+                logger.error(f"Error deleting stored file {doc.s3_key}: {e}")
         doc.is_deleted = True
         doc.deleted_at = datetime.now(timezone.utc)
 
@@ -800,7 +938,7 @@ async def delete_my_data(
     db: AsyncSession = Depends(get_db),
 ) -> Response:
     """
-    Cascading account deletion: removes stored files from S3, soft-deletes/purges
+    Cascading account deletion: removes stored files from GCS, soft-deletes/purges
     analyses, notices, timeline events, preferences, and revokes Firebase tokens.
     """
     docs_result = await db.execute(
@@ -809,9 +947,9 @@ async def delete_my_data(
     for doc in docs_result.scalars().all():
         if doc.s3_key:
             try:
-                delete_from_s3(doc.s3_key)
+                delete_from_gcs(doc.s3_key)
             except Exception as e:
-                logger.error(f"Error deleting S3 key {doc.s3_key}: {e}")
+                logger.error(f"Error deleting stored file {doc.s3_key}: {e}")
         doc.is_deleted = True
         doc.deleted_at = datetime.now(timezone.utc)
 

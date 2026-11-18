@@ -7,6 +7,7 @@ This module only converts its result into the rows the rest of the app already r
 from __future__ import annotations
 
 import json
+import uuid
 from datetime import datetime, timezone
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -38,7 +39,11 @@ async def save_analysis(db: AsyncSession, document_id: str, redacted_text: str) 
     a = analyse_text(redacted_text)
     c = a["counts"]
 
+    # IDs are set here instead of waiting for a flush, so the whole analysis is
+    # written in a few batched INSERTs at the caller's commit, not one database
+    # round trip per clause.
     review = DocumentReview(
+        id=str(uuid.uuid4()),
         document_id=document_id,
         total_clauses=len(a["clauses"]),
         likely_unenforceable_count=c["red"],
@@ -55,10 +60,10 @@ async def save_analysis(db: AsyncSession, document_id: str, redacted_text: str) 
         reviewed_at=datetime.now(timezone.utc),
     )
     db.add(review)
-    await db.flush()
 
     for i, cl in enumerate(a["clauses"], start=1):
         row = ClauseReview(
+            id=str(uuid.uuid4()),
             review_id=review.id,
             clause_number=i,
             clause_title=cl["title"][:500],
@@ -72,7 +77,6 @@ async def save_analysis(db: AsyncSession, document_id: str, redacted_text: str) 
             suggested_steps=json.dumps(cl["nextSteps"]),
         )
         db.add(row)
-        await db.flush()
         for s in cl["sources"]:
             db.add(
                 ClauseSource(

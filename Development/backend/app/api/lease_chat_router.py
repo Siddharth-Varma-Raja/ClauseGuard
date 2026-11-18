@@ -23,19 +23,30 @@ from app.services.analysis.lease_chat import answer_question
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
-MODEL_NAME = "gemini-3.8-flash"
+MODEL_NAMES = ["gemini-3.8-flash", "gemini-3.5-flash"]  # first choice, then a backup
+TIMEOUT_SECONDS = 12  # per model; a stuck call becomes the fallback answer
 
 
 async def _ask_gemini(system_instruction: str, turns: list[tuple[str, str]]) -> str:
     contents = [types.Content(role=role, parts=[types.Part.from_text(text=text)]) for role, text in turns]
     client = get_genai_client()
-    response = await asyncio.to_thread(
-        client.models.generate_content,
-        model=MODEL_NAME,
-        contents=contents,
-        config=types.GenerateContentConfig(system_instruction=system_instruction, temperature=0.2),
-    )
-    return response.text or ""
+    last_error: Exception | None = None
+    for model in MODEL_NAMES:
+        try:
+            response = await asyncio.wait_for(
+                asyncio.to_thread(
+                    client.models.generate_content,
+                    model=model,
+                    contents=contents,
+                    config=types.GenerateContentConfig(system_instruction=system_instruction, temperature=0.2),
+                ),
+                timeout=TIMEOUT_SECONDS,
+            )
+            return response.text or ""
+        except Exception as e:
+            logger.error(f"Lease question model error ({model}): {e!r}")
+            last_error = e
+    raise last_error
 
 
 @router.post("/analyses/{analysis_id}/questions", response_model=ClauseQuestionResponse, tags=["Analyses"])
