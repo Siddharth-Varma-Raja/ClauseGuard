@@ -49,7 +49,11 @@ app.add_middleware(RequestLoggingMiddleware)
 app.include_router(auth_router, prefix="/api")
 app.include_router(translation_router, prefix="/api")
 app.include_router(lease_chat_router, prefix="/api")
-app.include_router(dev_router, prefix="/api")
+# Dev-only: /api/dev/token-by-uid returns a login token for ANY user with no
+# auth, so it must never be reachable in production. Off unless
+# ENABLE_DEV_TOKEN=true (local development only).
+if settings.enable_dev_token:
+    app.include_router(dev_router, prefix="/api")
 
 @app.on_event("startup")
 async def startup() -> None:
