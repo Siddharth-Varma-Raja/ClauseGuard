@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useState, useSyncExternalStore, useRef, useEffect } from "react";
-import { ArrowRight, Check, ChevronDown, ChevronLeft, ChevronRight, CircleCheck, Copy, FileText, Mail, X, MessageCircleQuestion } from "lucide-react";
+import { ArrowRight, Check, ChevronDown, ChevronLeft, ChevronRight, CircleCheck, Copy, FileText, ListChecks, Mail, X, MessageCircleQuestion } from "lucide-react";
 import type { Analysis, Clause, Status } from "@/lib/notice-types";
 import AddToEmailButton from "@/components/review/AddToEmailButton";
 import KeyLeaseDetails from "@/components/review/KeyLeaseDetails";
@@ -23,6 +23,8 @@ export default function ReviewSummary({
   onAskClause,
   emailIds = [],
   onToggleEmail,
+  actionCount = null,
+  onShowActions,
 }: {
   analysis: Analysis;
   clauses: Clause[];
@@ -30,6 +32,8 @@ export default function ReviewSummary({
   onAskClause: (clause: Clause) => void;
   emailIds?: string[];
   onToggleEmail?: (clause: Clause) => void;
+  actionCount?: number | null;
+  onShowActions?: () => void;
 }) {
   const countOf = (status: Status) => clauses.filter((c) => c.status === status).length;
   const [active, setActive] = useState<Status>(() => STATUS_ORDER.find((s) => countOf(s) > 0) ?? "red");
@@ -84,6 +88,27 @@ export default function ReviewSummary({
 
         <KeyLeaseDetails analysis={analysis} />
       </div>
+
+      {actionCount != null && onShowActions && (
+        <button
+          type="button"
+          onClick={onShowActions}
+          className="group flex w-full cursor-pointer items-center gap-3 rounded-2xl border border-line bg-white px-4 py-3 text-left shadow-soft transition-colors hover:border-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+        >
+          <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-brand-soft text-brand">
+            <ListChecks size={18} aria-hidden />
+          </span>
+          <span className="min-w-0 flex-1 text-sm text-mute">
+            <b className="font-semibold text-ink">Your action list:</b>{" "}
+            {actionCount === 0 ? "nothing to act on was found in this lease." : `${actionCount} things your lease says you or your landlord must, can't or may do.`}
+          </span>
+          <span className="hidden shrink-0 items-center gap-1 text-sm font-semibold text-brand sm:inline-flex">
+            View action list
+            <ArrowRight size={15} aria-hidden className="transition-transform group-hover:translate-x-0.5" />
+          </span>
+          <ArrowRight size={16} aria-hidden className="shrink-0 text-brand sm:hidden" />
+        </button>
+      )}
 
       <ClauseList
         key={active}

@@ -16,6 +16,11 @@ import type {
   Notice,
   UploadLeaseResponse,
   UserProfile,
+  ModelSummary,
+  ModelVersion,
+  RetrainRun,
+  ReviewCorrection,
+  TopicCorrection,
 } from "./notice-types";
 import { SAMPLE_ANSWER, SAMPLE_UPDATED_ID, getSampleLease, isSampleId, sampleLandlordEmail } from "./sample-lease";
 
@@ -307,3 +312,19 @@ export const updatePreferences = (changes: Partial<Preferences>) =>
 export const exportMyData = () => request<GdprExport>("/me/gdpr-export");
 export const deleteMyAccount = () => request<void>("/me", { method: "DELETE" });
 export const deleteMyData = deleteMyAccount;
+
+export const getTopics = () => request<{ key: string; title: string }[]>("/topics");
+
+export const sendTopicCorrection = (analysisId: string, clauseId: string, topic: string, note: string) =>
+  request<TopicCorrection>(`/analyses/${id(analysisId)}/clauses/${id(clauseId)}/topic-correction`, {
+    method: "POST",
+    body: JSON.stringify({ topic, note: note || null }),
+  });
+
+export const getReviewQueue = () => requestUncached<ReviewCorrection[]>("/admin/corrections?status=pending");
+export const decideCorrection = (correctionId: string, status: "approved" | "rejected" | "pending") =>
+  request<ReviewCorrection>(`/admin/corrections/${id(correctionId)}`, { method: "PATCH", body: JSON.stringify({ status }) });
+export const getModelSummary = () => requestUncached<ModelSummary>("/admin/model");
+export const getModelVersions = () => requestUncached<ModelVersion[]>("/admin/model/versions");
+export const getLatestRetrain = () => requestUncached<RetrainRun | null>("/admin/retrain/latest");
+export const startRetrain = () => request<RetrainRun>("/admin/retrain", { method: "POST" });
