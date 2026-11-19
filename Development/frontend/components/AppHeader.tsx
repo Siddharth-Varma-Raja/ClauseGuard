@@ -59,9 +59,9 @@ export default function AppHeader() {
     }
 
     return (
-        <header className="sticky top-0 z-40 border-b border-line bg-white/95 backdrop-blur md:hidden">
-            <div className="flex h-16 items-center gap-4 px-4 sm:px-6">
-                <Link href="/dashboard" onClick={closeMenus}>
+        <header className="sticky top-0 z-40 border-b border-line bg-white/95 backdrop-blur md:hidden [@media(max-height:480px)]:static">
+            <div className="flex h-16 items-center gap-2 px-4 sm:gap-4 sm:px-6">
+                <Link href="/dashboard" onClick={closeMenus} aria-label="ClauseGuard dashboard" className="max-[359px]:[&>span>span]:hidden">
                     <Logo />
                 </Link>
 

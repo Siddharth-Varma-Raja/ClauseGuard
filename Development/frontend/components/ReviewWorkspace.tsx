@@ -14,7 +14,7 @@ import {
   Info,
   Minus,
   Plus, ChevronDown,
-  MessageCircleQuestion, Download, List, FileText, FlaskConical, Upload, GitCompare, History, Mail
+  MessageCircleQuestion, Download, List, FileText, FlaskConical, Upload, GitCompare, History, Mail, MoreHorizontal
 } from "lucide-react";
 
 import Tooltip from "./ui/Tooltip";
@@ -26,6 +26,8 @@ import AskClauseGuard from "@/components/lease/AskClauseGuard";
 import PageTour from "@/components/PageTour";
 import { REVIEW_LEASE_TOUR, REVIEW_TOUR, SAMPLE_TOUR } from "@/lib/tours";
 import ReviewSummary from "@/components/review/ReviewSummary";
+import MobileSummary from "@/components/review/MobileSummary";
+import ClauseSheet from "@/components/review/ClauseSheet";
 import { loadViewPreference, saveViewPreference, type ReviewView } from "@/lib/viewPreference";
 import LeaseScrollBar from "./review/LeaseScrollBar";
 import AddToEmailButton from "./review/AddToEmailButton";
@@ -80,6 +82,8 @@ export default function ReviewWorkspace({ analysis }: { analysis: Analysis }) {
   const leaseScrollRef = useRef<HTMLDivElement>(null);
   const centreNextScroll = useRef(false);
   const [jumps, setJumps] = useState(0);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
 
   useEffect(() => {
     const grid = gridRef.current;
@@ -107,6 +111,7 @@ export default function ReviewWorkspace({ analysis }: { analysis: Analysis }) {
   }, [view, raised]);
 
   const selected = clauses.find((c) => c.id === selectedId) ?? null;
+  const selectedIssue = issues.findIndex((c) => c.id === selectedId);
   const pageCount = Math.max(analysis.pageCount || 1, ...clauses.map((c) => c.page || 1));
   const clausesOnPage = clauses.filter((c) => c.page === page);
   const countOf = (status: Clause["status"]) => clauses.filter((c) => c.status === status).length;
@@ -191,26 +196,27 @@ export default function ReviewWorkspace({ analysis }: { analysis: Analysis }) {
     setSelectedId(clause.id);
     setPage(clause.page);
     setJumps((n) => n + 1);
-    if (window.innerWidth < 1024) {
-      panelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
+    if (window.innerWidth < 1024) setSheetOpen(true);
   }
 
   return (
-    <div className="mx-auto max-w-[1400px]">
+    <div className="mx-auto max-w-[1400px] pb-24 md:pb-0">
       {isSampleId(analysis.id) && (
-        <div className="mb-5 flex flex-wrap items-center gap-3 rounded-2xl border border-[#bfe0e2] bg-brand-soft px-4 py-3 text-sm text-brand-dark">
+        <div className="mb-4 flex items-center gap-3 rounded-2xl border border-[#bfe0e2] bg-brand-soft py-2 pl-4 pr-2 text-sm text-brand-dark md:mb-5 md:flex-wrap md:py-3 md:pr-4">
           <FlaskConical size={18} className="shrink-0 text-brand" />
-          <p>
-            <b className="font-semibold">Sample lease.</b> Explore freely, nothing here is saved.
+          <p className="min-w-0 flex-1 md:flex-none">
+            <b className="font-semibold">Sample lease.</b>
+            <span className="hidden md:inline"> Explore freely, nothing here is saved.</span>
           </p>
-          <div className="ml-auto flex items-center gap-4">
-            <Link href="/dashboard" className="font-semibold underline underline-offset-4">
-              Exit sample
+          <div className="flex shrink-0 items-center gap-1 md:ml-auto md:gap-4">
+            <Link href="/dashboard" className="inline-flex min-h-[45px] min-w-[45px] items-center justify-center px-2 font-semibold underline underline-offset-4 md:min-h-0 md:min-w-0 md:px-0">
+              <span className="md:hidden">Exit</span>
+              <span className="hidden md:inline">Exit sample</span>
             </Link>
-            <Link href="/lease/new" data-tour="sample-own" className="inline-flex items-center gap-2 rounded-full bg-brand-dark px-4 py-2 font-semibold text-white hover:bg-brand">
+            <Link href="/lease/new" data-tour="sample-own" className="inline-flex min-h-[45px] items-center gap-2 rounded-full bg-brand-dark px-4 font-semibold text-white hover:bg-brand md:min-h-0 md:py-2">
               <Upload size={15} />
-              Check my own lease
+              <span className="md:hidden">My lease</span>
+              <span className="hidden md:inline">Check my own lease</span>
             </Link>
           </div>
         </div>
@@ -230,25 +236,76 @@ export default function ReviewWorkspace({ analysis }: { analysis: Analysis }) {
         </div>
       )}
 
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+      <div className="flex items-center justify-between gap-x-4 gap-y-2 md:flex-wrap">
         <div className="flex min-w-0 items-center gap-3">
           <Tooltip text="Back to my leases" side="bottom" className="shrink-0">
             <Link
               href="/lease"
               aria-label="Back to my leases"
-              className="grid size-9 place-items-center rounded-full border border-line bg-white text-brand-dark hover:bg-brand-soft"
+              className="grid size-[45px] place-items-center rounded-full border border-line bg-white text-brand-dark hover:bg-brand-soft md:size-9"
             >
               <ArrowLeft size={17} />
             </Link>
           </Tooltip>
           <div className="min-w-0">
-            <p className="text-xs font-medium uppercase tracking-wide text-mute">Lease review</p>
-            <h1 className="truncate font-display text-xl font-semibold text-brand-dark">{analysis.fileName}</h1>
+            <p className="hidden text-xs font-medium uppercase tracking-wide text-mute md:block">Lease review</p>
+            <h1 className="truncate font-display text-lg font-semibold text-brand-dark md:text-xl">{analysis.fileName}</h1>
             {versions.length > 1 && <VersionSwitcher analysis={analysis} versions={versions} onUpload={() => setUploadOpen(true)} />}
           </div>
         </div>
+        <div className="relative shrink-0 md:hidden">
+          <button
+            type="button"
+            onClick={() => setMoreOpen(!moreOpen)}
+            aria-label="More options"
+            aria-expanded={moreOpen}
+            className="grid size-[45px] cursor-pointer place-items-center rounded-full border border-line bg-white text-brand-dark"
+          >
+            <MoreHorizontal size={20} />
+          </button>
+          {moreOpen && (
+            <>
+              <button type="button" aria-label="Close menu" tabIndex={-1} onClick={() => setMoreOpen(false)} className="fixed inset-0 z-40 cursor-default" />
+              <div role="menu" className="absolute right-0 top-full z-50 mt-2 w-60 animate-pop-in rounded-2xl border border-line bg-white p-2 shadow-xl">
+                {isLatest && issues.length > 0 && view === "lease" && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setMoreOpen(false);
+                      openEmail();
+                    }}
+                    className="flex min-h-12 w-full cursor-pointer items-center gap-3 rounded-xl px-3 font-semibold text-ink hover:bg-surface"
+                  >
+                    <Mail size={18} className="text-brand" />
+                    Email landlord
+                    {emailIds.length > 0 && <span className="ml-auto grid min-w-6 place-items-center rounded-full bg-brand-dark px-1.5 text-xs text-white">{emailIds.length}</span>}
+                  </button>
+                )}
+                <Link role="menuitem" href={`/lease/${analysis.id}/report`} className="flex min-h-12 items-center gap-3 rounded-xl px-3 font-semibold text-ink hover:bg-surface">
+                  <FileText size={18} className="text-brand" />
+                  Full report
+                </Link>
+                {isLatest && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setMoreOpen(false);
+                      setUploadOpen(true);
+                    }}
+                    className="flex min-h-12 w-full cursor-pointer items-center gap-3 rounded-xl px-3 font-semibold text-ink hover:bg-surface"
+                  >
+                    <Upload size={18} className="text-brand" />
+                    Upload updated lease
+                  </button>
+                )}
+              </div>
+            </>
+          )}
+        </div>
         {isLatest && (
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="hidden flex-wrap items-center gap-2 md:flex">
             {issues.length > 0 && (
               <button
                 type="button"
@@ -283,7 +340,7 @@ export default function ReviewWorkspace({ analysis }: { analysis: Analysis }) {
         ) : null}
       </div>
 
-      <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center">
+      <div className="mt-4 flex flex-col gap-3 md:mt-3 md:flex-row md:items-center">
         <ViewSwitch view={view} onChange={changeView} showChanges={Boolean(previousVersion)} />
         <SummaryBar
           reportHref={`/lease/${analysis.id}/report`}
@@ -327,14 +384,27 @@ export default function ReviewWorkspace({ analysis }: { analysis: Analysis }) {
       )}
 
       {view === "summary" && (
-        <ReviewSummary
-          analysis={analysis}
-          clauses={clauses}
-          onOpenClause={openInLease}
-          onAskClause={askAbout}
-          emailIds={isLatest ? emailIds : undefined}
-          onToggleEmail={isLatest ? toggleEmail : undefined}
-        />
+        <>
+          <MobileSummary
+            analysis={analysis}
+            clauses={clauses}
+            onOpenClause={openInLease}
+            onAskClause={askAbout}
+            emailIds={isLatest ? emailIds : undefined}
+            onToggleEmail={isLatest ? toggleEmail : undefined}
+            onToggleReviewed={toggleReviewed}
+          />
+          <div className="hidden md:block">
+            <ReviewSummary
+              analysis={analysis}
+              clauses={clauses}
+              onOpenClause={openInLease}
+              onAskClause={askAbout}
+              emailIds={isLatest ? emailIds : undefined}
+              onToggleEmail={isLatest ? toggleEmail : undefined}
+            />
+          </div>
+        </>
       )}
 
       {view === "lease" && (
@@ -344,7 +414,7 @@ export default function ReviewWorkspace({ analysis }: { analysis: Analysis }) {
             aria-label="Annotated lease"
             className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-3xl border border-line bg-[#e7ecee]"
           >
-            <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-line bg-white px-4 py-2">
+            <div className="flex shrink-0 flex-wrap items-center justify-center gap-3 border-b border-line bg-white px-2 py-1.5 md:justify-between md:px-4 md:py-2">
               <div className="flex items-center gap-1">
                 <IconButton label="Previous page" disabled={page === 1} onClick={() => setPage(page - 1)}>
                   <ChevronLeft size={18} />
@@ -357,7 +427,7 @@ export default function ReviewWorkspace({ analysis }: { analysis: Analysis }) {
                 </IconButton>
               </div>
 
-              <div className="flex items-center gap-1">
+              <div className="hidden items-center gap-1 md:flex">
                 <IconButton label="Zoom out" disabled={zoom <= 80} onClick={() => setZoom(zoom - 10)}>
                   <Minus size={16} />
                 </IconButton>
@@ -417,7 +487,7 @@ export default function ReviewWorkspace({ analysis }: { analysis: Analysis }) {
             ref={panelRef}
             data-tour="clause-details"
             aria-label="Clause details"
-            className="flex min-h-0 scroll-mt-6 flex-col lg:overflow-hidden"
+            className="hidden min-h-0 scroll-mt-6 flex-col lg:flex lg:overflow-hidden"
           >
             {actionError && (
               <p role="alert" className="mb-3 rounded-xl border border-bad-line bg-bad-bg p-3 text-sm text-bad">{actionError}</p>
@@ -440,6 +510,110 @@ export default function ReviewWorkspace({ analysis }: { analysis: Analysis }) {
               </div>
             )}
           </aside>
+        </div>
+      )}
+
+      {view === "lease" && (
+        <ClauseSheet
+          clause={sheetOpen ? selected : null}
+          onClose={() => setSheetOpen(false)}
+          className="lg:hidden"
+          position={
+            selected && selectedIssue >= 0
+              ? {
+                index: selectedIssue,
+                total: issues.length,
+                onPrev: selectedIssue > 0 ? () => selectClause(issues[selectedIssue - 1]) : undefined,
+                onNext: selectedIssue < issues.length - 1 ? () => selectClause(issues[selectedIssue + 1]) : undefined,
+              }
+              : undefined
+          }
+          reviewed={selected && selectedIssue >= 0 ? { value: selected.reviewed, onToggle: () => toggleReviewed(selected) } : undefined}
+          email={selected && canEmail(selected) ? { added: emailIds.includes(selected.id), onToggle: () => toggleEmail(selected) } : undefined}
+          onAsk={
+            selected
+              ? () => {
+                setSheetOpen(false);
+                askAbout(selected);
+              }
+              : undefined
+          }
+        />
+      )}
+
+      {view === "lease" && issues.length > 0 && (
+        <div className="fixed inset-x-0 bottom-0 z-40 flex items-center gap-2 border-t border-line bg-white/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur md:hidden">
+          <button
+            type="button"
+            onClick={() => selectedIssue > 0 && selectClause(issues[selectedIssue - 1])}
+            disabled={selectedIssue <= 0}
+            aria-label="Previous issue"
+            className="grid size-12 shrink-0 cursor-pointer place-items-center rounded-full border border-line text-brand-dark disabled:cursor-default disabled:opacity-35"
+          >
+            <ChevronLeft size={20} />
+          </button>
+          <button
+            type="button"
+            onClick={() => selectClause(selectedIssue >= 0 ? issues[selectedIssue] : issues[0])}
+            className="flex min-h-12 min-w-0 flex-1 cursor-pointer items-center gap-2.5 rounded-2xl bg-brand-dark px-3.5 text-left text-white"
+          >
+            <span className={cn("size-2.5 shrink-0 rounded-full ring-2 ring-white/30", STATUS[(selectedIssue >= 0 ? issues[selectedIssue] : issues[0]).status].solid)} aria-hidden />
+            <span className="min-w-0 flex-1 leading-tight">
+              <span className="block text-xs text-white/75">
+                Issue {(selectedIssue >= 0 ? selectedIssue : 0) + 1} of {issues.length}
+              </span>
+              <span className="block truncate text-sm font-semibold">{(selectedIssue >= 0 ? issues[selectedIssue] : issues[0]).title}</span>
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => selectClause(issues[Math.min(selectedIssue + 1, issues.length - 1)])}
+            disabled={selectedIssue >= issues.length - 1}
+            aria-label="Next issue"
+            className="grid size-12 shrink-0 cursor-pointer place-items-center rounded-full border border-line text-brand-dark disabled:cursor-default disabled:opacity-35"
+          >
+            <ChevronRight size={20} />
+          </button>
+          <button
+            type="button"
+            onClick={() => setChatOpen(!chatOpen)}
+            aria-expanded={chatOpen}
+            aria-label="Ask ClauseGuard"
+            className={cn("grid size-12 shrink-0 cursor-pointer place-items-center rounded-full border", chatOpen ? "border-brand bg-brand-soft text-brand-dark" : "border-line text-brand-dark")}
+          >
+            <MessageCircleQuestion size={20} />
+          </button>
+        </div>
+      )}
+
+      {(view === "summary" || (view === "lease" && issues.length === 0)) && (
+        <div className="fixed inset-x-0 bottom-0 z-40 flex gap-2 border-t border-line bg-white/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur md:hidden">
+          {isLatest && issues.length > 0 && (
+            <button
+              type="button"
+              onClick={() => openEmail()}
+              className="flex min-h-12 min-w-12 flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl bg-brand-dark font-semibold text-white"
+            >
+              <Mail size={18} aria-hidden />
+              Email landlord
+              {emailIds.length > 0 && (
+                <span className="grid min-w-5 place-items-center rounded-full bg-white px-1.5 text-xs text-brand-dark">{emailIds.length}</span>
+              )}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setChatOpen(!chatOpen)}
+            aria-expanded={chatOpen}
+            className={cn(
+              "flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-xl border px-4 font-semibold",
+              chatOpen ? "border-brand bg-brand-soft text-brand-dark" : "border-line bg-white text-brand-dark",
+              !(isLatest && issues.length > 0) && "flex-1",
+            )}
+          >
+            <MessageCircleQuestion size={18} aria-hidden />
+            Ask
+          </button>
         </div>
       )}
 
@@ -467,6 +641,7 @@ export default function ReviewWorkspace({ analysis }: { analysis: Analysis }) {
         reference={chatClause}
         onOpenChange={setChatOpen}
         onClearReference={() => setChatClause(null)}
+        hideButtonOnMobile={view !== "changes"}
       />
 
       <p className="mt-3 flex items-center justify-center gap-2 text-center text-xs text-mute">
@@ -502,14 +677,14 @@ function SummaryBar({
     <section
       data-tour="verdict-banner"
       aria-label="Lease summary"
-      className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-center"
+      className="flex min-w-0 flex-1 flex-col gap-3 max-md:hidden sm:flex-row sm:items-center"
     >
       {showJump && (
         <div className="flex min-w-0 flex-1 justify-center">
           <div
             role="group"
             aria-label="Jump to clauses by rating"
-            className="inline-flex max-w-full flex-wrap justify-center gap-0.5 rounded-[1.6rem] border border-line bg-white p-1.5 shadow-soft"
+            className="flex max-w-full gap-1 overflow-x-auto rounded-[1.6rem] border border-line bg-white p-1.5 shadow-soft [scrollbar-width:none] md:inline-flex md:flex-wrap md:justify-center md:gap-0.5"
           >
             {STATUS_ORDER.map((s) => (
               <button
@@ -520,7 +695,7 @@ function SummaryBar({
                 title={counts[s] ? `Jump to the next “${STATUS[s].label.toLowerCase()}” clause` : undefined}
                 aria-pressed={activeStatus === s}
                 className={cn(
-                  "inline-flex h-9 cursor-pointer font-semibold items-center gap-2 rounded-full px-3.5 text-sm transition-all duration-200 disabled:cursor-default disabled:opacity-45",
+                  "inline-flex h-[45px] shrink-0 cursor-pointer font-semibold items-center gap-2 whitespace-nowrap rounded-full px-3.5 text-sm transition-all duration-200 disabled:cursor-default disabled:opacity-45 md:h-9",
                   activeStatus === s
                     ? "bg-brand-dark text-white shadow-sm"
                     : "text-mute enabled:hover:bg-surface enabled:hover:text-ink",
@@ -537,7 +712,7 @@ function SummaryBar({
 
       <div
         className={cn(
-          "ml-auto flex shrink-0 items-center gap-4",
+          "ml-auto hidden shrink-0 items-center gap-4 md:flex",
           !bare && "self-start rounded-full border border-line bg-white p-1.5 shadow-soft",
         )}
       >
@@ -578,31 +753,74 @@ function ViewSwitch({
     { value: "lease", label: "Lease viewer", Icon: FileText },
     ...(showChanges ? [{ value: "changes" as const, label: "What changed", Icon: GitCompare }] : []),
   ];
+  const [open, setOpen] = useState(false);
+  const current = options.find((o) => o.value === view) ?? options[0];
+  const Current = current.Icon;
 
   return (
-    <div
-      data-tour="view-switch"
-      role="radiogroup"
-      aria-label="How to show the lease"
-      className="inline-flex max-w-full shrink-0 items-center gap-1 self-start overflow-x-auto rounded-full border border-line bg-white p-1.5 shadow-soft"
-    >
-      {options.map(({ value, label, Icon }) => (
+    <>
+      <div className="relative md:hidden">
         <button
-          key={value}
           type="button"
-          role="radio"
-          aria-checked={view === value}
-          onClick={() => onChange(value)}
-          className={cn(
-            "inline-flex h-9 shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-full px-3 text-sm font-semibold transition-colors sm:px-4",
-            view === value ? "bg-brand-dark text-white shadow-sm" : "text-brand-dark hover:bg-surface",
-          )}
+          onClick={() => setOpen(!open)}
+          aria-haspopup="menu"
+          aria-expanded={open}
+          aria-label={`How to show the lease: ${current.label}`}
+          className="flex min-h-12 w-full cursor-pointer items-center gap-3 rounded-2xl border border-line bg-white px-4 text-base font-semibold text-brand-dark shadow-soft"
         >
-          <Icon size={15} aria-hidden className={cn(showChanges && "hidden sm:block")} />
-          {label}
+          <Current size={18} className="text-brand" aria-hidden />
+          {current.label}
+          <ChevronDown size={20} className={cn("ml-auto transition-transform duration-300 motion-reduce:transition-none", open && "rotate-180")} aria-hidden />
         </button>
-      ))}
-    </div>
+        {open && (
+          <>
+            <button type="button" aria-label="Close menu" tabIndex={-1} onClick={() => setOpen(false)} className="fixed inset-0 z-40 cursor-default" />
+            <div role="menu" className="mt-2 animate-pop-in rounded-2xl border border-line bg-white p-2 shadow-soft">
+              {options.map(({ value, label, Icon }) => (
+                <button
+                  key={value}
+                  type="button"
+                  role="menuitemradio"
+                  aria-checked={view === value}
+                  onClick={() => {
+                    setOpen(false);
+                    onChange(value);
+                  }}
+                  className={cn("flex min-h-12 w-full cursor-pointer items-center gap-3 rounded-xl px-3 font-semibold text-ink hover:bg-surface", view === value && "bg-surface")}
+                >
+                  <Icon size={18} className="text-brand" aria-hidden />
+                  {label}
+                  {view === value && <Check size={18} className="ml-auto text-brand" aria-hidden />}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+      <div
+        data-tour="view-switch"
+        role="radiogroup"
+        aria-label="How to show the lease"
+        className={cn("max-md:hidden", "flex w-full shrink-0 items-center gap-1 self-start overflow-x-auto rounded-full border border-line bg-white p-1.5 shadow-soft md:inline-flex md:w-auto md:max-w-full")}
+      >
+        {options.map(({ value, label, Icon }) => (
+          <button
+            key={value}
+            type="button"
+            role="radio"
+            aria-checked={view === value}
+            onClick={() => onChange(value)}
+            className={cn(
+              "inline-flex h-[45px] flex-1 shrink-0 cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-3 text-sm font-semibold transition-colors sm:px-4 md:h-9 md:flex-none",
+              view === value ? "bg-brand-dark text-white shadow-sm" : "text-brand-dark hover:bg-surface",
+            )}
+          >
+            <Icon size={15} aria-hidden className={cn(showChanges && "hidden sm:block")} />
+            {label}
+          </button>
+        ))}
+      </div>
+    </>
   );
 }
 
@@ -692,7 +910,7 @@ function ClausePanel({
                 disabled={!previousIssue}
                 aria-label="Previous issue"
                 title="Previous issue"
-                className="grid size-8 cursor-pointer place-items-center rounded-full text-brand-dark hover:bg-white/70 disabled:cursor-not-allowed disabled:opacity-30"
+                className="grid size-[45px] cursor-pointer place-items-center rounded-full text-brand-dark hover:bg-white/70 disabled:cursor-not-allowed disabled:opacity-30 lg:size-8"
               >
                 <ChevronLeft size={17} />
               </button>
@@ -703,7 +921,7 @@ function ClausePanel({
                 disabled={!nextIssue}
                 aria-label="Next issue"
                 title="Next issue"
-                className="grid size-8 cursor-pointer place-items-center rounded-full bg-brand text-white hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-30"
+                className="grid size-[45px] cursor-pointer place-items-center rounded-full bg-brand text-white hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-30 lg:size-8"
               >
                 <ChevronRight size={17} />
               </button>
@@ -785,12 +1003,12 @@ function ClausePanel({
         )}
       </div>
 
-      <div className="flex shrink-0 flex-wrap gap-2 border-t border-line bg-white px-4 py-3">
+      <div className="flex shrink-0 flex-wrap gap-2 border-t border-line bg-white px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 lg:pb-3">
         {onToggleEmail && <AddToEmailButton added={inEmail} onToggle={onToggleEmail} fullWidth />}
         <button
           type="button"
           onClick={onAsk}
-          className="flex min-h-10 flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl bg-brand px-3 text-sm font-semibold text-white transition-colors hover:bg-brand-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+          className="flex min-h-12 flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl bg-brand px-3 text-sm font-semibold text-white lg:min-h-10 transition-colors hover:bg-brand-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
         >
           <MessageCircleQuestion size={16} aria-hidden />Ask about this clause
         </button>
@@ -799,7 +1017,7 @@ function ClausePanel({
           onClick={onToggleReviewed}
           aria-pressed={clause.reviewed}
           className={cn(
-            "flex min-h-10 cursor-pointer items-center justify-center gap-1.5 rounded-xl border px-3 text-sm font-semibold transition-colors",
+            "flex min-h-12 cursor-pointer items-center justify-center gap-1.5 rounded-xl border px-3 text-sm font-semibold transition-colors lg:min-h-10",
             clause.reviewed ? "border-ok-line bg-ok-bg text-ok" : "border-line bg-white text-brand-dark hover:bg-surface",
           )}
         >
@@ -829,7 +1047,7 @@ function IconButton({
         aria-label={label}
         disabled={disabled}
         onClick={onClick}
-        className="grid size-9 cursor-pointer place-items-center rounded-full text-brand-dark hover:bg-surface disabled:cursor-not-allowed disabled:opacity-30"
+        className="grid size-[45px] cursor-pointer place-items-center rounded-full text-brand-dark hover:bg-surface disabled:cursor-not-allowed disabled:opacity-30 md:size-9"
       >
         {children}
       </button>
