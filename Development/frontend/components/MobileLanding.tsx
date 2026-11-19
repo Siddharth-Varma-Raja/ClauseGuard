@@ -76,7 +76,7 @@ const benefits = [
     { label: "Checks against Irish law", Icon: Scale },
     { label: "Flags unfair terms", Icon: Flag },
     { label: "Simple explanations", Icon: Sparkles },
-    { label: "Show the sources", Icon: BookOpen}
+    { label: "Show the sources", Icon: BookOpen }
 ]
 
 function Marquee({ items, reverse = false }: { items: typeof checks; reverse?: boolean }) {
@@ -284,26 +284,6 @@ export default function MobileLanding({ faqs, typedHeading }: { faqs: Faq[]; typ
     const [slide, setSlide] = useState(0);
     const [openFaq, setOpenFaq] = useState<number | null>(null);
     const carouselRef = useRef<HTMLDivElement>(null);
-    const progressRef = useRef<HTMLDivElement>(null);
-    const stepsRef = useRef<HTMLOListElement>(null);
-    const stepsLineRef = useRef<HTMLSpanElement>(null);
-
-    useEffect(() => {
-        function onScroll() {
-            const page = document.documentElement;
-            const scrolled = window.scrollY / Math.max(page.scrollHeight - window.innerHeight, 1);
-            if (progressRef.current) progressRef.current.style.transform = `scaleX(${scrolled})`;
-
-            const steps = stepsRef.current?.getBoundingClientRect();
-            if (steps && stepsLineRef.current) {
-                const filled = Math.min(Math.max((window.innerHeight * 0.65 - steps.top) / steps.height, 0), 1);
-                stepsLineRef.current.style.transform = `scaleY(${filled})`;
-            }
-        }
-        onScroll();
-        window.addEventListener("scroll", onScroll, { passive: true });
-        return () => window.removeEventListener("scroll", onScroll);
-    }, []);
 
     useEffect(() => {
         onCarouselScroll();
@@ -338,10 +318,6 @@ export default function MobileLanding({ faqs, typedHeading }: { faqs: Faq[]; typ
 
     return (
         <div className="md:hidden">
-            <div className="pointer-events-none fixed inset-x-0 top-16 z-40 h-0.5">
-                <div ref={progressRef} className="h-full origin-left scale-x-0 bg-linear-to-r from-brand to-[#7fd4dc]" />
-            </div>
-
             <section data-tour="hero" className="relative overflow-hidden rounded-b-[2.5rem] bg-[radial-gradient(120%_120%_at_100%_100%,#1d6b73_0%,#0a3b43_55%,#082d33_100%)] px-4 pb-12 pt-8 text-white">
                 <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(rgb(255_255_255/0.09)_1px,transparent_1px)] bg-size-[22px_22px] mask-[linear-gradient(to_bottom,black,transparent_70%)]" />
                 <span className="pointer-events-none absolute -right-28 -top-28 size-80 rounded-full bg-[radial-gradient(circle,rgb(6_38_43/0.7),transparent_65%)] animate-drift" />
@@ -472,12 +448,11 @@ export default function MobileLanding({ faqs, typedHeading }: { faqs: Faq[]; typ
             <section id="how-it-works-mobile" data-tour="how-it-works" className="mt-10 scroll-mt-20 bg-surface px-4 py-14">
                 <Reveal className="text-center">
                     <h2 className="font-display text-3xl font-semibold tracking-tight text-brand-dark">How it works</h2>
-                    <p className="mt-2 text-balance text-mute">Three simple steps before you sign on the dotted line.</p>
+                    <p className="mt-2 text-balance text-mute">Three simple steps before you sign your agreement.</p>
                 </Reveal>
 
-                <ol ref={stepsRef} className="relative mx-auto mt-8 max-w-xl space-y-4">
+                <ol className="relative mx-auto mt-8 max-w-xl space-y-4">
                     <span className="absolute bottom-6 left-[21px] top-6 w-0.5 rounded-full bg-brand/15" />
-                    <span ref={stepsLineRef} className="absolute bottom-6 left-[21px] top-6 w-0.5 origin-top scale-y-0 rounded-full bg-linear-to-b from-brand to-[#7fd4dc]" />
                     {steps.map((step, index) => (
                         <li key={step.title} className="relative">
                             <Reveal delay={index * 120} className="flex gap-4">

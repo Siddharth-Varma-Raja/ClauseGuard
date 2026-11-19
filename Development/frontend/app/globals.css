@@ -55,6 +55,7 @@ body {
   outline-offset: 2px;
 }
 
+
 @keyframes scan {
   0% {
     top: 0%;
@@ -272,6 +273,7 @@ body {
 }
 
 @media (hover: hover) {
+
   .chips:hover .animate-marquee,
   .chips:hover .animate-marquee-reverse {
     animation-play-state: paused;
@@ -346,6 +348,20 @@ body {
 
 .animate-cta-pulse {
   animation: ctaPulse 2.4s ease-out infinite;
+}
+
+@keyframes progress5 {
+  from {
+    width: 0;
+  }
+
+  to {
+    width: 100%;
+  }
+}
+
+.animate-progress-5 {
+  animation: progress5 5s linear both;
 }
 
 .stagger>* {

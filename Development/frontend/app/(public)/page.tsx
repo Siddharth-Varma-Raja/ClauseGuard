@@ -499,7 +499,7 @@ export default function LandingPage() {
                 How it works
               </h2>
               <p className="mt-2 text-mute text-base">
-                Three simple steps before you sign on the dotted line.
+                Three simple steps before you sign your agreement.
               </p>
             </div>
 
