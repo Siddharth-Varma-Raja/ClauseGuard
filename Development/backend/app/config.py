@@ -2,10 +2,8 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
-# Ensure .env is explicitly loaded into os.environ
 load_dotenv()
 
-# If GOOGLE_APPLICATION_CREDENTIALS is set to a relative path, resolve to absolute path
 if "GOOGLE_APPLICATION_CREDENTIALS" in os.environ:
     _cred_path = Path(os.environ["GOOGLE_APPLICATION_CREDENTIALS"])
     if not _cred_path.is_absolute():
@@ -21,6 +19,9 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     firebase_credentials_json: str = "./firebase-service-account.json"
+    # Firebase Auth may live in a different GCP project than Cloud SQL /
+    # Document AI. Used when no key file is present (Cloud Run).
+    firebase_project_id: str = ""
 
     # ── GCP / Document AI & DLP ───────────────────────────────────────────────
     gcp_project_id: str = ""
@@ -28,6 +29,9 @@ class Settings(BaseSettings):
     doc_ai_processor_id: str = ""
     gcp_processor_id: str = ""
     google_application_credentials: str = ""
+    
+    # ── GCP / Storage ─────────────────────────────────────────────────────────
+    gcs_bucket_name: str = "clauseguard-leases-prod"
 
     database_url: str = "mysql+aiomysql://root:root@localhost:3306/clauseguard"
     database_url_sync: str = "mysql+pymysql://root:root@localhost:3306/clauseguard"
@@ -43,14 +47,19 @@ class Settings(BaseSettings):
     rate_limit_auth: str = "10/minute"
     rate_limit_api: str = "60/minute"
 
-    # ── AWS / S3 ───────────────────────────────────────────────────────────────
-    aws_region: str = "eu-north-1"
-    aws_access_key_id: str = ""
-    aws_secret_access_key: str = ""
-    s3_bucket_name: str = "clauseguard-bucket"
+    # ── Load balancer / proxy trust ───────────────────────────────────────────
+    # Number of trusted proxies that APPEND to X-Forwarded-For in front of the
+    # app. Behind the Google external Application Load Balancer this is 1
+    # (the LB appends "<client-ip>,<lb-ip>"). Keep 0 for local development so
+    # the header is ignored and cannot be spoofed.
+    trusted_proxy_count: int = 0
 
     # ── Firebase Web API Key (for dev token generator) ────────────────────────
     firebase_web_api_key: str = ""
+
+    # Mounts /api/dev/* (test-token helpers). Local development ONLY: it hands
+    # out login tokens without authentication.
+    enable_dev_token: bool = False
 
     # ── Gemini API Key (for chatbot) ──────────────────────────────────────────
     gemini_api_key: str = ""

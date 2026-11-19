@@ -28,7 +28,7 @@ from app.schemas.chat import (
     ChatRequest,
     ChatResponse,
 )
-from app.services.document.s3 import download_text_from_s3
+from app.services.document.storage import get_text_from_gcs
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -50,7 +50,7 @@ async def retrieve_relevant_context(
     db: AsyncSession,
 ) -> str:
     """
-    Fetches REDACTED lease text from S3 based on the document_id in the database,
+    Fetches REDACTED lease text from GCS based on the document_id in the database,
     verifying that the document belongs to the requesting user.
     """
     try:
@@ -58,7 +58,7 @@ async def retrieve_relevant_context(
             select(Document).where(
                 Document.id == document_id,
                 Document.user_id == user_id,
-                Document.is_deleted == False,  # noqa: E712
+                Document.is_deleted == False, 
             )
         )
         doc = result.scalar_one_or_none()
@@ -68,12 +68,12 @@ async def retrieve_relevant_context(
                 detail=f"Document '{document_id}' not found.",
             )
         if doc.s3_key:
-            lease_text = download_text_from_s3(doc.s3_key)
+            lease_text = get_text_from_gcs(doc.s3_key)
             return lease_text
     except HTTPException:
         raise
     except Exception as e:
-        logger.warning(f"Could not retrieve lease text from S3 for document {document_id}: {e}")
+        logger.warning(f"Could not retrieve lease text from GCS for document {document_id}: {e}")
 
     return ""
 
