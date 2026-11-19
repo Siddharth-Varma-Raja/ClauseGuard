@@ -65,7 +65,7 @@ export default function AppSidebar() {
             >
                 <Link href="/dashboard" className="flex h-10 items-center gap-3 rounded-xl">
                     <span className="grid w-11 shrink-0 place-items-center">
-                        <Image src="/logo.svg" alt="" width={26} height={28} priority />
+                        <Image src="/logo.svg" alt="" width={26} height={29} priority />
                     </span>
                     <span className={cn("whitespace-nowrap font-display text-xl font-semibold text-brand-dark", SHOW)}>ClauseGuard</span>
                 </Link>
