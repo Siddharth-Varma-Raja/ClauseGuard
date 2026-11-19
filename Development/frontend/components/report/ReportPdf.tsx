@@ -6,6 +6,7 @@ import OverviewPage from "./pdf/OverviewPage";
 import ClausesPage from "./pdf/ClausesPage";
 import IssuesPage from "./pdf/IssuesPage";
 import NextStepsPage from "./pdf/NextStepsPage";
+import ActionListPage from "./pdf/ActionListPage";
 
 Font.registerHyphenationCallback((word) => [word]);
 
@@ -40,6 +41,7 @@ export default function ReportPdf({ analysis, leaseName, end, userName, userEmai
 
     const contents = [
         { id: "overview", label: "Overview" },
+        ...(analysis.actionList ? [{ id: "actions", label: "Your action list" }] : []),
         { id: "all", label: "Every clause in your lease" },
         ...(flagged.length > 0 ? [{ id: "issues", label: "Potential clauses found" }] : []),
         { id: "next", label: "What to do next" },
@@ -49,6 +51,7 @@ export default function ReportPdf({ analysis, leaseName, end, userName, userEmai
         <Document title={`ClauseGuard report - ${leaseName}`} author="ClauseGuard">
             <CoverPage {...page} fileName={analysis.fileName} pageCount={analysis.pageCount} total={total} issues={flagged.length} details={details} contents={contents} />
             <OverviewPage {...page} total={total} counts={counts} facts={facts} />
+            {analysis.actionList && <ActionListPage {...page} actionList={analysis.actionList} />}
             <ClausesPage {...page} clauses={clauses} />
             {flagged.length > 0 && <IssuesPage {...page} flagged={flagged} />}
             <NextStepsPage {...page} issues={flagged.length} />

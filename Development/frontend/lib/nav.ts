@@ -1,4 +1,4 @@
-import { CalendarDays, FileText, LayoutDashboard, ScrollText } from "lucide-react";
+import { CalendarDays, FileText, LayoutDashboard, ScrollText, ShieldCheck } from "lucide-react";
 
 export const NAV_ITEMS = [
     { label: "Dashboard", href: "/dashboard", Icon: LayoutDashboard },
@@ -6,6 +6,8 @@ export const NAV_ITEMS = [
     { label: "Notices", href: "/notices", Icon: ScrollText },
     { label: "Timeline", href: "/timeline", Icon: CalendarDays },
 ];
+
+export const ADMIN_ITEM = { label: "Team admin", href: "/admin", Icon: ShieldCheck };
 
 export function isActive(pathname: string, href: string) {
     if (href === "/lease") return pathname === "/lease" || (pathname.startsWith("/lease/") && !pathname.startsWith("/lease/new") && !pathname.startsWith("/lease/try"));
