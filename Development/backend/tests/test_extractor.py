@@ -144,6 +144,20 @@ def test_page_numbers_reach_the_analysis(ocr):
     assert max(c["page"] for c in a["clauses"]) == 5
 
 
+def test_extraction_plan_reports_pages_and_ocr_pages(ocr):
+    plans = []
+    ex.extract_text(text_pdf([lease_page(n) for n in range(1, 4)]), "application/pdf", on_plan=lambda *a: plans.append(a))
+    ex.extract_text(scanned_pdf([f"page {i}" for i in range(5)]), "application/pdf", on_plan=lambda *a: plans.append(a))
+    assert plans == [(3, 0), (5, 5)]
+
+
+def test_failing_plan_callback_does_not_break_extraction(ocr):
+    def broken(*_):
+        raise RuntimeError("boom")
+    out = ex.extract_text(text_pdf([lease_page(1)]), "application/pdf", on_plan=broken)
+    assert "SECTION 1." in out
+
+
 def test_scanned_pdf_is_ocrd_in_parallel_chunks_of_15(ocr):
     pdf = scanned_pdf([f"page {i}" for i in range(31)])
     out = ex.extract_text(pdf, "application/pdf")

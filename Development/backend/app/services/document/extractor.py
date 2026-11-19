@@ -41,6 +41,16 @@ _RETRYABLE = (
 )
 
 
+def _report_plan(on_plan, pages: int, ocr_pages: int) -> None:
+    """Tell the caller how much work extraction involves (for time estimates). Never fails the upload."""
+    if on_plan is None:
+        return
+    try:
+        on_plan(pages, ocr_pages)
+    except Exception:
+        logger.exception("Extraction plan callback failed.")
+
+
 class PdfPasswordError(ValueError):
     """The PDF needs a password to open, so its text cannot be read."""
 
@@ -293,11 +303,13 @@ def _ocr_unreadable_pdf(file_bytes: bytes) -> str:
     return text
 
 
-def extract_pdf_text(file_bytes: bytes) -> str:
+def extract_pdf_text(file_bytes: bytes, on_plan=None) -> str:
     """
     Read each page's own text (fast, local). Only pages that look scanned, or
     that hold filled-in form fields, go to OCR. Pages are joined with a form
     feed ("\\f") so the analysis knows where each page starts.
+
+    ``on_plan(pages, ocr_pages)`` is called once the OCR pages are known.
     """
     started = time.perf_counter()
     try:
@@ -316,6 +328,7 @@ def extract_pdf_text(file_bytes: bytes) -> str:
         logger.warning("pypdf could not read the PDF (%s); trying OCR on the whole file.", exc)
         return _ocr_unreadable_pdf(file_bytes)
 
+    _report_plan(on_plan, len(texts), len(needs_ocr))
     if needs_ocr:
         ocr_text = ocr_pdf_pages(reader, needs_ocr)
         for i in needs_ocr:
@@ -338,13 +351,14 @@ def extract_pdf_text(file_bytes: bytes) -> str:
 
 # ── Public API ────────────────────────────────────────────────────────────────
 
-def extract_text(file_bytes: bytes, content_type: str, file_name: str = "upload.bin") -> str:
+def extract_text(file_bytes: bytes, content_type: str, file_name: str = "upload.bin", on_plan=None) -> str:
     """
     Route a file to the fastest extractor that can read it:
     - DOCX: local python-docx parser.
     - PDF: text layer first; scanned pages by parallel synchronous OCR.
     - Images: synchronous OCR.
     `file_name` is kept for backwards compatibility and is no longer used.
+    ``on_plan(pages, ocr_pages)`` reports how much OCR is needed, for time estimates.
     """
     if content_type not in ALL_SUPPORTED_MIME_TYPES:
         raise ValueError(f"Unsupported content type: {content_type}")
@@ -355,9 +369,10 @@ def extract_text(file_bytes: bytes, content_type: str, file_name: str = "upload.
 
     if content_type in IMAGE_MIME_TYPES:
         logger.info("Extracting image synchronously.")
+        _report_plan(on_plan, 1, 1)
         return extract_text_sync(file_bytes, content_type)
 
-    return extract_pdf_text(file_bytes)
+    return extract_pdf_text(file_bytes, on_plan=on_plan)
 
 def extract_lease_metadata(raw_unredacted_text: str) -> dict:
     """

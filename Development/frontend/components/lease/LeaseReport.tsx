@@ -17,6 +17,8 @@ import AllClauses from "./AllClauses";
 import Overview from "@/components/report/Overview";
 import AllTab from "@/components/report/AllTab";
 import DetailsTab from "@/components/report/DetailsTab";
+import LeaseActionList from "@/components/review/LeaseActionList";
+import { actionCount } from "@/lib/actionList";
 import { useAuth } from "@/components/auth/AuthProvider";
 
 import { cn } from "@/lib/cn";
@@ -49,7 +51,7 @@ function termEnd(startIso: string, months: number) {
   return end.toISOString().slice(0, 10);
 }
 
-type Tab = "overview" | "all" | "details";
+type Tab = "overview" | "all" | "details" | "actions";
 
 export default function LeaseReport({ analysis }: { analysis: Analysis }) {
   const { clauses } = analysis;
@@ -147,6 +149,18 @@ export default function LeaseReport({ analysis }: { analysis: Analysis }) {
   const tabs: { id: Tab; label: string; intro?: { title: string; text: string } }[] = [
     { id: "overview", label: "Overview" },
     { id: "details", label: "Lease details", intro: { title: "Lease details", text: "The key facts we found in your lease. Check they match what you agreed." } },
+    ...(analysis.actionList
+      ? [
+          {
+            id: "actions" as const,
+            label: "Action list",
+            intro: {
+              title: `Your action list${actionCount(analysis.actionList) ? `: ${actionCount(analysis.actionList)} items` : ""}`,
+              text: "What your lease says you and your landlord must, can't and may do. Built from your lease using fixed rules, no AI reads your lease for this.",
+            },
+          },
+        ]
+      : []),
     { id: "all", label: "All clauses", intro: { title: `All ${total} clauses`, text: "Every clause in your lease, in order. Select a clause to open it in Lease viewer." } },
   ];
   const money = (cents: number | null) => (cents == null ? null : new Intl.NumberFormat("en-IE", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(cents / 100));
@@ -253,6 +267,7 @@ export default function LeaseReport({ analysis }: { analysis: Analysis }) {
         )}
 
         {tab === "all" && <AllTab clauses={clauses} risk={risk} onRisk={setRisk} onOpen={open} />}
+        {tab === "actions" && analysis.actionList && <LeaseActionList actionList={analysis.actionList} clauses={clauses} onView={open} showHeader={false} />}
         {tab === "details" && <DetailsTab analysis={analysis} end={end} busy={timeline.busy} onAddDates={addDatesToTimeline} />}
 
         {tab !== "overview" && (
@@ -283,6 +298,11 @@ export default function LeaseReport({ analysis }: { analysis: Analysis }) {
           <ShortAnswer counts={counts} total={total} />
           <CountBoxes counts={counts} />
           <LeaseDetails rows={printRows} missing={[]} />
+          {analysis.actionList && (
+            <div className="mt-6 break-before-page">
+              <LeaseActionList actionList={analysis.actionList} clauses={clauses} onView={open} />
+            </div>
+          )}
           <NextSteps counts={counts} onDownload={downloadReport} onEmail={openEmail} />
           <FlaggedClauses analysisId={analysis.id} clauses={clauses} printing raised={null} onEmail={openEmail} />
           <AllClauses analysisId={analysis.id} clauses={clauses} printing />

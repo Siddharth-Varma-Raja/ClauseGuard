@@ -1,19 +1,29 @@
+"use client";
+
 import { Check, FileSearchCorner, Loader2 } from "lucide-react";
 import Card from "@/components/ui/Card";
+import { useRemainingText } from "@/components/lease/useUploadProgress";
 
 const LINE_WIDTHS = [92, 78, 86, 64, 90, 72, 84, 58, 88, 70];
 
 export default function ProcessingCard({
     steps,
     current,
+    durations = [],
+    readyAt,
     title = "Reviewing your lease",
-    subtitle = "This usually takes under a minute. Keep this page open.",
+    subtitle = "This usually takes a few seconds. Scanned documents can take up to a minute. Keep this page open.",
 }: {
     steps: string[];
     current: number;
+
+    durations?: number[];
+    /** performance.now() time the analysis is expected to be ready: drives the countdown. */
+    readyAt?: number;
     title?: string;
     subtitle?: string;
 }) {
+    const remaining = useRemainingText(readyAt ?? 0, readyAt !== undefined && current < steps.length);
     const progress = current / steps.length;
     const linesRead = Math.round(progress * LINE_WIDTHS.length);
 
@@ -39,6 +49,11 @@ export default function ProcessingCard({
                     </div>
                     <h1 className="mt-5 font-display text-3xl font-semibold text-brand-dark">{title}</h1>
                     <p className="mt-2 text-mute">{subtitle}</p>
+                    {readyAt !== undefined && current < steps.length && (
+                        <p className="mt-3 font-semibold tabular-nums text-brand-dark" aria-live="off">
+                            {remaining}
+                        </p>
+                    )}
 
                     <div className="mt-6 h-2 overflow-hidden rounded-full bg-surface">
                         <div
@@ -60,6 +75,9 @@ export default function ProcessingCard({
                                         {done ? <Check size={15} /> : active ? <Loader2 size={15} className="animate-spin" /> : i + 1}
                                     </span>
                                     <span className={done || active ? "font-medium text-ink" : "text-mute"}>{step}</span>
+                                    {done && durations[i] !== undefined && (
+                                        <span className="ml-auto text-sm tabular-nums text-mute">{durations[i].toFixed(1)} s</span>
+                                    )}
                                 </li>
                             );
                         })}

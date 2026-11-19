@@ -16,10 +16,10 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${figtree.variable} ${fraunces.variable}`}>
+    <html lang="en" className={`${figtree.variable} ${fraunces.variable}`} data-scroll-behavior="smooth">
       <body className="min-h-screen">
         <AuthProvider>{children}</AuthProvider>
-        </body>
+      </body>
     </html>
   );
 }

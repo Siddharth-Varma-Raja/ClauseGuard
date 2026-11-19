@@ -1,3 +1,5 @@
+import logging
+
 import structlog
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
@@ -15,6 +17,12 @@ from app.config import settings
 from app.core.firebase import init_firebase
 from app.core.rate_limit import limiter
 from app.middleware.logging import RequestLoggingMiddleware
+
+# Without a handler, the app's logger.info lines (e.g. the per-stage upload
+# timings in the pipeline) are dropped; only warnings and errors get through.
+logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
+for _noisy in ("httpx", "httpcore", "urllib3", "google", "pypdf"):
+    logging.getLogger(_noisy).setLevel(logging.WARNING)
 
 structlog.configure(
     processors=[
