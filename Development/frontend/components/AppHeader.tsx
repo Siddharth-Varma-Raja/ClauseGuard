@@ -9,13 +9,15 @@ import Logo from "./ui/Logo";
 import { START_TOUR, TOUR_GONE, TOUR_READY } from "./PageTour";
 import { auth } from "@/lib/firebase";
 import { useAuth } from "@/components/auth/AuthProvider";
-import { NAV_ITEMS, isActive, initialsOf } from "@/lib/nav";
+import { ADMIN_ITEM, NAV_ITEMS, isActive, initialsOf } from "@/lib/nav";
+import { useIsAdmin } from "@/lib/useIsAdmin";
 import { cn } from "@/lib/cn";
 
 export default function AppHeader() {
     const router = useRouter();
     const pathname = usePathname();
     const { user } = useAuth();
+    const isAdmin = useIsAdmin();
     const [menuOpen, setMenuOpen] = useState(false);
     const [profileOpen, setProfileOpen] = useState(false);
     const [hasTour, setHasTour] = useState(false);
@@ -156,7 +158,7 @@ export default function AppHeader() {
 
             {menuOpen && (
                 <nav aria-label="Main" className="animate-pop-in border-t border-line bg-white px-4 py-3">
-                    {NAV_ITEMS.map((item) => (
+                    {[...NAV_ITEMS, ...(isAdmin ? [ADMIN_ITEM] : [])].map((item) => (
                         <Link
                             key={item.href}
                             href={item.href}

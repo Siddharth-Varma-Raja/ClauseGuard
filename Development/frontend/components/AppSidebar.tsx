@@ -10,7 +10,8 @@ import type { LucideIcon } from "lucide-react";
 import { START_TOUR, TOUR_GONE, TOUR_READY } from "./PageTour";
 import { auth } from "@/lib/firebase";
 import { useAuth } from "@/components/auth/AuthProvider";
-import { NAV_ITEMS, initialsOf, isActive } from "@/lib/nav";
+import { ADMIN_ITEM, NAV_ITEMS, initialsOf, isActive } from "@/lib/nav";
+import { useIsAdmin } from "@/lib/useIsAdmin";
 import { cn } from "@/lib/cn";
 
 const SHOW = "opacity-0 transition-opacity duration-200 group-hover/side:opacity-100 group-has-[:focus-visible]/side:opacity-100";
@@ -36,6 +37,7 @@ export default function AppSidebar() {
     const router = useRouter();
     const pathname = usePathname();
     const { user } = useAuth();
+    const isAdmin = useIsAdmin();
     const [hasTour, setHasTour] = useState(false);
     const name = user?.displayName || user?.email?.split("@")[0] || "";
 
@@ -75,6 +77,15 @@ export default function AppSidebar() {
                         </Link>
                     ))}
                 </nav>
+
+                {isAdmin && (
+                    <>
+                        <div className="mx-1 my-5 h-px bg-line" />
+                        <Link href={ADMIN_ITEM.href} aria-current={isActive(pathname, ADMIN_ITEM.href) ? "page" : undefined} className="block rounded-xl">
+                            <Item label={ADMIN_ITEM.label} Icon={ADMIN_ITEM.Icon} active={isActive(pathname, ADMIN_ITEM.href)} />
+                        </Link>
+                    </>
+                )}
 
                 <div className="mx-1 my-5 h-px bg-line" />
 

@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 
 import Tooltip from "./ui/Tooltip";
-import type { Analysis, Clause } from "@/lib/notice-types";
+import type { Analysis, Clause, TopicCorrection } from "@/lib/notice-types";
 import { STATUS, STATUS_ORDER } from "@/lib/status";
 import { cn } from "@/lib/cn";
 import { errorMessage, getPreferences, setClauseReviewed } from "@/lib/api";
@@ -33,10 +33,10 @@ import LandlordEmailPanel from "./review/LandlordEmailPanel";
 import UploadVersionDialog from "./review/UploadVersionDialog";
 import VersionSwitcher from "./review/VersionSwitcher";
 import WhatChanged from "./review/WhatChanged";
+import TopicFeedback from "./review/TopicFeedback";
 import { fmtDate } from "@/lib/format";
 import { loadRaised, saveRaised } from "@/lib/raisedClauses";
 import { SAMPLE_ID, isSampleId } from "@/lib/sample-lease";
-import { match } from "assert";
 
 type WorkspaceView = ReviewView | "changes";
 
@@ -153,6 +153,10 @@ export default function ReviewWorkspace({ analysis }: { analysis: Analysis }) {
       setClauses((prev) => prev.map((c) => (c.id === clause.id ? { ...c, reviewed: !reviewed } : c)));
       setActionError(errorMessage(err, "That change didn't save. Try again."));
     }
+  }
+
+  function saveCorrection(clause: Clause, correction: TopicCorrection) {
+    setClauses((prev) => prev.map((c) => (c.id === clause.id ? { ...c, correction } : c)));
   }
 
   function changeView(next: WorkspaceView) {
@@ -431,6 +435,8 @@ export default function ReviewWorkspace({ analysis }: { analysis: Analysis }) {
                 onSelect={selectClause}
                 onAsk={() => askAbout(selected)}
                 onToggleReviewed={() => toggleReviewed(selected)}
+                analysisId={analysis.id}
+                onCorrected={(correction) => saveCorrection(selected, correction)}
                 inEmail={emailIds.includes(selected.id)}
                 onToggleEmail={canEmail(selected) ? () => toggleEmail(selected) : undefined}
               />
@@ -659,6 +665,8 @@ function ClausePanel({
   onToggleReviewed,
   inEmail,
   onToggleEmail,
+  analysisId,
+  onCorrected,
 }: {
   clause: Clause;
   issues: Clause[];
@@ -668,6 +676,8 @@ function ClausePanel({
   onToggleReviewed: () => void;
   inEmail: boolean;
   onToggleEmail?: () => void;
+  analysisId: string;
+  onCorrected: (correction: TopicCorrection) => void;
 }) {
   const style = STATUS[clause.status];
   const issueIndex = issues.findIndex((c) => c.id === clause.id);
@@ -783,6 +793,8 @@ function ClausePanel({
             </ul>
           </div>
         )}
+
+        <TopicFeedback analysisId={analysisId} clause={clause} demo={isSampleId(analysisId)} onSent={onCorrected} />
       </div>
 
       <div className="flex shrink-0 flex-wrap gap-2 border-t border-line bg-white px-4 py-3">

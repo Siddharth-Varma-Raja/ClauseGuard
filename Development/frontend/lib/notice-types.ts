@@ -24,6 +24,18 @@ export type Clause = {
   nextSteps: string[];
   sources: Source[];
   reviewed: boolean;
+  topic?: string | null;
+  correction?: TopicCorrection | null;
+};
+
+export type CorrectionStatus = "pending" | "approved" | "rejected";
+
+export type TopicCorrection = {
+  id: string;
+  topic: string;
+  note?: string | null;
+  status: CorrectionStatus;
+  createdAt: string;
 };
 
 export type AnalysisSummary = {
@@ -141,4 +153,47 @@ export type UserProfile = {
 export type GdprExport = {
   user: Record<string, unknown>;
   exportedAt: string;
+};
+export type ReviewCorrection = {
+  id: string;
+  clauseText: string;
+  modelTopic: string;
+  userTopic: string;
+  note?: string | null;
+  status: CorrectionStatus;
+  createdAt: string;
+};
+
+export type ModelSummary = {
+  version: string;
+  macroF1: number;
+  liveSince: string;
+  approvedSinceRetrain: number;
+  waiting: number;
+};
+
+export type RetrainStep = "adding" | "training" | "testing" | "comparing";
+
+export type RetrainRun = {
+  id: string;
+  status: "running" | "finished" | "failed";
+  step: RetrainStep;
+  startedAt: string;
+  fromVersion: string;
+  toVersion: string;
+  correctionsAdded: number;
+  oldScore: number;
+  newScore?: number | null;
+  deployed?: boolean | null;
+  leasesTested?: number | null;
+  leasesTotal?: number | null;
+  error?: string | null;
+};
+
+export type ModelVersion = {
+  version: string;
+  createdAt: string;
+  correctionsAdded: number;
+  macroF1?: number | null;
+  result: "live" | "kept" | "replaced" | "running" | "failed";
 };
