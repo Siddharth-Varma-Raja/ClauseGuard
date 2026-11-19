@@ -93,6 +93,7 @@ class DocumentReview(Base):
     tenancy_start: Mapped[str | None] = mapped_column(String(64), nullable=True)
     term_months: Mapped[int | None] = mapped_column(Integer, nullable=True)
     page_count: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    action_list: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON text
 
     # ── Review status ──────────────────────────────────────────────────────────
     review_status: Mapped[ReviewStatus] = mapped_column(
