@@ -225,6 +225,129 @@ body {
   animation: fadeUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
+@keyframes sweep {
+  from {
+    transform: translateX(-100%);
+  }
+
+  to {
+    transform: translateX(300%);
+  }
+}
+
+.animate-sweep {
+  animation: sweep 1.4s ease-in-out infinite;
+}
+
+@keyframes drift {
+  from {
+    transform: translate(0, 0) scale(1);
+  }
+
+  to {
+    transform: translate(36px, 28px) scale(100);
+  }
+}
+
+.animate-drift {
+  animation: drift 9s ease-in-out infinite alternate;
+}
+
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-marquee {
+  animation: marquee 84s linear infinite;
+}
+
+.animate-marquee-reverse {
+  animation: marquee 96s linear infinite reverse;
+}
+
+@media (hover: hover) {
+  .chips:hover .animate-marquee,
+  .chips:hover .animate-marquee-reverse {
+    animation-play-state: paused;
+  }
+}
+
+@keyframes spinSlow {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin-slow {
+  animation: spinSlow 5s linear infinite;
+}
+
+@keyframes tiltIn {
+  from {
+    opacity: 0;
+    transform: perspective(900px) rotateX(22deg) translateY(48px) scale(0.94);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.animate-tilt-in {
+  animation: tiltIn 1.1s cubic-bezier(0.16, 1, 0.3, 1) 0.45s both;
+}
+
+@keyframes lineUp {
+  from {
+    transform: translateY(105%);
+  }
+
+  to {
+    transform: none;
+  }
+}
+
+.animate-line-up {
+  animation: lineUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes shine {
+  0% {
+    transform: translateX(0) skewX(-12deg);
+  }
+
+  35%,
+  100% {
+    transform: translateX(450%) skewX(-12deg);
+  }
+}
+
+.animate-shine {
+  animation: shine 3.6s ease-in-out 1.5s infinite;
+}
+
+@keyframes ctaPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgb(227 241 242 / 0.55);
+  }
+
+  70%,
+  100% {
+    box-shadow: 0 0 0 16px rgb(227 241 242 / 0);
+  }
+}
+
+.animate-cta-pulse {
+  animation: ctaPulse 2.4s ease-out infinite;
+}
+
 .stagger>* {
   animation: fadeUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
   animation-delay: var(--delay, 0ms);
@@ -299,7 +422,16 @@ body {
   .animate-float,
   .animate-sheet-up,
   .animate-fade-in,
-  .animate-scan {
+  .animate-scan,
+  .animate-sweep,
+  .animate-drift,
+  .animate-marquee,
+  .animate-marquee-reverse,
+  .animate-spin-slow,
+  .animate-tilt-in,
+  .animate-line-up,
+  .animate-shine,
+  .animate-cta-pulse {
     animation: none;
   }
 
