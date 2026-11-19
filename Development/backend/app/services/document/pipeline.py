@@ -18,13 +18,39 @@ Why a dedicated pipeline module?
 import logging
 import time
 import uuid
+from collections.abc import Callable
 
+from app.services.document import estimate
 from app.services.document.extractor import extract_text
 from app.services.document.redactor import RedactionError, redact
 from app.services.document.storage import upload_text_to_gcs, GCSStorageError
 from document_checker.diff_engine import TemplateDiffEngine
 
 logger = logging.getLogger(__name__)
+
+
+StepCallback = Callable[[str, float], None]
+EstimateCallback = Callable[[float], None]
+
+
+def _report(on_step: StepCallback | None, step: str, seconds: float) -> None:
+    """Tell the caller a step has finished. Progress reporting never breaks an upload."""
+    if on_step is None:
+        return
+    try:
+        on_step(step, seconds)
+    except Exception:
+        logger.exception("[pipeline] Progress callback failed for step '%s'.", step)
+
+
+def _estimate(on_estimate: EstimateCallback | None, remaining_seconds: float) -> None:
+    """Tell the caller how long the rest of the pipeline should take. Never breaks an upload."""
+    if on_estimate is None:
+        return
+    try:
+        on_estimate(remaining_seconds)
+    except Exception:
+        logger.exception("[pipeline] Estimate callback failed.")
 
 
 class PipelineError(Exception):
@@ -47,9 +73,17 @@ def run_upload_pipeline(
     user_id: str,
     content_type: str,
     gcs_key_prefix: str = "documents/",
+    on_step: StepCallback | None = None,
+    on_estimate: EstimateCallback | None = None,
 ) -> dict:
     """
     Run the full Extract → Validate Lease → Redact → Upload pipeline.
+
+    ``on_step(step, seconds)`` is called as each step finishes, with the step
+    name ("extract", "lease_check", "redact", "store") and its duration.
+    ``on_estimate(seconds)`` is called whenever the expected remaining time is
+    known or changes: once extraction knows how many pages need OCR, and after
+    each later step. The rules-engine save that follows is included.
     """
     unique_id = str(uuid.uuid4())
     gcs_key = f"{gcs_key_prefix}{user_id}/{unique_id}.txt"
@@ -63,12 +97,20 @@ def run_upload_pipeline(
     timings: dict[str, float] = {}
     t0 = time.perf_counter()
     try:
-        raw_text = extract_text(file_bytes, content_type)
+        raw_text = extract_text(
+            file_bytes,
+            content_type,
+            on_plan=lambda pages, ocr_pages: _estimate(
+                on_estimate, estimate.from_extraction_plan(pages, ocr_pages)
+            ),
+        )
     except Exception as exc:
         logger.exception("[pipeline] Extraction failed.")
         raise PipelineError(f"Text extraction failed: {exc}", step="extraction") from exc
 
     timings["extract"] = time.perf_counter() - t0
+    _report(on_step, "extract", timings["extract"])
+    _estimate(on_estimate, estimate.after_extract_seconds(len(raw_text)))
     logger.info("[pipeline] Extraction complete — %d chars.", len(raw_text))
     t0 = time.perf_counter()
 
@@ -97,6 +139,7 @@ def run_upload_pipeline(
     )
 
     timings["lease_check"] = time.perf_counter() - t0
+    _report(on_step, "lease_check", timings["lease_check"])
 
     # ── Step 3: Redact ────────────────────────────────────────────────
     logger.info("[pipeline] Starting redaction.")
@@ -111,6 +154,8 @@ def run_upload_pipeline(
         raise PipelineError(f"Redaction error: {exc}", step="redaction") from exc
 
     timings["redact"] = time.perf_counter() - t0
+    _report(on_step, "redact", timings["redact"])
+    _estimate(on_estimate, estimate.after_redact_seconds())
     logger.info("[pipeline] Redaction complete — %d chars remaining.", len(redacted_text))
     t0 = time.perf_counter()
 
@@ -122,6 +167,8 @@ def run_upload_pipeline(
         raise PipelineError(f"GCS upload failed: {exc}", step="upload") from exc
 
     timings["upload"] = time.perf_counter() - t0
+    _report(on_step, "store", timings["upload"])
+    _estimate(on_estimate, estimate.ANALYSE_SECONDS)
     logger.info("[pipeline] Pipeline complete → %s", gcs_uri)
     logger.info(
         "[pipeline] Timings: %s | total %.2fs",

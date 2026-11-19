@@ -12,10 +12,12 @@ import magic
 import os
 import uuid
 import asyncio
+import time
 from datetime import datetime, timezone
 from typing import Any, List
 
-from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile, status, Request
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile, status, Request
+from fastapi.responses import StreamingResponse
 from starlette.concurrency import run_in_threadpool
 from google import genai
 from google.genai import types
@@ -26,7 +28,7 @@ from app.api.deps import get_current_user
 from app.config import settings
 from app.core.rate_limit import limiter
 from app.core.firebase import revoke_refresh_tokens
-from app.database import get_db
+from app.database import AsyncSessionLocal, get_db
 from app.models.chat import ChatMessage, ChatRole
 from app.models.document import Document, DocumentStatus
 from app.models.notice import Notice
@@ -68,7 +70,7 @@ from app.schemas.translation import (
     UserProfileResponse,
 )
 from app.services.analysis.persist import save_analysis
-from app.services.document.pipeline import PipelineError, run_upload_pipeline
+from app.services.document.pipeline import EstimateCallback, PipelineError, StepCallback, run_upload_pipeline
 from app.services.document.storage import delete_from_gcs
 from app.services.notice_checker import check_notice_rules
 from app.services.email_generator import generate_landlord_email
@@ -353,8 +355,16 @@ async def _analyse_upload(
     sha256_hash: str,
     lease_group_id: str | None = None,
     version: int = 1,
+    on_step: StepCallback | None = None,
+    on_estimate: EstimateCallback | None = None,
 ) -> UploadLeaseResponse:
-    """Save the document, run extraction and analysis, and return the result."""
+    """
+    Save the document, run extraction and analysis, and return the result.
+
+    ``on_step(step, seconds)`` is called as each stage finishes (see
+    ``run_upload_pipeline``, plus "analyse" for the rules engine and save).
+    ``on_estimate(seconds)`` receives the pipeline's remaining-time estimates.
+    """
     # ── 2. Create document record ──────────────────────────────────────────────
     doc = Document(
         user_id=current_user.id,
@@ -377,6 +387,8 @@ async def _analyse_upload(
             file_bytes=file_bytes,
             user_id=current_user.id,
             content_type=actual_mime_type,
+            on_step=on_step,
+            on_estimate=on_estimate,
         )
         # The columns keep their original s3_* names but hold the GCS location.
         doc.s3_uri = pipeline_result.get("gcs_uri")
@@ -408,8 +420,11 @@ async def _analyse_upload(
 
     # ── 4. Analyse the redacted lease text (rules engine) and store result ─────
     try:
+        t0 = time.perf_counter()
         review = await save_analysis(db, doc.id, pipeline_result["redacted_text"])
         await db.commit()
+        if on_step is not None:
+            on_step("analyse", time.perf_counter() - t0)
     except Exception as exc:
         logger.exception(f"Analysis failed: {exc}")
         await db.rollback()
@@ -438,6 +453,92 @@ async def _analyse_upload(
     )
 
 
+# Background upload tasks for streamed uploads: holding a reference stops them
+# being garbage-collected while they run.
+_upload_tasks: set[asyncio.Task] = set()
+
+# Streamed uploads outlive the request's own DB session (FastAPI closes it when
+# the handler returns), so they open their own. Tests replace this.
+_session_factory = AsyncSessionLocal
+
+
+def _stream_analysis(current_user: User, **upload_args: Any) -> StreamingResponse:
+    """
+    Run ``_analyse_upload`` and stream its progress as NDJSON, one event per line:
+
+        {"type": "step", "step": "received" | "extract" | "lease_check" | "redact"
+                 | "store" | "analyse", "seconds": <duration of that step>}
+        {"type": "estimate", "remainingSeconds": <expected time left>}
+        {"type": "result", "status": 201, "data": <UploadLeaseResponse>, "totalSeconds": ...}
+        {"type": "error", "status": <HTTP status>, "detail": "..."}
+
+    Each step event is sent only once that step has actually finished. Estimate
+    events arrive when the remaining work is known (pages to OCR) and after each
+    later step.
+    """
+    loop = asyncio.get_running_loop()
+    queue: asyncio.Queue[dict] = asyncio.Queue()
+    started = time.perf_counter()
+
+    def emit(event: dict) -> None:
+        loop.call_soon_threadsafe(queue.put_nowait, event)
+
+    def on_step(step: str, seconds: float) -> None:
+        emit({"type": "step", "step": step, "seconds": round(seconds, 3)})
+
+    first_estimate: list[float] = []  # predicted total, from the first estimate
+
+    def on_estimate(remaining: float) -> None:
+        if not first_estimate:
+            first_estimate.append(time.perf_counter() - started + remaining)
+        emit({"type": "estimate", "remainingSeconds": round(remaining, 2)})
+
+    async def work() -> None:
+        try:
+            async with _session_factory() as db:
+                result = await _analyse_upload(
+                    db, current_user, on_step=on_step, on_estimate=on_estimate, **upload_args
+                )
+            total = time.perf_counter() - started
+            logger.info(
+                "[upload] Analysis %s ready in %.2fs (first estimate %s).",
+                result.id, total, f"{first_estimate[0]:.2f}s" if first_estimate else "none",
+            )
+            emit({
+                "type": "result",
+                "status": status.HTTP_201_CREATED,
+                "data": result.model_dump(mode="json", by_alias=True),
+                "totalSeconds": round(total, 3),
+            })
+        except HTTPException as exc:
+            emit({"type": "error", "status": exc.status_code, "detail": exc.detail})
+        except Exception:
+            logger.exception("Unexpected error during streamed upload.")
+            emit({
+                "type": "error",
+                "status": status.HTTP_500_INTERNAL_SERVER_ERROR,
+                "detail": "An error occurred while processing the document.",
+            })
+
+    task = asyncio.create_task(work())
+    _upload_tasks.add(task)
+    task.add_done_callback(_upload_tasks.discard)
+
+    async def body():
+        yield json.dumps({"type": "step", "step": "received", "seconds": 0}) + "\n"
+        while True:
+            event = await queue.get()
+            yield json.dumps(event) + "\n"
+            if event["type"] in ("result", "error"):
+                return
+
+    return StreamingResponse(
+        body(),
+        media_type="application/x-ndjson",
+        headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"},
+    )
+
+
 @router.post(
     "/analyses",
     response_model=UploadLeaseResponse,
@@ -446,16 +547,21 @@ async def _analyse_upload(
 )
 async def upload_lease(
     file: UploadFile = File(...),
+    stream: bool = Query(False, description="Stream progress as NDJSON events instead of one JSON response."),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> UploadLeaseResponse:
     """Upload a lease document and run the extraction and analysis pipeline."""
     file_bytes, mime = await _read_lease_file(file)
-    return await _analyse_upload(
-        db, current_user, file_bytes, mime,
+    upload_args = dict(
+        file_bytes=file_bytes,
+        actual_mime_type=mime,
         original_filename=file.filename or "lease.pdf",
         sha256_hash=Document.compute_hash(file_bytes),
     )
+    if stream:
+        return _stream_analysis(current_user, **upload_args)
+    return await _analyse_upload(db, current_user, **upload_args)
 
 
 @router.post(
@@ -467,6 +573,7 @@ async def upload_lease(
 async def upload_lease_version(
     analysis_id: str,
     file: UploadFile | None = File(None),
+    stream: bool = Query(False, description="Stream progress as NDJSON events instead of one JSON response."),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> UploadLeaseResponse:
@@ -504,13 +611,17 @@ async def upload_lease_version(
             detail="This file is the same as a version you already uploaded.",
         )
 
-    return await _analyse_upload(
-        db, current_user, file_bytes, mime,
+    upload_args = dict(
+        file_bytes=file_bytes,
+        actual_mime_type=mime,
         original_filename=file.filename or "lease.pdf",
         sha256_hash=sha256_hash,
         lease_group_id=group_id,
         version=(latest_version or 1) + 1,
     )
+    if stream:
+        return _stream_analysis(current_user, **upload_args)
+    return await _analyse_upload(db, current_user, **upload_args)
 
 
 @router.patch("/analyses/{analysis_id}/clauses/{clause_id}", status_code=status.HTTP_204_NO_CONTENT, tags=["Analyses"])
