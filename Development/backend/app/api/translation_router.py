@@ -248,6 +248,7 @@ async def get_analysis(
     tenancy_start = None
     term_months = None
     page_count = 1
+    action_list = None
 
     if review:
         counts.red = review.likely_unenforceable_count
@@ -260,6 +261,11 @@ async def get_analysis(
         tenancy_start = review.tenancy_start
         term_months = review.term_months
         page_count = review.page_count or 1
+        if review.action_list:
+            try:
+                action_list = json.loads(review.action_list)
+            except ValueError:
+                action_list = None
 
         for c in review.clauses:
             steps: List[str] = []
@@ -314,6 +320,7 @@ async def get_analysis(
         term_months=term_months,
         page_count=page_count,
         clauses=clauses_list,
+        action_list=action_list,
     )
 
 

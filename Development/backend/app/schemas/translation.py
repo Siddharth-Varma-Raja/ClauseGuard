@@ -72,6 +72,11 @@ class AnalysisVersionItem(CamelBaseModel):
     counts: StatusCounts
 
 
+class ActionItemOut(CamelBaseModel):
+    clause: str
+    quote: str
+
+
 class AnalysisDetail(AnalysisSummary):
     monthly_rent_cents: int | None = None
     deposit_cents: int | None = None
@@ -80,6 +85,8 @@ class AnalysisDetail(AnalysisSummary):
     page_count: int = 1
     clauses: list[ClauseItem] = Field(default_factory=list)
     versions: list[AnalysisVersionItem] = Field(default_factory=list)
+    # None for leases analysed before the action list existed; the frontend then hides the tab.
+    action_list: dict[str, list[ActionItemOut]] | None = None
 
 
 class ClauseReviewedRequest(CamelBaseModel):
