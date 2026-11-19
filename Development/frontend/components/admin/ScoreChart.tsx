@@ -2,18 +2,19 @@ import type { ModelVersion } from "@/lib/notice-types";
 import { cn } from "@/lib/cn";
 import { score } from "./shared";
 
-const KEY = [
-  { result: "live", label: "Live", swatch: "bg-brand" },
-  { result: "replaced", label: "Older", swatch: "bg-[#9fc7cb]" },
-  { result: "kept", label: "Not put live", swatch: "border border-dashed border-neu-line bg-neu-bg" },
+const KEY: { result: ModelVersion["result"]; label: string; swatch: string }[] = [
+  { result: "live", label: "Current model", swatch: "bg-brand" },
+  { result: "replaced", label: "Replaced", swatch: "bg-[#9fc7cb]" },
+  { result: "kept", label: "Kept previous", swatch: "border border-dashed border-warn-solid bg-warn-bg" },
   { result: "running", label: "Testing now", swatch: "border border-dashed border-brand bg-brand-soft" },
+  { result: "failed", label: "Failed", swatch: "border border-dashed border-bad-solid bg-bad-bg" },
 ];
 
 const BAR: Record<ModelVersion["result"], string> = {
   live: "bg-brand",
   replaced: "bg-[#9fc7cb]",
-  kept: "border border-b-0 border-dashed border-neu-line bg-neu-bg",
-  failed: "border border-b-0 border-dashed border-bad-line bg-bad-bg",
+  kept: "border border-b-0 border-dashed border-warn-solid bg-warn-bg",
+  failed: "border border-b-0 border-dashed border-bad-solid bg-bad-bg",
   running: "border-2 border-b-0 border-dashed border-brand bg-[repeating-linear-gradient(45deg,#fff_0_6px,var(--color-brand-soft)_6px_12px)]",
 };
 
@@ -57,7 +58,7 @@ export default function ScoreChart({ versions }: { versions: ModelVersion[] }) {
           {shown.map((v) => (
             <div key={v.version} className={cn("relative w-full max-w-16 rounded-t-xl", BAR[v.result])} style={{ height: `${at(v.macroF1 ?? live ?? low)}%` }}>
               <span className={cn("absolute -top-7 left-1/2 z-10 w-max -translate-x-1/2 rounded-md bg-white px-1.5 py-0.5 text-[13px] font-bold tabular-nums", v.result === "live" ? "text-brand-dark" : "text-mute")}>
-                {v.result === "running" ? "…" : score(v.macroF1)}
+                {v.result === "running" ? "…" : v.result === "failed" ? "–" : score(v.macroF1)}
               </span>
             </div>
           ))}

@@ -3,9 +3,9 @@ import { cn } from "@/lib/cn";
 import { day, score } from "./shared";
 
 const RESULT: Record<ModelVersion["result"], { label: string; chip: string }> = {
-  live: { label: "Live", chip: "bg-ok-bg text-ok ring-ok-line" },
+  live: { label: "Current model", chip: "bg-ok-bg text-ok ring-ok-line" },
   running: { label: "Testing", chip: "bg-brand-soft text-brand-dark ring-brand/20" },
-  kept: { label: "Not put live, lower score", chip: "bg-neu-bg text-neu ring-neu-line" },
+  kept: { label: "Kept previous, score not higher", chip: "bg-warn-bg text-warn ring-warn-line" },
   replaced: { label: "Replaced", chip: "bg-neu-bg text-neu ring-neu-line" },
   failed: { label: "Failed", chip: "bg-bad-bg text-bad ring-bad-line" },
 };

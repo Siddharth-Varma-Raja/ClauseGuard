@@ -1,4 +1,4 @@
-import type { Analysis, Clause, Status } from "./notice-types";
+import type { ActionList, Analysis, Clause, Status } from "./notice-types";
 
 export const SAMPLE_ID = "sample";
 export const SAMPLE_UPDATED_ID = "sample-v2";
@@ -199,6 +199,34 @@ const CLAUSES = [
   ),
 ];
 
+const SAMPLE_TOPICS: Record<string, string> = {
+  "4": "deposit",
+  "6": "repairs",
+  "7": "access",
+  "8": "rent_review",
+  "9": "fees",
+  "12": "fees",
+  "13": "notice_period",
+};
+
+for (const c of CLAUSES) c.topic = SAMPLE_TOPICS[c.number] ?? "other";
+
+function quote(number: number) {
+  const text = CLAUSES[number - 1].text;
+  return { clause: String(number), quote: text.length > 200 ? `${text.slice(0, 200).trimEnd()}…` : text };
+}
+
+const ACTION_LIST: ActionList = {
+  tenant_must: [quote(3), quote(4), quote(6), quote(9), quote(12), quote(13)],
+  not_allowed: [quote(5), quote(10), quote(11)],
+  charges: [quote(3), quote(4), quote(12)],
+  landlord_must: [quote(15)],
+  landlord_may: [quote(4), quote(7), quote(8)],
+  tenant_may: [quote(13)],
+  ending_lease: [quote(12), quote(13)],
+  unpaid_rent: [],
+};
+
 export const SAMPLE_LEASE: Analysis = {
   id: SAMPLE_ID,
   fileName: "Sample lease - 12 Harbour View",
@@ -211,6 +239,7 @@ export const SAMPLE_LEASE: Analysis = {
   termMonths: 12,
   pageCount: 5,
   clauses: CLAUSES,
+  actionList: ACTION_LIST,
 };
 
 function countStatuses(clauses: Clause[]) {

@@ -313,6 +313,8 @@ export const exportMyData = () => request<GdprExport>("/me/gdpr-export");
 export const deleteMyAccount = () => request<void>("/me", { method: "DELETE" });
 export const deleteMyData = deleteMyAccount;
 
+export const getTopics = () => request<{ key: string; title: string }[]>("/topics");
+
 export const sendTopicCorrection = (analysisId: string, clauseId: string, topic: string, note: string) =>
   request<TopicCorrection>(`/analyses/${id(analysisId)}/clauses/${id(clauseId)}/topic-correction`, {
     method: "POST",

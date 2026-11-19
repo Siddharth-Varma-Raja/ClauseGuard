@@ -4,14 +4,14 @@ import { useState } from "react";
 import { Check, CircleCheck, CircleX, Inbox, LoaderCircle, X } from "lucide-react";
 import Pager from "@/components/timeline/Pager";
 import type { CorrectionStatus, ReviewCorrection } from "@/lib/notice-types";
-import { topicLabel } from "@/lib/topics";
+import { topicLabel, useTopics, type Topic } from "@/lib/topics";
 import { TopicChip, day } from "./shared";
 
 const PAGE_SIZE = 8;
 
 type Decide = (row: ReviewCorrection, status: CorrectionStatus) => void;
 
-function Decision({ row, busy, onDecide }: { row: ReviewCorrection; busy: boolean; onDecide: Decide }) {
+function Decision({ row, busy, topics, onDecide }: { row: ReviewCorrection; busy: boolean; topics: Topic[]; onDecide: Decide }) {
   if (busy) {
     return (
       <span className="inline-flex items-center gap-2 text-sm text-mute">
@@ -45,7 +45,7 @@ function Decision({ row, busy, onDecide }: { row: ReviewCorrection; busy: boolea
       <button
         type="button"
         onClick={() => onDecide(row, "approved")}
-        aria-label={`Approve: ${topicLabel(row.userTopic)}`}
+        aria-label={`Approve: ${topicLabel(row.userTopic, topics)}`}
         className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-xl bg-ok-solid px-3.5 text-sm font-semibold text-white hover:bg-ok focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ok"
       >
         <Check size={15} aria-hidden />
@@ -54,7 +54,7 @@ function Decision({ row, busy, onDecide }: { row: ReviewCorrection; busy: boolea
       <button
         type="button"
         onClick={() => onDecide(row, "rejected")}
-        aria-label={`Reject: ${topicLabel(row.userTopic)}`}
+        aria-label={`Reject: ${topicLabel(row.userTopic, topics)}`}
         className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-xl border border-bad-line bg-white px-3.5 text-sm font-semibold text-bad hover:bg-bad-bg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-bad"
       >
         <X size={15} aria-hidden />
@@ -83,6 +83,7 @@ export default function ReviewQueue({
   errors: Record<string, string>;
   onDecide: Decide;
 }) {
+  const topics = useTopics();
   const [page, setPage] = useState(0);
   const pages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
   const current = Math.min(page, pages - 1);
@@ -134,13 +135,13 @@ export default function ReviewQueue({
                       <Meta row={row} />
                     </td>
                     <td className="px-2 py-3.5">
-                      <TopicChip label={topicLabel(row.modelTopic)} />
+                      <TopicChip label={topicLabel(row.modelTopic, topics)} />
                     </td>
                     <td className="px-2 py-3.5">
-                      <TopicChip label={topicLabel(row.userTopic)} strong />
+                      <TopicChip label={topicLabel(row.userTopic, topics)} strong />
                     </td>
                     <td className="px-2 py-3.5">
-                      <Decision row={row} busy={busy.includes(row.id)} onDecide={onDecide} />
+                      <Decision row={row} busy={busy.includes(row.id)} topics={topics} onDecide={onDecide} />
                       {errors[row.id] && (
                         <p role="alert" className="mt-1.5 text-xs font-medium text-bad">
                           {errors[row.id]}
@@ -159,13 +160,13 @@ export default function ReviewQueue({
                 <p className="text-[15px] text-ink">{row.clauseText}</p>
                 <Meta row={row} />
                 <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-mute">
-                  <TopicChip label={topicLabel(row.modelTopic)} />
+                  <TopicChip label={topicLabel(row.modelTopic, topics)} />
                   <span aria-hidden>→</span>
                   <span className="sr-only">tenant suggested</span>
-                  <TopicChip label={topicLabel(row.userTopic)} strong />
+                  <TopicChip label={topicLabel(row.userTopic, topics)} strong />
                 </div>
                 <div className="mt-3">
-                  <Decision row={row} busy={busy.includes(row.id)} onDecide={onDecide} />
+                  <Decision row={row} busy={busy.includes(row.id)} topics={topics} onDecide={onDecide} />
                   {errors[row.id] && (
                     <p role="alert" className="mt-1.5 text-xs font-medium text-bad">
                       {errors[row.id]}

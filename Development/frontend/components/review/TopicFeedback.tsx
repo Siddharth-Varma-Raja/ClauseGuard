@@ -1,10 +1,10 @@
 "use client";
 
-import { useId, useState } from "react";
-import { CircleCheck, Clock3, LoaderCircle, Lock, Tag, TriangleAlert } from "lucide-react";
-import { errorMessage, sendTopicCorrection } from "@/lib/api";
+import { useEffect, useId, useRef, useState } from "react";
+import { CircleCheck, Clock3, Info, LoaderCircle, Lock, Tag, TriangleAlert } from "lucide-react";
+import { ApiError, errorMessage, getAnalysis, sendTopicCorrection } from "@/lib/api";
 import type { Clause, TopicCorrection } from "@/lib/notice-types";
-import { TOPICS, clauseTopic, topicLabel } from "@/lib/topics";
+import { clauseTopic, topicLabel, useTopics } from "@/lib/topics";
 import { fmtDate } from "@/lib/format";
 import { cn } from "@/lib/cn";
 
@@ -20,16 +20,20 @@ export default function TopicFeedback({
   analysisId,
   clause,
   demo,
+  startOpen = false,
   onSent,
 }: {
   analysisId: string;
   clause: Clause;
   demo: boolean;
+  startOpen?: boolean;
   onSent: (correction: TopicCorrection) => void;
 }) {
+  const topics = useTopics();
   const current = clauseTopic(clause);
-  const choices = TOPICS.filter((t) => t.value !== current);
-  const [open, setOpen] = useState(false);
+  const choices = topics.filter((t) => t.value !== current);
+  const [open, setOpen] = useState(startOpen);
+  const [duplicate, setDuplicate] = useState("");
   const [topic, setTopic] = useState("");
   const [note, setNote] = useState("");
   const [sending, setSending] = useState(false);
@@ -37,6 +41,16 @@ export default function TopicFeedback({
   const [missing, setMissing] = useState(false);
   const [justSent, setJustSent] = useState(false);
   const ids = useId();
+  const formRef = useRef<HTMLFormElement>(null);
+
+  useEffect(() => {
+    if (!startOpen) return;
+    const frame = requestAnimationFrame(() => {
+      formRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      formRef.current?.querySelector("select")?.focus({ preventScroll: true });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [startOpen]);
 
   if (!current) return null;
 
@@ -56,7 +70,16 @@ export default function TopicFeedback({
       setOpen(false);
       onSent(saved);
     } catch (err) {
-      setError(errorMessage(err, "We couldn't send that. Check your connection and try again."));
+      if (err instanceof ApiError && err.status === 409) {
+        setDuplicate(err.message);
+        setOpen(false);
+        const saved = await getAnalysis(analysisId)
+          .then((fresh) => fresh?.clauses.find((c) => c.id === clause.id)?.correction ?? null)
+          .catch(() => null);
+        if (saved) onSent(saved);
+      } else {
+        setError(errorMessage(err, "We couldn't send that. Check your connection and try again."));
+      }
     } finally {
       setSending(false);
     }
@@ -70,8 +93,8 @@ export default function TopicFeedback({
       <p className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm text-mute">
         <Tag size={14} aria-hidden className="shrink-0" />
         Topic found by ClauseGuard:
-        <span className="rounded-full bg-surface px-2 py-0.5 text-[13px] font-semibold text-ink ring-1 ring-line">{topicLabel(current)}</span>
-        {!sent && !open && (
+        <span className="rounded-full bg-surface px-2 py-0.5 text-[13px] font-semibold text-ink ring-1 ring-line">{topicLabel(current, topics)}</span>
+        {!sent && !open && !duplicate && (
           <button
             type="button"
             onClick={() => setOpen(true)}
@@ -84,15 +107,22 @@ export default function TopicFeedback({
         )}
       </p>
 
+      {duplicate && (
+        <p role="status" className="mt-3 flex items-start gap-2 rounded-xl border border-line bg-surface px-3 py-2.5 text-sm text-ink">
+          <Info size={16} aria-hidden className="mt-0.5 shrink-0 text-brand" />
+          {duplicate}
+        </p>
+      )}
+
       {sent && (
         <div role="status" className={cn("mt-3 flex gap-3 rounded-2xl border p-3.5 text-sm", justSent ? "border-ok-line bg-ok-bg" : STATE[sent.status].box)}>
           <SentIcon size={20} aria-hidden className={cn("mt-0.5 shrink-0", justSent ? "text-ok" : sent && STATE[sent.status].icon)} />
           <div>
-            <p className="font-semibold text-ink">{justSent ? "Thanks, we got it." : `You suggested: ${topicLabel(sent.topic)}`}</p>
+            <p className="font-semibold text-ink">{justSent ? "Thanks, we got it." : `You suggested: ${topicLabel(sent.topic, topics)}`}</p>
             <p className="mt-0.5 text-mute">
               {justSent ? (
                 <>
-                  You suggested <b className="font-semibold text-ink">{topicLabel(sent.topic)}</b>. Our team will check it before it is used.
+                  You suggested <b className="font-semibold text-ink">{topicLabel(sent.topic, topics)}</b>. Our team will check it before it is used.
                 </>
               ) : (
                 <>
@@ -105,7 +135,7 @@ export default function TopicFeedback({
       )}
 
       {open && !sent && (
-        <form id={`${ids}-form`} onSubmit={submit} noValidate className="mt-3 animate-pop-in rounded-2xl border border-[#cfe1e2] bg-[#f3f9f9] p-4">
+        <form ref={formRef} id={`${ids}-form`} onSubmit={submit} noValidate className="mt-3 animate-pop-in rounded-2xl border border-[#cfe1e2] bg-[#f3f9f9] p-4">
           <p className="font-semibold text-brand-dark">Help us improve: what is this clause about?</p>
 
           <label htmlFor={`${ids}-topic`} className="mt-3 block text-sm font-semibold text-ink">
@@ -145,13 +175,17 @@ export default function TopicFeedback({
             id={`${ids}-note`}
             value={note}
             maxLength={NOTE_MAX}
+            aria-describedby={`${ids}-note-hint`}
             rows={2}
             onChange={(e) => setNote(e.target.value)}
             placeholder="For example: this is about letting contractors in, not a fee"
             className="mt-1.5 w-full resize-none rounded-xl border border-[#cdd8db] bg-white px-3 py-2.5 text-[15px] text-ink placeholder:text-[#8a989e] focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/30"
           />
-          <p className="text-right text-xs tabular-nums text-mute">
-            {note.length}/{NOTE_MAX}
+          <p id={`${ids}-note-hint`} className="mt-1 flex justify-between gap-3 text-xs text-mute">
+            <span>Don&apos;t include names, addresses or other personal details.</span>
+            <span className="shrink-0 tabular-nums">
+              {note.length}/{NOTE_MAX}
+            </span>
           </p>
 
           {error && (
@@ -186,7 +220,7 @@ export default function TopicFeedback({
 
           <p className="mt-3 flex gap-2 text-xs leading-relaxed text-mute">
             <Lock size={13} aria-hidden className="mt-0.5 shrink-0" />
-            Our team checks every correction before it is used to improve ClauseGuard. Your lease stays inside ClauseGuard and is never sent to a public AI service.
+            Your suggestion is reviewed by the ClauseGuard team without your name. Your lease stays inside ClauseGuard and is never sent to a public AI service.
           </p>
         </form>
       )}

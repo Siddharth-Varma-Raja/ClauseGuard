@@ -63,7 +63,25 @@ export type Analysis = AnalysisSummary & {
   pageCount: number;
   clauses: Clause[];
   versions?: AnalysisVersion[];
+  actionList?: ActionList | null;
 };
+
+export type ActionGroup =
+  | "tenant_must"
+  | "not_allowed"
+  | "charges"
+  | "landlord_must"
+  | "landlord_may"
+  | "tenant_may"
+  | "ending_lease"
+  | "unpaid_rent";
+
+export type ActionItem = {
+  clause: string | number;
+  quote: string;
+};
+
+export type ActionList = Partial<Record<ActionGroup, ActionItem[]>>;
 
 export type LandlordEmailDraft = {
   subject: string;

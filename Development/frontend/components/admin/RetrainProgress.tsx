@@ -1,4 +1,4 @@
-import { CircleCheck, CircleX, LoaderCircle } from "lucide-react";
+import { CircleCheck, CircleX, Info, LoaderCircle, RefreshCw } from "lucide-react";
 import type { RetrainRun, RetrainStep } from "@/lib/notice-types";
 import { cn } from "@/lib/cn";
 import { dayTime, score } from "./shared";
@@ -11,44 +11,62 @@ function steps(run: RetrainRun) {
     { key: "adding", title: "Add corrections", note: `${run.correctionsAdded} added` },
     { key: "training", title: "Retrain", note: "Training a new model" },
     { key: "testing", title: "Test, one lease left out at a time", note: tested },
-    { key: "comparing", title: `Compare with ${run.fromVersion}`, note: `Goes live only if at least ${score(run.oldScore)}` },
+    { key: "comparing", title: `Compare with ${run.fromVersion}`, note: `Replaces it only if at least ${score(run.oldScore)}` },
   ];
 }
 
-export default function RetrainProgress({ run }: { run: RetrainRun }) {
-  const at = ORDER.indexOf(run.step);
-  const finished = run.status === "finished";
-  const failed = run.status === "failed";
-
-  let heading = "Retrain in progress";
-  if (finished) heading = run.deployed ? `${run.toVersion} is now live` : `Kept ${run.fromVersion}`;
-  if (failed) heading = "Retrain failed";
-
-  let summary = `Started ${dayTime(run.startedAt)} · ${run.correctionsAdded} new correction${run.correctionsAdded === 1 ? "" : "s"}`;
-  if (finished) {
-    summary = run.deployed
-      ? `macro-F1 went from ${score(run.oldScore)} to ${score(run.newScore)}, so the new model was put live.`
-      : `${run.toVersion} scored ${score(run.newScore)}, lower than ${score(run.oldScore)}, so tenants stay on ${run.fromVersion}.`;
+function describe(run: RetrainRun) {
+  if (run.status === "failed") {
+    return {
+      tone: "bad",
+      heading: "Retrain failed",
+      summary: run.error || "Something went wrong during the retrain. The current model is still in use.",
+    };
   }
-  if (failed) summary = run.error || "Something went wrong during the retrain. The current model is still in use.";
+  if (run.status === "running") {
+    return {
+      tone: "brand",
+      heading: "Retrain in progress",
+      summary: `Started ${dayTime(run.startedAt)} · ${run.correctionsAdded} new correction${run.correctionsAdded === 1 ? "" : "s"}`,
+    };
+  }
+  if (run.correctionsAdded === 0) {
+    return { tone: "neu", heading: "Nothing to retrain with", summary: `There were no approved corrections to add, so ${run.fromVersion} is still the current model.` };
+  }
+  if (run.deployed) {
+    return {
+      tone: "ok",
+      heading: `${run.toVersion} is now the current model`,
+      summary: `macro-F1 went from ${score(run.oldScore)} to ${score(run.newScore)}.`,
+    };
+  }
+  return {
+    tone: "warn",
+    heading: `Kept ${run.fromVersion}, new score was not higher`,
+    summary: `${run.toVersion} scored ${score(run.newScore)} against ${score(run.oldScore)} for ${run.fromVersion}, so nothing changed for tenants.`,
+  };
+}
+
+const TONE = {
+  bad: { border: "border-bad-line", icon: "bg-bad-bg text-bad", Icon: CircleX },
+  brand: { border: "border-[#d5e3e4]", icon: "bg-brand-soft text-brand", Icon: LoaderCircle },
+  ok: { border: "border-ok-line", icon: "bg-ok-bg text-ok", Icon: CircleCheck },
+  warn: { border: "border-warn-line", icon: "bg-warn-bg text-warn", Icon: Info },
+  neu: { border: "border-[#d5e3e4]", icon: "bg-neu-bg text-neu", Icon: Info },
+};
+
+export default function RetrainProgress({ run, retrying, onRetry }: { run: RetrainRun; retrying: boolean; onRetry: () => void }) {
+  const at = ORDER.indexOf(run.step);
+  const failed = run.status === "failed";
+  const { tone, heading, summary } = describe(run);
+  const style = TONE[tone as keyof typeof TONE];
 
   return (
-    <section
-      aria-labelledby="run-title"
-      className={cn(
-        "mt-6 rounded-3xl border bg-white p-5 shadow-soft",
-        failed ? "border-bad-line" : finished && run.deployed ? "border-ok-line" : "border-[#d5e3e4]",
-      )}
-    >
+    <section aria-labelledby="run-title" className={cn("mt-6 rounded-3xl border bg-white p-5 shadow-soft", style.border)}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-start gap-3">
-          <span
-            className={cn(
-              "grid size-10 shrink-0 place-items-center rounded-full",
-              failed ? "bg-bad-bg text-bad" : finished && run.deployed ? "bg-ok-bg text-ok" : finished ? "bg-neu-bg text-neu" : "bg-brand-soft text-brand",
-            )}
-          >
-            {failed ? <CircleX size={20} aria-hidden /> : finished ? <CircleCheck size={20} aria-hidden /> : <LoaderCircle size={20} aria-hidden className="animate-spin" />}
+          <span className={cn("grid size-10 shrink-0 place-items-center rounded-full", style.icon)}>
+            <style.Icon size={20} aria-hidden className={run.status === "running" ? "animate-spin" : undefined} />
           </span>
           <div>
             <h2 id="run-title" className="font-display text-[21px] font-semibold text-brand-dark">
@@ -59,10 +77,21 @@ export default function RetrainProgress({ run }: { run: RetrainRun }) {
             </p>
           </div>
         </div>
-        {!finished && !failed && <p className="text-xs text-mute">Updates every few seconds</p>}
+        {run.status === "running" && <p className="text-xs text-mute">Updates every 5 seconds</p>}
+        {failed && (
+          <button
+            type="button"
+            onClick={onRetry}
+            disabled={retrying}
+            className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-xl bg-brand px-4 text-sm font-semibold text-white hover:bg-brand-dark disabled:cursor-wait disabled:opacity-70"
+          >
+            {retrying ? <LoaderCircle size={16} aria-hidden className="animate-spin" /> : <RefreshCw size={16} aria-hidden />}
+            {retrying ? "Starting" : "Run again"}
+          </button>
+        )}
       </div>
 
-      {!finished && (
+      {(run.status === "running" || failed) && (
         <ol className="mt-5 grid gap-4 sm:grid-cols-4 sm:gap-0">
           {steps(run).map((step, i) => {
             const done = i < at;
@@ -88,7 +117,7 @@ export default function RetrainProgress({ run }: { run: RetrainRun }) {
                     {step.title}
                     <span className="sr-only">{done ? ", done" : now ? (failed ? ", failed" : ", in progress") : ", not started"}</span>
                   </span>
-                  <span className="block text-mute">{done ? "Done" : step.note}</span>
+                  <span className={cn("block", now && failed ? "font-medium text-bad" : "text-mute")}>{done ? "Done" : now && failed ? "Stopped here" : step.note}</span>
                 </span>
               </li>
             );

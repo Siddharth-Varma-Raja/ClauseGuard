@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { ArrowRight, LoaderCircle, RefreshCw, TriangleAlert } from "lucide-react";
+import { ArrowRight, Info, LoaderCircle, RefreshCw, TriangleAlert } from "lucide-react";
 import type { RetrainRun } from "@/lib/notice-types";
 import { day, score } from "./shared";
 
 function lastRun(run: RetrainRun) {
-  const result =
-    run.status === "failed" ? "failed" : run.deployed ? `${run.toVersion} put live` : `kept ${run.fromVersion}`;
+  let result = `kept ${run.fromVersion}, new score was not higher`;
+  if (run.deployed) result = `${run.toVersion} became the current model`;
+  if (run.correctionsAdded === 0) result = "nothing to retrain with";
   return `Last run: ${day(run.startedAt)} · ${run.fromVersion} → ${run.toVersion} · ${score(run.oldScore)} → ${score(run.newScore)} · ${result}`;
 }
 
@@ -18,6 +19,7 @@ export default function RetrainCard({
   run,
   starting,
   error,
+  notice,
   onStart,
 }: {
   approved: number;
@@ -25,10 +27,12 @@ export default function RetrainCard({
   run: RetrainRun | null;
   starting: boolean;
   error: string;
+  notice: string;
   onStart: () => void;
 }) {
   const [confirming, setConfirming] = useState(false);
   const running = run?.status === "running";
+  const failed = run?.status === "failed";
   const blocked = approved === 0 || running;
 
   return (
@@ -43,13 +47,33 @@ export default function RetrainCard({
             Retrain and compare
           </h2>
           <p className="mt-2 max-w-3xl text-[15px] text-white/85">
-            Adds the {approved} approved correction{approved === 1 ? "" : "s"} to the labelled set, retrains, then tests by leaving out one lease at a time. The new model only goes
-            live if its macro-F1 is <b className="font-semibold text-white">at least {score(currentScore)}</b>.
+            {approved === 0 ? (
+              "There is nothing to retrain with yet. Approve at least one correction in the queue first."
+            ) : (
+              <>
+                Adds the {approved} approved correction{approved === 1 ? "" : "s"} to the labelled set, retrains, then tests by leaving out one lease at a time. The new
+                model only replaces the current one if its macro-F1 is <b className="font-semibold text-white">at least {score(currentScore)}</b>.
+              </>
+            )}
           </p>
-          {run && !running && <p className="mt-2 text-[13px] text-white/60">{lastRun(run)}</p>}
+          {run && !running && !failed && <p className="mt-2 text-[13px] text-white/60">{lastRun(run)}</p>}
+          {failed && (
+            <p role="alert" className="mt-3 flex items-start gap-2 rounded-xl bg-[#ff9b8f]/15 px-3 py-2 text-sm text-[#ffd0ca]">
+              <TriangleAlert size={16} aria-hidden className="mt-0.5 shrink-0" />
+              <span>
+                The last retrain failed{run?.error ? `: ${run.error}` : "."} The current model is still in use, so you can run it again.
+              </span>
+            </p>
+          )}
+          {notice && (
+            <p role="status" className="mt-3 flex items-start gap-2 rounded-xl bg-white/10 px-3 py-2 text-sm text-white">
+              <Info size={16} aria-hidden className="mt-0.5 shrink-0 text-[#9fd6d6]" />
+              {notice}
+            </p>
+          )}
           {error && (
-            <p role="alert" className="mt-3 inline-flex items-center gap-2 rounded-xl bg-[#ff9b8f]/15 px-3 py-2 text-sm text-[#ffd0ca]">
-              <TriangleAlert size={16} aria-hidden />
+            <p role="alert" className="mt-3 flex items-start gap-2 rounded-xl bg-[#ff9b8f]/15 px-3 py-2 text-sm text-[#ffd0ca]">
+              <TriangleAlert size={16} aria-hidden className="mt-0.5 shrink-0" />
               {error}
             </p>
           )}
@@ -85,19 +109,16 @@ export default function RetrainCard({
               </div>
             </div>
           ) : (
-            <div className="flex flex-col items-start gap-1.5 lg:items-end">
-              <button
-                type="button"
-                onClick={() => setConfirming(true)}
-                disabled={blocked || starting}
-                className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-full bg-white px-5 text-sm font-semibold text-brand-dark transition hover:-translate-y-0.5 hover:bg-brand-soft disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
-              >
-                {starting ? <LoaderCircle size={16} aria-hidden className="animate-spin" /> : <RefreshCw size={16} aria-hidden />}
-                {starting ? "Starting" : "Retrain and compare"}
-                {!starting && <ArrowRight size={16} aria-hidden />}
-              </button>
-              {approved === 0 && <span className="text-xs text-white/60">Approve at least one correction first.</span>}
-            </div>
+            <button
+              type="button"
+              onClick={() => setConfirming(true)}
+              disabled={blocked || starting}
+              className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-full bg-white px-5 text-sm font-semibold text-brand-dark transition hover:-translate-y-0.5 hover:bg-brand-soft disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
+            >
+              {starting ? <LoaderCircle size={16} aria-hidden className="animate-spin" /> : <RefreshCw size={16} aria-hidden />}
+              {starting ? "Starting" : failed ? "Run again" : "Retrain and compare"}
+              {!starting && <ArrowRight size={16} aria-hidden />}
+            </button>
           )}
         </div>
       </div>

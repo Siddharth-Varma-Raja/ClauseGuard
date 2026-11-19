@@ -1,16 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Brain, CircleCheck, Hourglass } from "lucide-react";
 import ErrorState from "@/components/ui/ErrorState";
 import ReviewQueue from "@/components/admin/ReviewQueue";
 import RetrainCard from "@/components/admin/RetrainCard";
+import { useRetrain } from "@/components/admin/useRetrain";
 import { StatCard, day, daysAgo, score } from "@/components/admin/shared";
-import { decideCorrection, errorMessage, getLatestRetrain, getModelSummary, getReviewQueue, startRetrain } from "@/lib/api";
-import type { CorrectionStatus, ModelSummary, RetrainRun, ReviewCorrection } from "@/lib/notice-types";
+import { decideCorrection, errorMessage, getLatestRetrain, getModelSummary, getReviewQueue } from "@/lib/api";
+import type { CorrectionStatus, ModelSummary, ReviewCorrection } from "@/lib/notice-types";
 
-type Loaded = { model: ModelSummary; rows: ReviewCorrection[]; run: RetrainRun | null };
+type Loaded = { model: ModelSummary; rows: ReviewCorrection[] };
 
 export default function AdminReviewPage() {
   const router = useRouter();
@@ -19,8 +20,10 @@ export default function AdminReviewPage() {
   const [attempt, setAttempt] = useState(0);
   const [busy, setBusy] = useState<string[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [starting, setStarting] = useState(false);
-  const [startError, setStartError] = useState("");
+  const retrain = useRetrain();
+  const { setRun } = retrain;
+  const status = retrain.run?.status;
+  const lastStatus = useRef(status);
 
   useEffect(() => {
     let live = true;
@@ -28,7 +31,8 @@ export default function AdminReviewPage() {
       .then(([model, rows, run]) => {
         if (!live) return;
         const sorted = [...rows].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-        setData({ model, rows: sorted, run });
+        setData({ model, rows: sorted });
+        setRun(run);
         setLoadError("");
       })
       .catch((error) => {
@@ -37,7 +41,22 @@ export default function AdminReviewPage() {
     return () => {
       live = false;
     };
-  }, [attempt]);
+  }, [attempt, setRun]);
+
+  useEffect(() => {
+    const was = lastStatus.current;
+    lastStatus.current = status;
+    if (was !== "running" || status === "running") return;
+    let live = true;
+    getModelSummary()
+      .then((model) => {
+        if (live) setData((d) => d && { ...d, model });
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [status]);
 
   async function decide(row: ReviewCorrection, status: CorrectionStatus) {
     setBusy((ids) => [...ids, row.id]);
@@ -56,16 +75,8 @@ export default function AdminReviewPage() {
     }
   }
 
-  async function retrain() {
-    setStarting(true);
-    setStartError("");
-    try {
-      await startRetrain();
-      router.push("/admin/models");
-    } catch (error) {
-      setStartError(errorMessage(error, "The retrain could not be started."));
-      setStarting(false);
-    }
+  async function startRetrain() {
+    if (await retrain.start()) router.push("/admin/models");
   }
 
   if (loadError && !data) {
@@ -92,7 +103,7 @@ export default function AdminReviewPage() {
     );
   }
 
-  const { model, rows, run } = data;
+  const { model, rows } = data;
   const approvedNow = rows.filter((r) => r.status === "approved").length;
   const decidedNow = rows.filter((r) => r.status !== "pending").length;
   const approved = model.approvedSinceRetrain + approvedNow;
@@ -107,14 +118,22 @@ export default function AdminReviewPage() {
       </div>
 
       <div className="mt-6 grid gap-4 sm:grid-cols-3">
-        <StatCard Icon={Brain} label="Model in use" value={`${model.version} · ${score(model.macroF1)}`} note={`macro-F1 score · live since ${day(model.liveSince)}`} />
+        <StatCard Icon={Brain} label="Current model" value={`${model.version} · ${score(model.macroF1)}`} note={`macro-F1 score · in use since ${day(model.liveSince)}`} />
         <StatCard Icon={CircleCheck} label="Approved since last retrain" value={String(approved)} note={approved ? "Ready to add to the labelled set" : "Nothing approved yet"} />
         <StatCard Icon={Hourglass} label="Waiting for review" value={String(waiting)} note={oldest ? `Oldest sent ${daysAgo(oldest.createdAt)}` : "All caught up"} />
       </div>
 
       <ReviewQueue rows={rows} busy={busy} errors={errors} onDecide={decide} />
 
-      <RetrainCard approved={approved} currentScore={model.macroF1} run={run} starting={starting} error={startError} onStart={retrain} />
+      <RetrainCard
+        approved={approved}
+        currentScore={model.macroF1}
+        run={retrain.run}
+        starting={retrain.starting}
+        error={retrain.error}
+        notice={retrain.notice}
+        onStart={startRetrain}
+      />
     </>
   );
 }

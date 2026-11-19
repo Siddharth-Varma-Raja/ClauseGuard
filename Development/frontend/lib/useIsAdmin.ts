@@ -16,7 +16,7 @@ export function useIsAdmin() {
     let live = true;
     getProfile()
       .then((profile) => {
-        const admin = profile.role?.toLowerCase() === "admin";
+        const admin = profile.role === "admin";
         known.set(uid, admin);
         if (live) setChecked({ uid, admin });
       })

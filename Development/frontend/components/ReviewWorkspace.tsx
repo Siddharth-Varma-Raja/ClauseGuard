@@ -14,7 +14,7 @@ import {
   Info,
   Minus,
   Plus, ChevronDown,
-  MessageCircleQuestion, Download, List, FileText, FlaskConical, Upload, GitCompare, History, Mail, MoreHorizontal
+  MessageCircleQuestion, Download, List, FileText, FlaskConical, Upload, GitCompare, History, Mail, MoreHorizontal, ListChecks
 } from "lucide-react";
 
 import Tooltip from "./ui/Tooltip";
@@ -36,11 +36,13 @@ import UploadVersionDialog from "./review/UploadVersionDialog";
 import VersionSwitcher from "./review/VersionSwitcher";
 import WhatChanged from "./review/WhatChanged";
 import TopicFeedback from "./review/TopicFeedback";
+import LeaseActionList from "./review/LeaseActionList";
+import { actionCount } from "@/lib/actionList";
 import { fmtDate } from "@/lib/format";
 import { loadRaised, saveRaised } from "@/lib/raisedClauses";
 import { SAMPLE_ID, isSampleId } from "@/lib/sample-lease";
 
-type WorkspaceView = ReviewView | "changes";
+type WorkspaceView = ReviewView | "changes" | "actions";
 
 export default function ReviewWorkspace({ analysis }: { analysis: Analysis }) {
   const versions = analysis.versions ?? [];
@@ -71,6 +73,7 @@ export default function ReviewWorkspace({ analysis }: { analysis: Analysis }) {
   const [view, setView] = useState<WorkspaceView>(() => {
     if (wantedClause) return "lease";
     const wanted = typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("view");
+    if (wanted === "actions" && analysis.actionList) return "actions";
     return wanted === "changes" && previousVersion ? "changes" : loadViewPreference();
   });
   const [selectedId, setSelectedId] = useState<string | null>(initialClause?.id ?? null);
@@ -158,6 +161,13 @@ export default function ReviewWorkspace({ analysis }: { analysis: Analysis }) {
       setClauses((prev) => prev.map((c) => (c.id === clause.id ? { ...c, reviewed: !reviewed } : c)));
       setActionError(errorMessage(err, "That change didn't save. Try again."));
     }
+  }
+
+  const [correctId, setCorrectId] = useState<string | null>(null);
+
+  function correctClause(clause: Clause) {
+    setCorrectId(clause.id);
+    openInLease(clause);
   }
 
   function saveCorrection(clause: Clause, correction: TopicCorrection) {
@@ -345,7 +355,7 @@ export default function ReviewWorkspace({ analysis }: { analysis: Analysis }) {
       </div>
 
       <div className="mt-4 flex flex-col gap-3 md:mt-3 md:flex-row md:items-center">
-        <ViewSwitch view={view} onChange={changeView} showChanges={Boolean(previousVersion)} />
+        <ViewSwitch view={view} onChange={changeView} showChanges={Boolean(previousVersion)} showActions={Boolean(analysis.actionList)} />
         <SummaryBar
           reportHref={`/lease/${analysis.id}/report`}
           counts={{ red: countOf("red"), amber: countOf("amber"), green: countOf("green"), grey: countOf("grey") }}
@@ -406,9 +416,17 @@ export default function ReviewWorkspace({ analysis }: { analysis: Analysis }) {
               onAskClause={askAbout}
               emailIds={isLatest ? emailIds : undefined}
               onToggleEmail={isLatest ? toggleEmail : undefined}
+              actionCount={analysis.actionList ? actionCount(analysis.actionList) : null}
+              onShowActions={() => changeView("actions")}
             />
           </div>
         </>
+      )}
+
+      {view === "actions" && analysis.actionList && (
+        <div className="mt-4">
+          <LeaseActionList actionList={analysis.actionList} clauses={clauses} onView={openInLease} onCorrect={correctClause} />
+        </div>
       )}
 
       {view === "lease" && (
@@ -506,6 +524,7 @@ export default function ReviewWorkspace({ analysis }: { analysis: Analysis }) {
                 onAsk={() => askAbout(selected)}
                 onToggleReviewed={() => toggleReviewed(selected)}
                 analysisId={analysis.id}
+                startCorrection={correctId === selected.id}
                 onCorrected={(correction) => saveCorrection(selected, correction)}
                 inEmail={emailIds.includes(selected.id)}
                 onToggleEmail={canEmail(selected) ? () => toggleEmail(selected) : undefined}
@@ -749,14 +768,17 @@ function ViewSwitch({
   view,
   onChange,
   showChanges,
+  showActions,
 }: {
   view: WorkspaceView;
   onChange: (view: WorkspaceView) => void;
   showChanges: boolean;
+  showActions: boolean;
 }) {
   const options: { value: WorkspaceView; label: string; Icon: typeof List }[] = [
     { value: "summary", label: "Summary", Icon: List },
     { value: "lease", label: "Lease viewer", Icon: FileText },
+    ...(showActions ? [{ value: "actions" as const, label: "Action list", Icon: ListChecks }] : []),
     ...(showChanges ? [{ value: "changes" as const, label: "What changed", Icon: GitCompare }] : []),
   ];
   const [open, setOpen] = useState(false);
@@ -821,7 +843,7 @@ function ViewSwitch({
               view === value ? "bg-brand-dark text-white shadow-sm" : "text-brand-dark hover:bg-surface",
             )}
           >
-            <Icon size={15} aria-hidden className={cn(showChanges && "hidden sm:block")} />
+            <Icon size={15} aria-hidden className={cn(options.length > 2 && "hidden sm:block")} />
             {label}
           </button>
         ))}
@@ -884,6 +906,7 @@ function ClausePanel({
   inEmail,
   onToggleEmail,
   analysisId,
+  startCorrection,
   onCorrected,
 }: {
   clause: Clause;
@@ -895,6 +918,7 @@ function ClausePanel({
   inEmail: boolean;
   onToggleEmail?: () => void;
   analysisId: string;
+  startCorrection: boolean;
   onCorrected: (correction: TopicCorrection) => void;
 }) {
   const style = STATUS[clause.status];
@@ -1012,7 +1036,7 @@ function ClausePanel({
           </div>
         )}
 
-        <TopicFeedback analysisId={analysisId} clause={clause} demo={isSampleId(analysisId)} onSent={onCorrected} />
+        <TopicFeedback analysisId={analysisId} clause={clause} demo={isSampleId(analysisId)} startOpen={startCorrection} onSent={onCorrected} />
       </div>
 
       <div className="flex shrink-0 flex-wrap gap-2 border-t border-line bg-white px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 lg:pb-3">
