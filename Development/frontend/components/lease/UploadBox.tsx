@@ -5,18 +5,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CircleAlert, CircleCheck, FileText, Lightbulb, Lock, Play, Scale, ShieldCheck, TriangleAlert, Upload } from "lucide-react";
 import ProcessingCard from "@/components/lease/ProcessingCard";
+import { useUploadProgress } from "@/components/lease/useUploadProgress";
 import { ApiError, LEASE_ACCEPT, LEASE_MAX_BYTES, errorMessage, isAllowedLeaseFile, uploadLease } from "@/lib/api";
 import { cn } from "@/lib/cn";
 
 const MAX_SIZE_MB = LEASE_MAX_BYTES / 1024 / 1024;
-
-const STEPS = [
-  "Uploading your lease",
-  "Reading the text",
-  "Removing personal details",
-  "Checking each clause against Irish tenancy law",
-];
-const STEP_INTERVAL_MS = 6000;
 
 const TAGS = [
   { title: "Deposit of 3 months", text: "May break the law", icon: TriangleAlert, tone: "bg-bad-bg text-bad", place: "left-[8%] top-[18%] -rotate-3" },
@@ -48,7 +41,7 @@ export default function UploadBox({ title, highlight, subtitle, isNewUser = fals
   const [error, setError] = useState("");
   const [uploading, setUploading] = useState(false);
   const [dragging, setDragging] = useState(false);
-  const [progress, setProgress] = useState(0);
+  const progress = useUploadProgress();
 
   async function startUpload(file: File | undefined) {
     setError("");
@@ -68,18 +61,16 @@ export default function UploadBox({ title, highlight, subtitle, isNewUser = fals
     }
 
     setUploading(true);
-    setProgress(0);
-    const timer = setInterval(() => setProgress((p) => Math.min(p + 1, STEPS.length - 1)), STEP_INTERVAL_MS);
+    progress.reset(file);
 
     try {
-      const result = await uploadLease(file);
-      setProgress(STEPS.length);
+      const result = await uploadLease(file, progress.onProgress);
+      progress.logSummary();
       router.push(`/lease/${result.id}`);
     } catch (err) {
+      console.error("[upload] failed", err);
       setError(uploadErrorMessage(err));
       setUploading(false);
-    } finally {
-      clearInterval(timer);
     }
   }
 
@@ -89,7 +80,15 @@ export default function UploadBox({ title, highlight, subtitle, isNewUser = fals
     startUpload(event.dataTransfer.files[0]);
   }
 
-  if (uploading) return <ProcessingCard steps={STEPS} current={progress} />;
+  if (uploading)
+    return (
+      <ProcessingCard
+        steps={progress.steps}
+        current={progress.done}
+        durations={progress.durations}
+        readyAt={progress.readyAt}
+      />
+    );
 
   return (
     <>

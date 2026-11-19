@@ -5,13 +5,24 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CircleCheck, Loader2, Upload, X } from "lucide-react";
 import { ApiError, LEASE_ACCEPT, LEASE_MAX_BYTES, errorMessage, isAllowedLeaseFile, uploadLeaseVersion } from "@/lib/api";
+import type { UploadProgress, UploadStep } from "@/lib/api";
+import { useRemainingText, useUploadProgress } from "@/components/lease/useUploadProgress";
 import type { Analysis } from "@/lib/notice-types";
 import { isSampleId } from "@/lib/sample-lease";
 import { cn } from "@/lib/cn";
 
 const MAX_SIZE_MB = LEASE_MAX_BYTES / 1024 / 1024;
-const STEP_INTERVAL_MS = 6000;
 const SAMPLE_STEP_INTERVAL_MS = 700;
+const SAMPLE_STEPS: UploadStep[] = ["received", "extract", "lease_check", "redact", "analyse"];
+
+/** The sample lease has no server: play the steps back so the demo looks the same. */
+async function playSampleProgress(onProgress: (event: UploadProgress) => void) {
+  const startedAt = performance.now();
+  for (const step of SAMPLE_STEPS) {
+    await new Promise((resolve) => setTimeout(resolve, SAMPLE_STEP_INTERVAL_MS));
+    onProgress({ kind: "step", step, seconds: SAMPLE_STEP_INTERVAL_MS / 1000, elapsedMs: performance.now() - startedAt });
+  }
+}
 
 function uploadErrorMessage(error: unknown) {
   if (error instanceof ApiError) {
@@ -37,18 +48,13 @@ export default function UploadVersionDialog({
   const router = useRouter();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [uploading, setUploading] = useState(false);
-  const [progress, setProgress] = useState(0);
+  const progress = useUploadProgress();
   const [dragging, setDragging] = useState(false);
   const [error, setError] = useState("");
   const isSample = isSampleId(analysis.id);
 
-  const steps = [
-    "Uploading your updated lease",
-    "Reading the text",
-    "Removing personal details",
-    "Checking each clause",
-    `Comparing it with Version ${nextVersion - 1}`,
-  ];
+  const steps = ["Uploading your updated lease", ...progress.steps.slice(1)];
+  const remaining = useRemainingText(progress.readyAt, uploading && progress.done < steps.length);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -74,22 +80,16 @@ export default function UploadVersionDialog({
     }
 
     setUploading(true);
-    setProgress(0);
-    const timer = setInterval(
-      () => setProgress((p) => Math.min(p + 1, steps.length - 1)),
-      isSample ? SAMPLE_STEP_INTERVAL_MS : STEP_INTERVAL_MS,
-    );
+    progress.reset(file);
 
     try {
-      if (isSample) await new Promise((resolve) => setTimeout(resolve, SAMPLE_STEP_INTERVAL_MS * steps.length));
-      const result = await uploadLeaseVersion(analysis.id, file);
-      setProgress(steps.length);
+      if (isSample) await playSampleProgress(progress.onProgress);
+      const result = await uploadLeaseVersion(analysis.id, file, progress.onProgress);
+      if (!isSample) progress.logSummary();
       router.push(`/lease/${result.id}?view=changes`);
     } catch (err) {
       setError(uploadErrorMessage(err));
       setUploading(false);
-    } finally {
-      clearInterval(timer);
     }
   }
 
@@ -131,25 +131,31 @@ export default function UploadVersionDialog({
       </header>
 
       {uploading ? (
-        <ol className="space-y-2.5 p-6 pt-3" aria-live="polite">
-          {steps.map((step, i) => (
-            <li
-              key={step}
-              className={cn("flex items-center gap-2.5 text-sm", i < progress ? "text-ink" : i === progress ? "font-semibold text-brand-dark" : "text-mute/60")}
-            >
-              {i < progress ? (
-                <CircleCheck size={18} className="text-ok-solid" aria-hidden />
-              ) : i === progress ? (
-                <Loader2 size={18} className="animate-spin text-brand" aria-hidden />
-              ) : (
-                <span className="grid size-[18px] place-items-center" aria-hidden>
-                  <span className="size-1.5 rounded-full bg-line" />
-                </span>
-              )}
-              {step}
-            </li>
-          ))}
-        </ol>
+        <div className="p-6 pt-3">
+          <p className="mb-3 text-sm font-semibold tabular-nums text-brand-dark">{remaining}</p>
+          <ol className="space-y-2.5" aria-live="polite">
+            {steps.map((step, i) => (
+              <li
+                key={step}
+                className={cn("flex items-center gap-2.5 text-sm", i < progress.done ? "text-ink" : i === progress.done ? "font-semibold text-brand-dark" : "text-mute/60")}
+              >
+                {i < progress.done ? (
+                  <CircleCheck size={18} className="text-ok-solid" aria-hidden />
+                ) : i === progress.done ? (
+                  <Loader2 size={18} className="animate-spin text-brand" aria-hidden />
+                ) : (
+                  <span className="grid size-[18px] place-items-center" aria-hidden>
+                    <span className="size-1.5 rounded-full bg-line" />
+                  </span>
+                )}
+                {step}
+                {i < progress.done && progress.durations[i] !== undefined && (
+                  <span className="ml-auto text-xs tabular-nums text-mute">{progress.durations[i].toFixed(1)} s</span>
+                )}
+              </li>
+            ))}
+          </ol>
+        </div>
       ) : (
         <div className="p-6 pt-3">
           {isSample ? (
