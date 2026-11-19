@@ -9,7 +9,7 @@ export const START_TOUR = "clauseguard-start-tour";
 export const TOUR_READY = "clauseguard-tour-ready";
 export const TOUR_GONE = "clauseguard-tour-gone";
 
-export default function PageTour({ tourId, steps, showButton = false, autoStart = true }: { tourId: string; steps: TourStep[]; showButton?: boolean; autoStart?: boolean }) {
+export default function PageTour({ tourId, steps, showButton = false, autoStart = true, compact = false }: { tourId: string; steps: TourStep[]; showButton?: boolean; autoStart?: boolean; compact?: boolean }) {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -30,7 +30,12 @@ export default function PageTour({ tourId, steps, showButton = false, autoStart 
 
   return (
     <>
-      {showButton && (
+      {showButton && compact && (
+        <button type="button" data-tour="tour-button" onClick={() => setOpen(true)} title="Take the tour" className="grid size-11 cursor-pointer place-items-center rounded-full border border-white/20 bg-white/10 text-white transition-colors hover:bg-white/20">
+          <CircleHelp size={20} />
+        </button>
+      )}
+      {showButton && !compact && (
         <button
           data-tour="tour-button"
           onClick={() => setOpen(true)}
