@@ -43,6 +43,7 @@ from app.models.review import (
 )
 from app.models.timeline import TimelineEvent
 from app.models.user import AuditLog, User
+from language_stream.action_list import prioritise
 from app.schemas.translation import (
     AnalysisDetail,
     AnalysisSummary,
@@ -249,6 +250,7 @@ async def get_analysis(
     term_months = None
     page_count = 1
     action_list = None
+    top_actions = None
 
     if review:
         counts.red = review.likely_unenforceable_count
@@ -266,6 +268,8 @@ async def get_analysis(
                 action_list = json.loads(review.action_list)
             except ValueError:
                 action_list = None
+        if action_list:
+            top_actions = prioritise(action_list)
 
         for c in review.clauses:
             steps: List[str] = []
@@ -321,6 +325,7 @@ async def get_analysis(
         page_count=page_count,
         clauses=clauses_list,
         action_list=action_list,
+        top_actions=top_actions,
     )
 
 

@@ -72,3 +72,14 @@ def test_analysis_returns_action_list(client):
     # every action item points at a clause that exists, so "View" links work
     numbers = {c["number"] for c in full["clauses"]}
     assert all(i["clause"] in numbers for group in actions.values() for i in group)
+
+
+def test_analysis_returns_top_actions(client):
+    aid = client.post("/api/analyses", files={"file": ("Sample-Lease.pdf", b"%PDF-1.4 x", "application/pdf")}).json()["id"]
+    full = client.get(f"/api/analyses/{aid}").json()
+    top = full["topActions"]
+    assert 1 <= len(top) <= 5
+    numbers = {c["number"] for c in full["clauses"]}
+    assert all(t["clause"] in numbers and t["group"] and t["quote"] for t in top)
+    # the deposit clause has money and is a tenant duty, so it must be in the short list
+    assert any(t["clause"] == "2" for t in top)
