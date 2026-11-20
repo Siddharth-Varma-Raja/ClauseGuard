@@ -59,7 +59,94 @@ type RequestOptions = RequestInit & {
   timeoutMs?: number;
   /** For POSTs that change no stored data (questions, email drafts): keep the GET cache. */
   keepCache?: boolean;
+  /** Called for each progress event when the server streams NDJSON (uploads with ?stream=true). */
+  onProgress?: (event: UploadProgress) => void;
 };
+
+export type UploadStep = "received" | "extract" | "lease_check" | "redact" | "store" | "analyse";
+
+/** Progress from the server: a step it has finished, or a new estimate of the time left. */
+export type UploadProgress =
+  | {
+      kind: "step";
+      step: UploadStep;
+      /** Server-side duration of this step. */
+      seconds: number;
+      /** Time since the upload started, measured in the browser. */
+      elapsedMs: number;
+    }
+  | {
+      kind: "estimate";
+      /** Server's estimate of the time left until the analysis is ready. */
+      remainingSeconds: number;
+      elapsedMs: number;
+    };
+
+type StreamEvent =
+  | { type: "step"; step: UploadStep; seconds: number }
+  | { type: "estimate"; remainingSeconds: number }
+  | { type: "result"; status: number; data: unknown; totalSeconds: number }
+  | { type: "error"; status: number; detail: unknown };
+
+/**
+ * Read an NDJSON progress stream: report each finished step, then return the
+ * final result (or throw the error the server reported).
+ */
+async function readProgressStream<T>(
+  response: Response,
+  onProgress: ((event: UploadProgress) => void) | undefined,
+  startedAt: number,
+  timeoutMs: number,
+): Promise<T> {
+  if (!response.body) throw new ApiError(0, "The server's reply was empty. Please try again.");
+  const reader = response.body.getReader();
+  let timedOut = false;
+  const remainingMs = Math.max(timeoutMs - (performance.now() - startedAt), 1_000);
+  const timer = setTimeout(() => {
+    timedOut = true;
+    reader.cancel().catch(() => undefined);
+  }, remainingMs);
+
+  try {
+    return await readEvents<T>(reader, onProgress, startedAt);
+  } catch (error) {
+    if (timedOut) throw new ApiError(408, "The server took too long to respond. Please try again.");
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function readEvents<T>(
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+  onProgress: ((event: UploadProgress) => void) | undefined,
+  startedAt: number,
+): Promise<T> {
+  const decoder = new TextDecoder();
+  let buffered = "";
+  for (;;) {
+    const { value, done } = await reader.read();
+    buffered += decoder.decode(value, { stream: !done });
+    const lines = buffered.split("\n");
+    buffered = done ? "" : (lines.pop() ?? "");
+
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      const event = JSON.parse(line) as StreamEvent;
+      if (event.type === "step") {
+        onProgress?.({ kind: "step", step: event.step, seconds: event.seconds, elapsedMs: performance.now() - startedAt });
+      } else if (event.type === "estimate") {
+        onProgress?.({ kind: "estimate", remainingSeconds: event.remainingSeconds, elapsedMs: performance.now() - startedAt });
+      } else if (event.type === "result") {
+        return event.data as T;
+      } else if (event.type === "error") {
+        const detail = typeof event.detail === "string" ? event.detail : "The upload didn't go through. Try again.";
+        throw new ApiError(event.status, detail);
+      }
+    }
+    if (done) throw new ApiError(0, "The connection closed before the analysis finished. Please try again.");
+  }
+}
 
 async function send<T>(path: string, options: RequestOptions = {}): Promise<T> {
   if (!API_URL) {
@@ -67,7 +154,8 @@ async function send<T>(path: string, options: RequestOptions = {}): Promise<T> {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { auth: needsAuth = true, timeoutMs = DEFAULT_TIMEOUT_MS, keepCache, ...init } = options;
+  const { auth: needsAuth = true, timeoutMs = DEFAULT_TIMEOUT_MS, keepCache, onProgress, ...init } = options;
+  const startedAt = performance.now();
   const headers = new Headers(init.headers);
 
   if (needsAuth) {
@@ -104,6 +192,9 @@ async function send<T>(path: string, options: RequestOptions = {}): Promise<T> {
   }
 
   if (response.status === 204) return undefined as T;
+  if (response.headers.get("Content-Type")?.startsWith("application/x-ndjson")) {
+    return readProgressStream<T>(response, onProgress, startedAt, timeoutMs);
+  }
   return (await response.json()) as T;
 }
 
@@ -213,21 +304,27 @@ export const getAnalysis = (analysisId: string) =>
  * Upload a lease document. Runs extraction, redaction, and analysis,
  * returning the completed analysis summary.
  */
-export async function uploadLease(file: File): Promise<UploadLeaseResponse> {
+export async function uploadLease(file: File, onProgress?: (event: UploadProgress) => void): Promise<UploadLeaseResponse> {
   const form = new FormData();
   form.append("file", file);
-  return request<UploadLeaseResponse>("/analyses", {
+  return request<UploadLeaseResponse>("/analyses?stream=true", {
     method: "POST",
     body: form,
     timeoutMs: UPLOAD_TIMEOUT_MS,
+    onProgress,
   });
 }
 
-export function uploadLeaseVersion(analysisId: string, file: File | null) {
+export function uploadLeaseVersion(analysisId: string, file: File | null, onProgress?: (event: UploadProgress) => void) {
   if (isSampleId(analysisId)) return Promise.resolve({ id: SAMPLE_UPDATED_ID });
   const form = new FormData();
   if (file) form.append("file", file);
-  return request<UploadLeaseResponse>(`/analyses/${id(analysisId)}/versions`, { method: "POST", body: form, timeoutMs: UPLOAD_TIMEOUT_MS });
+  return request<UploadLeaseResponse>(`/analyses/${id(analysisId)}/versions?stream=true`, {
+    method: "POST",
+    body: form,
+    timeoutMs: UPLOAD_TIMEOUT_MS,
+    onProgress,
+  });
 }
 
 export async function generateLandlordEmail(analysisId: string, clauses: Clause[]): Promise<LandlordEmailDraft> {
