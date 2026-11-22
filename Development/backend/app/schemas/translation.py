@@ -77,6 +77,12 @@ class ActionItemOut(CamelBaseModel):
     quote: str
 
 
+class TopActionOut(CamelBaseModel):
+    clause: str
+    quote: str
+    group: str
+
+
 class AnalysisDetail(AnalysisSummary):
     monthly_rent_cents: int | None = None
     deposit_cents: int | None = None
@@ -87,6 +93,8 @@ class AnalysisDetail(AnalysisSummary):
     versions: list[AnalysisVersionItem] = Field(default_factory=list)
     # None for leases analysed before the action list existed; the frontend then hides the tab.
     action_list: dict[str, list[ActionItemOut]] | None = None
+    # The few items to read first (best first), worked out from action_list.
+    top_actions: list[TopActionOut] | None = None
 
 
 class ClauseReviewedRequest(CamelBaseModel):
