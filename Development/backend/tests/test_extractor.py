@@ -301,3 +301,23 @@ def test_ocr_does_not_retry_invalid_requests(monkeypatch):
     with pytest.raises(gexc.InvalidArgument):
         ex._process_online(b"%PDF", "application/pdf")
     assert attempts["n"] == 1
+
+
+DEPOSIT_CLAUSE = (
+    "3.1 The Tenant pays the deposit as security for their performance of the tenant's obligations. "
+    "It is agreed that this sum shall not be transferable by the Tenant in any way, and at any time, "
+    "against payment of the rent and that no interest shall be payable on this deposit. "
+    "The balance of the deposit to be paid to the Tenant only after vacation of the property, "
+    "such amount to be assessed at the outgoing inspection upon termination of this Agreement."
+)
+
+
+def test_deposit_clause_is_not_flagged_as_entry_without_notice():
+    from rules_engine.extract import entry_without_notice
+    assert not entry_without_notice(DEPOSIT_CLAUSE)
+
+
+def test_real_entry_without_notice_is_still_flagged():
+    from rules_engine.extract import entry_without_notice
+    assert entry_without_notice("The Landlord may enter the Property at any time without notice.")
+    assert entry_without_notice("The Tenant agrees. The Landlord or his agent may inspect the premises at any time.")
