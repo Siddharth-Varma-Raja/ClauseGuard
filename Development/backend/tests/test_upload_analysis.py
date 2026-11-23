@@ -58,3 +58,28 @@ def test_upload_returns_real_analysis(client):
     assert titles["Deposit"] == "amber" and titles["Landlord access"] == "amber"
     assert full["monthlyRentCents"] == 180000
     assert "Sample Property" not in str(full)       # the old placeholder data is gone
+
+
+def test_analysis_returns_action_list(client):
+    aid = client.post("/api/analyses", files={"file": ("Sample-Lease.pdf", b"%PDF-1.4 x", "application/pdf")}).json()["id"]
+    full = client.get(f"/api/analyses/{aid}").json()
+    actions = full["actionList"]
+    assert set(actions) == {"landlord_must", "landlord_may", "tenant_must", "tenant_may",
+                            "not_allowed", "charges", "ending_lease", "unpaid_rent"}
+    # clause 2 ("The Tenant shall pay a deposit...") is a tenant duty and a charge
+    assert any(i["clause"] == "2" for i in actions["tenant_must"])
+    assert any(i["clause"] == "2" for i in actions["charges"])
+    # every action item points at a clause that exists, so "View" links work
+    numbers = {c["number"] for c in full["clauses"]}
+    assert all(i["clause"] in numbers for group in actions.values() for i in group)
+
+
+def test_analysis_returns_top_actions(client):
+    aid = client.post("/api/analyses", files={"file": ("Sample-Lease.pdf", b"%PDF-1.4 x", "application/pdf")}).json()["id"]
+    full = client.get(f"/api/analyses/{aid}").json()
+    top = full["topActions"]
+    assert 1 <= len(top) <= 5
+    numbers = {c["number"] for c in full["clauses"]}
+    assert all(t["clause"] in numbers and t["group"] and t["quote"] for t in top)
+    # the deposit clause has money and is a tenant duty, so it must be in the short list
+    assert any(t["clause"] == "2" for t in top)

@@ -125,3 +125,42 @@ if __name__ == "__main__":
         print(f"\n== {title} ({len(res[k])})")
         for it in res[k]:
             print(f"  [clause {it['clause']}] {it['quote']}")
+
+
+# ---- priority: a short list of the items that matter most --------------------------------------
+GROUP_BASE = {"not_allowed": 3, "unpaid_rent": 3, "tenant_must": 2, "charges": 2, "ending_lease": 2}
+SHOW_ORDER = ["not_allowed", "unpaid_rent", "charges", "tenant_must", "ending_lease"]   # label shown when an item is in several
+MONEY = re.compile(r"€\s?\d|\b\d+\s?(?:euro|eur)\b", re.I)
+TIME = re.compile(r"\b(?:within|by)\b[^.]{0,30}\b\d+\s+(?:days?|weeks?|months?)|\b\d+\s+(?:days?|weeks?|months?)['’]?\s*(?:written\s+)?notice|\bon the (?:first|1st)\b|\bin advance\b|\bevery\s+(?:\d+\s+)?(?:months?|weeks?)\b", re.I)
+CONSEQUENCE = re.compile(r"forfeit|retain|deduct|penalt|surcharge|legal action|terminate|evict|lose|liable|withheld", re.I)
+MONEY_TOPIC = re.compile(r"\b(?:deposit|rent|fee|charge)s?\b", re.I)
+ROUTINE = re.compile(r"clean|tidy|neighbour|nuisance|noise|keys|light bulb|good order", re.I)
+TAGS = {"not_allowed": "Not allowed", "unpaid_rent": "If rent is late", "charges": "Money", "tenant_must": "You must", "ending_lease": "Ending the lease"}
+
+
+def prioritise(action_list, limit=5):
+    """Pick the few items a tenant should read first, from an action list.
+
+    Rule based and explainable: an item scores higher when it has money, a deadline or notice period,
+    a consequence (losing the deposit, ending the tenancy), is a "not allowed" rule, or shows up in
+    several groups. Routine duties (keep it clean, keys, noise) score lower. Items are returned as
+    {"clause", "quote", "group"}, best first; ties keep lease order.
+    """
+    seen = {}
+    for group in GROUP_BASE:
+        for it in (action_list or {}).get(group, []):
+            key = (str(it["clause"]), it["quote"])
+            seen.setdefault(key, {"clause": str(it["clause"]), "quote": it["quote"], "groups": []})["groups"].append(group)
+
+    scored = []
+    for item in seen.values():
+        q = item["quote"]
+        score = max(GROUP_BASE[g] for g in item["groups"])
+        score += 2 * bool(MONEY.search(q)) + 2 * bool(TIME.search(q)) + 2 * bool(CONSEQUENCE.search(q))
+        score += bool(MONEY_TOPIC.search(q)) + (len(item["groups"]) - 1)
+        score -= 2 * bool(ROUTINE.search(q))
+        shown = next(g for g in SHOW_ORDER if g in item["groups"])
+        order = [int(p) if p.isdigit() else 0 for p in re.findall(r"\d+", item["clause"])[:1]] or [0]
+        scored.append((-score, order[0], {"clause": item["clause"], "quote": q, "group": shown}))
+    scored.sort(key=lambda t: (t[0], t[1]))
+    return [s[2] for s in scored[:limit]]

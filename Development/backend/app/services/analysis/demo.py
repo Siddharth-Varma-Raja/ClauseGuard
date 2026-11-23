@@ -153,7 +153,8 @@ def analyse_text(text: str, file_name: str = "lease") -> dict[str, Any]:
     pages = text.split("\f") if "\f" in text else [text]
     parts = split_clean(pages, "demo")
     clauses = [_clause_to_dict(c, ctx) for c in parts]
-    action_list = extract_actions([{"number": _number(c.text, c.idx), "text": c.text} for c in parts])
+    # Numbered 1, 2, 3... exactly like the saved clauses, so "Clause N" links match.
+    action_list = extract_actions([{"number": str(i), "text": c.text} for i, c in enumerate(parts, start=1)])
 
     counts = {"red": 0, "amber": 0, "green": 0, "grey": 0}
     for c in clauses:
