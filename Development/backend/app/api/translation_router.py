@@ -697,6 +697,56 @@ async def delete_all_analyses(
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
+@router.delete("/analyses/{id}", status_code=status.HTTP_204_NO_CONTENT, tags=["Analyses"])
+async def delete_analysis(
+    id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Response:
+    """
+    Soft-delete one lease analysis and wipe its stored files.
+
+    The list shows each lease once, as its latest version, so deleting it
+    removes every version of that lease. Deleting only the given version
+    would just bring the previous one back into the list.
+    """
+    doc_result = await db.execute(
+        select(Document).where(
+            Document.id == id,
+            Document.user_id == current_user.id,
+            Document.is_deleted == False,  # noqa: E712
+        )
+    )
+    doc = doc_result.scalar_one_or_none()
+    if not doc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Analysis not found.",
+        )
+
+    group_id = doc.lease_group_id or doc.id
+    versions_result = await db.execute(
+        select(Document).where(
+            (Document.id == group_id) | (Document.lease_group_id == group_id),
+            Document.user_id == current_user.id,
+            Document.is_deleted == False,  # noqa: E712
+        )
+    )
+
+    now = datetime.now(timezone.utc)
+    for version in versions_result.scalars().all():
+        if version.s3_key:
+            try:
+                delete_from_gcs(version.s3_key)
+            except Exception as e:
+                logger.error(f"Error deleting stored file {version.s3_key}: {e}")
+        version.is_deleted = True
+        version.deleted_at = now
+
+    await db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
 @router.post(
     "/analyses/{analysis_id}/clauses/{clause_id}/questions",
     response_model=ClauseQuestionResponse,
