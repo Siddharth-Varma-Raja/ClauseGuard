@@ -377,6 +377,46 @@ body {
   animation-delay: calc(var(--delay, 0ms) + 200ms);
 }
 
+.row-in>li {
+  animation: fadeUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.row-in>li:nth-child(10n+2) {
+  animation-delay: 40ms;
+}
+
+.row-in>li:nth-child(10n+3) {
+  animation-delay: 80ms;
+}
+
+.row-in>li:nth-child(10n+4) {
+  animation-delay: 120ms;
+}
+
+.row-in>li:nth-child(10n+5) {
+  animation-delay: 160ms;
+}
+
+.row-in>li:nth-child(10n+6) {
+  animation-delay: 200ms;
+}
+
+.row-in>li:nth-child(10n+7) {
+  animation-delay: 240ms;
+}
+
+.row-in>li:nth-child(10n+8) {
+  animation-delay: 280ms;
+}
+
+.row-in>li:nth-child(10n+9) {
+  animation-delay: 320ms;
+}
+
+.row-in>li:nth-child(10n+10) {
+  animation-delay: 360ms;
+}
+
 .skeleton {
   background: linear-gradient(90deg, #eceff1 0%, #f6f8f9 50%, #eceff1 100%);
   background-size: 1200px 100%;
@@ -430,6 +470,7 @@ body {
   .animate-fade-up,
   .animate-slide-in,
   .stagger>*,
+  .row-in>li,
   .skeleton,
   .animate-ring,
   .animate-grow,
