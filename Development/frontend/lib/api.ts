@@ -57,30 +57,24 @@ export function errorMessage(error: unknown, fallback = "Something went wrong. P
 type RequestOptions = RequestInit & {
   auth?: boolean;
   timeoutMs?: number;
-  /** For POSTs that change no stored data (questions, email drafts): keep the GET cache. */
   keepCache?: boolean;
-  /** Called for each progress event when the server streams NDJSON (uploads with ?stream=true). */
   onProgress?: (event: UploadProgress) => void;
 };
 
 export type UploadStep = "received" | "extract" | "lease_check" | "redact" | "store" | "analyse";
 
-/** Progress from the server: a step it has finished, or a new estimate of the time left. */
 export type UploadProgress =
   | {
-      kind: "step";
-      step: UploadStep;
-      /** Server-side duration of this step. */
-      seconds: number;
-      /** Time since the upload started, measured in the browser. */
-      elapsedMs: number;
-    }
+    kind: "step";
+    step: UploadStep;
+    seconds: number;
+    elapsedMs: number;
+  }
   | {
-      kind: "estimate";
-      /** Server's estimate of the time left until the analysis is ready. */
-      remainingSeconds: number;
-      elapsedMs: number;
-    };
+    kind: "estimate";
+    remainingSeconds: number;
+    elapsedMs: number;
+  };
 
 type StreamEvent =
   | { type: "step"; step: UploadStep; seconds: number }
@@ -88,10 +82,6 @@ type StreamEvent =
   | { type: "result"; status: number; data: unknown; totalSeconds: number }
   | { type: "error"; status: number; detail: unknown };
 
-/**
- * Read an NDJSON progress stream: report each finished step, then return the
- * final result (or throw the error the server reported).
- */
 async function readProgressStream<T>(
   response: Response,
   onProgress: ((event: UploadProgress) => void) | undefined,
@@ -124,7 +114,7 @@ async function readEvents<T>(
 ): Promise<T> {
   const decoder = new TextDecoder();
   let buffered = "";
-  for (;;) {
+  for (; ;) {
     const { value, done } = await reader.read();
     buffered += decoder.decode(value, { stream: !done });
     const lines = buffered.split("\n");
@@ -153,7 +143,6 @@ async function send<T>(path: string, options: RequestOptions = {}): Promise<T> {
     throw new ApiError(503, "The backend is not connected. Set NEXT_PUBLIC_API_URL in .env.local.");
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { auth: needsAuth = true, timeoutMs = DEFAULT_TIMEOUT_MS, keepCache, onProgress, ...init } = options;
   const startedAt = performance.now();
   const headers = new Headers(init.headers);
@@ -198,7 +187,6 @@ async function send<T>(path: string, options: RequestOptions = {}): Promise<T> {
   return (await response.json()) as T;
 }
 
-// Clear cached data when the signed-in account changes (sign-out included).
 let cacheOwner: string | null = null;
 if (typeof window !== "undefined") {
   onAuthStateChanged(auth, (user) => {
@@ -210,10 +198,6 @@ if (typeof window !== "undefined") {
   });
 }
 
-/**
- * GETs go through the in-memory cache (see apiCache.ts). Any other method
- * clears it once it finishes, unless the call is marked `keepCache`.
- */
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const method = (options.method ?? "GET").toUpperCase();
   const uid = auth.currentUser?.uid;
@@ -300,10 +284,6 @@ export const getAnalyses = () => request<AnalysisSummary[]>("/analyses");
 export const getAnalysis = (analysisId: string) =>
   isSampleId(analysisId) ? Promise.resolve(getSampleLease(analysisId)) : getOrNull<Analysis>(`/analyses/${id(analysisId)}`);
 
-/**
- * Upload a lease document. Runs extraction, redaction, and analysis,
- * returning the completed analysis summary.
- */
 export async function uploadLease(file: File, onProgress?: (event: UploadProgress) => void): Promise<UploadLeaseResponse> {
   const form = new FormData();
   form.append("file", file);
@@ -356,6 +336,8 @@ export function setClauseReviewed(analysisId: string, clauseId: string, reviewed
 }
 
 export const deleteAllAnalyses = () => request<void>("/analyses", { method: "DELETE" });
+
+export const deleteAnalysis = (analysisId: string) => request<void>(`/analyses/${id(analysisId)}`, {method: "DELETE"});
 
 export async function askAboutClause(analysisId: string, clauseId: string, question: string, history: ChatMessage[]) {
   if (isSampleId(analysisId)) return SAMPLE_ANSWER;
