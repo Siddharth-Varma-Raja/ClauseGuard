@@ -11,7 +11,7 @@ export const LABEL: Record<Status, string> = {
     red: "High Risk",
     amber: "Medium Risk",
     green: "Low Risk",
-    grey: "General wording",
+    grey: "Informational",
 };
 
 export const BRIGHT: Record<Status, string> = {
