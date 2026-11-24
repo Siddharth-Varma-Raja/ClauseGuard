@@ -206,38 +206,6 @@ export default function MobileDashboard({
                     </ul>
                 </section>
             )}
-
-            <section className="mt-8 animate-fade-up [animation-delay:400ms]">
-                <h2 className="font-display text-xl font-semibold text-brand-dark">Something else?</h2>
-                <div className="mt-3 overflow-hidden rounded-3xl bg-white shadow-soft">
-                    {leases[0] && (
-                        <Link href={`/lease/${leases[0].id}`} className="flex items-center gap-3 border-b border-line px-4 py-4">
-                            <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-brand-soft text-brand-dark"><MessageCircleQuestion size={20} aria-hidden /></span>
-                            <span className="min-w-0 flex-1">
-                                <span className="block font-semibold text-ink">Ask about a clause</span>
-                                <span className="block text-sm text-mute">Get a plain-English answer</span>
-                            </span>
-                            <ChevronRight size={18} aria-hidden className="text-[#a9babd]" />
-                        </Link>
-                    )}
-                    <Link href="/notices" className="flex items-center gap-3 border-b border-line px-4 py-4">
-                        <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-brand-soft text-brand-dark"><FileCheck size={20} aria-hidden /></span>
-                        <span className="min-w-0 flex-1">
-                            <span className="block font-semibold text-ink">Check a notice</span>
-                            <span className="block text-sm text-mute">Rent increase or notice to leave</span>
-                        </span>
-                        <ChevronRight size={18} aria-hidden className="text-[#a9babd]" />
-                    </Link>
-                    <Link href="/lease/new" className="flex items-center gap-3 px-4 py-4">
-                        <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-brand-soft text-brand-dark"><Upload size={20} aria-hidden /></span>
-                        <span className="min-w-0 flex-1">
-                            <span className="block font-semibold text-ink">Upload another lease</span>
-                            <span className="block text-sm text-mute">Compare a different place</span>
-                        </span>
-                        <ChevronRight size={18} aria-hidden className="text-[#a9babd]" />
-                    </Link>
-                </div>
-            </section>
         </div>
     );
 }

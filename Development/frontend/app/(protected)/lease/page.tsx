@@ -5,13 +5,14 @@ import { ChevronDown, ChevronLeft, ChevronRight, CircleCheck, FileText, Loader2,
 import UploadLeaseButton from "@/components/ui/UploadLeaseButton";
 import LoadingState from "@/components/ui/LoadingState";
 import ErrorState from "@/components/ui/ErrorState";
-import AnalysisCard, { MobileLeaseRow, leaseVerdict } from "@/components/lease/AnalysisCard";
+import AnalysisCard, { MobileLeaseRow, MobileRiskLegend, RiskLegend, leaseVerdict } from "@/components/lease/AnalysisCard";
 import { deleteAnalysis, errorMessage, getAnalyses } from "@/lib/api";
 import type { AnalysisSummary } from "@/lib/notice-types";
 import PageTour from "@/components/PageTour";
 import { LEASES_TOUR } from "@/lib/tours";
 
 const PAGE_SIZE = 10;
+const ROW_HEIGHT = 77;
 
 export default function LeasePage() {
   const [leases, setLeases] = useState<AnalysisSummary[] | null>(null);
@@ -23,7 +24,9 @@ export default function LeasePage() {
   const [message, setMessage] = useState("");
   const [page, setPage] = useState(1);
   const [shownCount, setShownCount] = useState(PAGE_SIZE);
-  const tableRef = useRef<HTMLElement>(null);
+  const [pageSize, setPageSize] = useState(PAGE_SIZE)
+  const listRef = useRef<HTMLUListElement>(null);
+  const footerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -43,6 +46,20 @@ export default function LeasePage() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [toDelete, deleting]);
+
+  useEffect(() => {
+    function fitRows() {
+      const list = listRef.current;
+      if (!list || list.offsetParent === null) return;
+      const listTop = list.getBoundingClientRect().top + window.scrollY;
+      const footerHeight = footerRef.current?.offsetHeight ?? 64;
+      const room = window.innerHeight - listTop - footerHeight - 34;
+      setPageSize(Math.max(3, Math.floor(room / ROW_HEIGHT)));
+    }
+    fitRows();
+    window.addEventListener("resize", fitRows);
+    return () => window.removeEventListener("resize", fitRows);
+  }, [leases, message]);
 
   useEffect(() => {
     if (!message) return;
@@ -80,16 +97,11 @@ export default function LeasePage() {
   const attention = (leases ?? []).filter((lease) => leaseVerdict(lease.counts).attention).sort((a, b) => b.counts.red - a.counts.red || b.counts.amber - a.counts.amber);
   const settled = (leases ?? []).filter((lease) => !leaseVerdict(lease.counts).attention);
   const total = leases?.length ?? 0;
-  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const pageCount = Math.max(1, Math.ceil(total / pageSize));
   const currentPage = Math.min(page, pageCount);
-  const firstIndex = (currentPage - 1) * PAGE_SIZE;
-  const pageLeases = (leases ?? []).slice(firstIndex, firstIndex + PAGE_SIZE);
+  const firstIndex = (currentPage - 1) * pageSize;
+  const pageLeases = (leases ?? []).slice(firstIndex, firstIndex + pageSize);
   const mobileLeases = [...attention, ...settled].slice(0, shownCount);
-
-  function goToPage(next: number) {
-    setPage(next);
-    tableRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }
 
   return (
     <main className="mx-auto max-w-6xl">
@@ -131,9 +143,8 @@ export default function LeasePage() {
           <>
             <section className="overflow-hidden rounded-3xl border border-line bg-white shadow-soft animate-fade-up [animation-delay:100ms] md:hidden">
               <h2 className="sr-only">Your saved leases</h2>
-              <div className="flex items-center gap-4 border-b border-line bg-[#f7fbfb] px-4 py-3 text-[13px] text-mute">
-                {attention.length > 0 && <span className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-bad-solid" /><b className="font-semibold text-ink">{attention.length}</b> need attention</span>}
-                {settled.length > 0 && <span className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-ok-solid" /><b className="font-semibold text-ink">{settled.length}</b> look good</span>}
+              <div className="border-b border-line bg-[#f7fbfb] px-4 py-1">
+                <MobileRiskLegend />
               </div>
               <ul className="divide-y divide-line row-in">
                 {mobileLeases.map((lease) => (
@@ -154,20 +165,23 @@ export default function LeasePage() {
                 Showing {mobileLeases.length} of {total} lease{total === 1 ? "" : "s"}
               </p>
             </section>
-            <section ref={tableRef} className="hidden scroll-mt-6 overflow-hidden rounded-3xl border border-line bg-white shadow-soft animate-fade-up [animation-delay:100ms] md:block">
+            <section className="hidden overflow-hidden rounded-3xl border border-line bg-white shadow-soft animate-fade-up [animation-delay:100ms] md:block">
               <h2 className="sr-only">Your saved leases</h2>
-              <div className="grid grid-cols-[minmax(0,1fr)_9rem_auto] gap-x-4 border-b border-line bg-[#f7fbfb] px-6 py-3 text-xs font-semibold text-mute lg:grid-cols-[minmax(0,1fr)_14rem_9rem_auto]">
-                <span>Lease</span>
-                <span className="hidden lg:block">Results</span>
-                <span>Status</span>
-                <span className="w-[8.5rem]" />
+              <div className="border-b border-line px-6 py-3">
+                <RiskLegend />
               </div>
-              <ul className="divide-y divide-line row-in" key={currentPage}>
+              <div className="grid grid-cols-[minmax(0,1fr)_9rem_2.5rem] gap-x-4 border-b border-line bg-[#f7fbfb] px-6 py-3 text-xs font-semibold text-mute lg:grid-cols-[minmax(0,1fr)_17rem_9rem_2.5rem]">
+                <span>Lease</span>
+                <span className="hidden lg:block">Clauses by risk</span>
+                <span>Overall risk</span>
+                <span className="sr-only">Delete</span>
+              </div>
+              <ul ref={listRef} className="divide-y divide-line row-in" key={`${currentPage}-${pageSize}`}>
                 {pageLeases.map((lease) => (
                   <AnalysisCard key={lease.id} analysis={lease} onDelete={askDelete} />
                 ))}
               </ul>
-              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line px-6 py-3">
+              <div ref={footerRef} className="flex flex-wrap items-center justify-between gap-3 border-t border-line px-6 py-3">
                 <p className="text-sm text-mute">
                   {pageCount > 1 ? `Showing ${firstIndex + 1}–${firstIndex + pageLeases.length} of ${total} leases` : `${total} lease${total === 1 ? "" : "s"}`}
                 </p>
@@ -175,7 +189,7 @@ export default function LeasePage() {
                   <nav aria-label="Lease pages" className="flex items-center gap-1">
                     <button
                       type="button"
-                      onClick={() => goToPage(currentPage - 1)}
+                      onClick={() => setPage(currentPage - 1)}
                       disabled={currentPage === 1}
                       className="inline-flex min-h-10 cursor-pointer items-center gap-1 rounded-xl border border-line bg-white px-3 text-sm font-semibold text-ink hover:border-brand transition-colors duration-200 disabled:cursor-default disabled:opacity-40 disabled:hover:border-line"
                     >
@@ -186,7 +200,7 @@ export default function LeasePage() {
                       <button
                         key={number}
                         type="button"
-                        onClick={() => goToPage(number)}
+                        onClick={() => setPage(number)}
                         aria-label={`Page ${number}`}
                         aria-current={number === currentPage ? "page" : undefined}
                         className={`grid size-10 cursor-pointer place-items-center rounded-xl text-sm font-semibold transition-colors duration-200 ${number === currentPage ? "bg-brand-dark text-white" : "text-ink hover:bg-surface"}`}
@@ -196,7 +210,7 @@ export default function LeasePage() {
                     ))}
                     <button
                       type="button"
-                      onClick={() => goToPage(currentPage + 1)}
+                      onClick={() => setPage(currentPage + 1)}
                       disabled={currentPage === pageCount}
                       className="inline-flex min-h-10 cursor-pointer items-center gap-1 rounded-xl border border-line bg-white px-3 text-sm font-semibold text-ink hover:border-brand transition-colors duration-200 disabled:cursor-default disabled:opacity-40 disabled:hover:border-line"
                     >
