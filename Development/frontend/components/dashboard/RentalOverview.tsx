@@ -9,10 +9,10 @@ import { euro, fmtDate, relativeDays, daysUntil, todayIso } from "@/lib/format";
 import type { Analysis, TimelineEvent } from "@/lib/notice-types";
 
 const RING = [
-  { key: "red", colour: "#ff9b8f", label: "high risk" },
-  { key: "amber", colour: "#f5c451", label: "worth asking about" },
-  { key: "green", colour: "#7fdca5", label: "fine" },
-  { key: "grey", colour: "rgb(255 255 255 / 0.45)", label: "for information" },
+  { key: "red", colour: "#ff9b8f", label: "High Risk" },
+  { key: "amber", colour: "#f5c451", label: "Medium Risk" },
+  { key: "green", colour: "#7fdca5", label: "Low Risk" },
+  { key: "grey", colour: "rgb(255 255 255 / 0.45)", label: "Informational" },
 ] as const;
 
 const NUMBER = "font-display font-semibold tabular-nums leading-none";
