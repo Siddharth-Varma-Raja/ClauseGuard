@@ -15,7 +15,7 @@ export default function ProtectedLayout({
                 <AppHeader />
                 <div className="flex">
                     <AppSidebar />
-                    <main className="min-w-0 flex-1 p-6 md:p-8">
+                    <main className="min-w-0 flex-1 p-5 pb-28 md:p-8">
                         {children}
                     </main>
                 </div>

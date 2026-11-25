@@ -803,7 +803,7 @@ function ViewSwitch({
         {open && (
           <>
             <button type="button" aria-label="Close menu" tabIndex={-1} onClick={() => setOpen(false)} className="fixed inset-0 z-40 cursor-default" />
-            <div role="menu" className="mt-2 animate-pop-in rounded-2xl border border-line bg-white p-2 shadow-soft">
+            <div role="menu" className="relative z-50 mt-2 animate-pop-in rounded-2xl border border-line bg-white p-2 shadow-soft">
               {options.map(({ value, label, Icon }) => (
                 <button
                   key={value}

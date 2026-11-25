@@ -77,7 +77,11 @@ def entry_without_notice(text: str) -> bool:
     # Forfeiture or re-entry on default is about ending the tenancy, so do not flag it as access.
     if re.search(NOT_ACCESS, text, re.I):
         return False
-    return bool(re.search(ENTRY_WORDS, text, re.I)) and any(re.search(p, text, re.I) for p in NO_NOTICE)
+    # The entry word and the "no notice" words must be in the same sentence. Otherwise "at any time" in one
+    # sentence (for example about a deposit) and "inspection" in the next would be read as one rule.
+    sentences = re.split(r"(?<=[.;])\s+(?=[A-Z(0-9])", text)
+    return any(re.search(ENTRY_WORDS, s, re.I) and any(re.search(p, s, re.I) for p in NO_NOTICE)
+               for s in sentences)
 
 
 

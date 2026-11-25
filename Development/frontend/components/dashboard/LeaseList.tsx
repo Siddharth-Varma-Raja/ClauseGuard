@@ -6,10 +6,10 @@ import type { Analysis, AnalysisSummary, Status } from "@/lib/notice-types";
 import { cn } from "@/lib/cn";
 
 const BAR: { key: Status; colour: string; label: string }[] = [
-  { key: "red", colour: "bg-bad-solid", label: "High risk" },
-  { key: "amber", colour: "bg-warn-solid", label: "Worth asking about" },
-  { key: "green", colour: "bg-ok-solid", label: "Fine" },
-  { key: "grey", colour: "bg-neu-solid", label: "For information" },
+  { key: "red", colour: "bg-bad-solid", label: "High Risk" },
+  { key: "amber", colour: "bg-warn-solid", label: "Medium Risk" },
+  { key: "green", colour: "bg-ok-solid", label: "Low Risk" },
+  { key: "grey", colour: "bg-neu-solid", label: "Informational" },
 ];
 
 function uploadedAt(iso: string) {
