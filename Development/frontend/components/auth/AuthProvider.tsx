@@ -21,6 +21,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return onAuthStateChanged(auth, (firebaseUser) => {
       setUser(firebaseUser);
       setLoading(false);
+      document.cookie = firebaseUser
+        ? "cg_signed_in=1; path=/; max-age=2592000; samesite=lax"
+        : "cg_signed_in=; path=/; max-age=0";
     });
   }, []);
 
