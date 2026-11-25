@@ -190,10 +190,10 @@ export default function NoticesPage() {
                   {loadingLeases ? (
                     <div className="skeleton h-14 rounded-xl" />
                   ) : leases.length === 0 ? (
-                    <p className="text-sm text-mute">You haven&apos;t uploaded a lease yet, so you&apos;ll fill in the details yourself.</p>
+                    <p className="text-sm text-mute">You haven't uploaded a lease yet, so you'll fill in the details yourself.</p>
                   ) : (
                     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-6">
-                      <p className="text-[13.5px] leading-snug text-mute md:max-w-[300px]">Pick it and we&apos;ll fill in your rent and the date your tenancy started.</p>
+                      <p className="text-[13.5px] leading-snug text-mute md:max-w-[300px]">Pick it and we'll fill in your rent and the date your tenancy started.</p>
                       <div className="md:w-[380px] md:shrink-0">
                         <LeasePicker leases={leases} value={leaseChoice} onChange={chooseLease} />
                       </div>

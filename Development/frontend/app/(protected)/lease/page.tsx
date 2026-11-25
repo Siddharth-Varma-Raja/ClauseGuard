@@ -141,9 +141,8 @@ export default function LeasePage() {
           </section>
         ) : (
           <>
-            <section className="overflow-hidden rounded-3xl border border-line bg-white shadow-soft animate-fade-up [animation-delay:100ms] md:hidden">
-              <h2 className="sr-only">Your saved leases</h2>
-              <div className="border-b border-line bg-[#f7fbfb] px-4 py-1">
+            <section className="overflow-clip rounded-3xl border border-line bg-white shadow-soft animate-fade-up [animation-delay:100ms] md:hidden">
+              <div className="sticky top-16 z-30 border-b border-line bg-[#f7fbfb]/95 px-4 py-1 backdrop-blur [@media(max-height:480px)]:top-0">
                 <MobileRiskLegend />
               </div>
               <ul className="divide-y divide-line row-in">
