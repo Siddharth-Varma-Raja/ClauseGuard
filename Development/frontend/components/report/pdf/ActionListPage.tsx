@@ -14,7 +14,7 @@ export default function ActionListPage({ reportId, actionList }: { reportId: str
                 <Text style={[s.h2, s.first]}>Your action list</Text>
                 <P style={s.intro}>Built from your lease using fixed rules. No AI reads your lease for this.</P>
             </View>
-            {groups.length === 0 && <P style={s.note}>We couldn&apos;t find any actions in this lease.</P>}
+            {groups.length === 0 && <P style={s.note}>We couldn't find any actions in this lease.</P>}
             {groups.map((group) => (
                 <View key={group.key} style={{ marginBottom: 14 }}>
                     <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }} minPresenceAhead={40}>

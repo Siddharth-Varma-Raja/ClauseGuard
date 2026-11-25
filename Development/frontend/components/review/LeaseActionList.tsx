@@ -206,7 +206,7 @@ export default function LeaseActionList({
           <span className="grid size-12 place-items-center rounded-full bg-brand-soft text-brand">
             <SearchX size={22} aria-hidden />
           </span>
-          <p className="mt-3 font-semibold text-ink">We couldn&apos;t find any actions in this lease.</p>
+          <p className="mt-3 font-semibold text-ink">We couldn't find any actions in this lease.</p>
         </div>
       ) : (
         <div className={cn("space-y-3", showHeader && "mt-4")}>

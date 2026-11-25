@@ -53,7 +53,7 @@ export default function OverviewPage({ reportId, total, counts, facts }: { repor
                     </View>
                 ))}
             </View>
-            {missing.length > 0 && <P style={s.note}>This lease doesn&apos;t say the {missing.join(", ")}. Ask your landlord to add it before you sign.</P>}
+            {missing.length > 0 && <P style={s.note}>This lease doesn't say the {missing.join(", ")}. Ask your landlord to add it before you sign.</P>}
         </Section>
     );
 }

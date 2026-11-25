@@ -145,7 +145,7 @@ function SheetBody({ clause, label, position, reviewed, email, action, onSeeInLe
                                                         ))}
                                                     </ul>
                                                 ) : (
-                                                    <p className="text-mute">ClauseGuard didn&apos;t link a specific law to this clause.</p>
+                                                    <p className="text-mute">ClauseGuard didn't link a specific law to this clause.</p>
                                                 )}
                                                 {clause.confidence !== "high" && (
                                                     <p className="mt-3 text-sm text-mute">ClauseGuard is {clause.confidence === "medium" ? "fairly" : "not very"} confident about this result, so double-check it.</p>
