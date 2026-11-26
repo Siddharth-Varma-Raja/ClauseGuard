@@ -35,13 +35,17 @@ router = APIRouter()
 
 
 def get_genai_client() -> genai.Client:
-    api_key = settings.gemini_api_key or os.environ.get("GEMINI_API_KEY")
-    if not api_key:
+    project_id = settings.gcp_project_id or os.environ.get("GCP_PROJECT_ID")
+    if not project_id:
         raise HTTPException(
             status_code=503,
-            detail="GEMINI_API_KEY is not configured in the backend .env file.",
+            detail="GCP_PROJECT_ID is not configured in the backend environment.",
         )
-    return genai.Client(api_key=api_key)
+    return genai.Client(
+        vertexai=True,
+        project=project_id,
+        location="global",  
+    )
 
 
 async def retrieve_relevant_context(
@@ -116,11 +120,12 @@ async def ask_clauseguard_bot(
 
         client = get_genai_client()
         response = client.models.generate_content(
-            model='gemini-3.8-flash',
+            model="gemini-3.5-flash-lite",
             contents=contents,
             config=types.GenerateContentConfig(
                 system_instruction=system_instruction,
                 temperature=0.2,
+                max_output_tokens=1024,
             ),
         )
 

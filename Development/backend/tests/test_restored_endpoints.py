@@ -119,6 +119,42 @@ def test_delete_all_analyses_wipes_stored_files(ctx):
     assert ctx.client.get("/api/analyses").json() == []
 
 
+def test_delete_one_analysis_keeps_the_others(ctx):
+    keep = upload(ctx)["id"]
+    gone = upload(ctx)["id"]
+    assert ctx.client.delete(f"/api/analyses/{gone}").status_code == 204
+    assert ctx.deleted == ["documents/user-1/2.txt"]
+    assert [a["id"] for a in ctx.client.get("/api/analyses").json()] == [keep]
+    assert ctx.client.get(f"/api/analyses/{gone}").status_code == 404
+
+
+def test_delete_one_analysis_removes_every_version(ctx):
+    v1 = upload(ctx)["id"]
+    v2 = upload_version(ctx, v1).json()["id"]
+    assert ctx.client.delete(f"/api/analyses/{v2}").status_code == 204
+    assert sorted(ctx.deleted) == ["documents/user-1/1.txt", "documents/user-1/2.txt"]
+    assert ctx.client.get("/api/analyses").json() == []
+    assert ctx.client.get(f"/api/analyses/{v1}").status_code == 404
+
+
+def test_deleting_the_first_version_removes_the_later_ones(ctx):
+    v1 = upload(ctx)["id"]
+    v2 = upload_version(ctx, v1).json()["id"]
+    v3 = upload_version(ctx, v2, b"%PDF-1.4 third").json()["id"]
+    assert ctx.client.delete(f"/api/analyses/{v1}").status_code == 204
+    assert len(ctx.deleted) == 3
+    assert ctx.client.get("/api/analyses").json() == []
+    for aid in (v1, v2, v3):
+        assert ctx.client.get(f"/api/analyses/{aid}").status_code == 404
+
+
+def test_delete_unknown_or_already_deleted_analysis_is_404(ctx):
+    assert ctx.client.delete("/api/analyses/no-such-id").status_code == 404
+    aid = upload(ctx)["id"]
+    assert ctx.client.delete(f"/api/analyses/{aid}").status_code == 204
+    assert ctx.client.delete(f"/api/analyses/{aid}").status_code == 404
+
+
 def test_clause_question(ctx, monkeypatch):
     class FakeModels:
         def generate_content(self, **kw):

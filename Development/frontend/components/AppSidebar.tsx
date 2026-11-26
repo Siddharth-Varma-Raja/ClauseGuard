@@ -65,9 +65,9 @@ export default function AppSidebar() {
             >
                 <Link href="/dashboard" className="flex h-10 items-center gap-3 rounded-xl">
                     <span className="grid w-11 shrink-0 place-items-center">
-                        <Image src="/logo.svg" alt="" width={26} height={29} priority />
+                        <Image src="/logo.svg" alt="" width={44} height={24} priority />
                     </span>
-                    <span className={cn("whitespace-nowrap font-display text-xl font-semibold text-brand-dark", SHOW)}>ClauseGuard</span>
+                    <span className={cn("-translate-x-3 whitespace-nowrap font-display text-xl font-semibold text-brand-dark transition-[opacity,transform] duration-300 ease-out group-hover/side:translate-x-0 group-has-[:focus-visible]/side:translate-x-0 motion-reduce:transition-none", SHOW)}>ClauseGuard</span>
                 </Link>
 
                 <nav aria-label="Main" className="mt-8 space-y-1">

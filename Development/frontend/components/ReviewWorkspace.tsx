@@ -86,6 +86,7 @@ export default function ReviewWorkspace({ analysis }: { analysis: Analysis }) {
   const centreNextScroll = useRef(false);
   const [jumps, setJumps] = useState(0);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [leaseTab, setLeaseTab] = useState<"document" | "issues">("document");
   const [moreOpen, setMoreOpen] = useState(false);
 
   useEffect(() => {
@@ -203,6 +204,37 @@ export default function ReviewWorkspace({ analysis }: { analysis: Analysis }) {
     setPage(clause.page);
     requestAnimationFrame(() =>
       document.getElementById("lease-view")?.scrollIntoView({ behavior: "smooth", block: "start" }),
+    );
+  }
+
+  function issueList(onPick: (clause: Clause) => void, list: Clause[] = issues) {
+    return (
+      <ul className="row-in divide-y divide-line">
+        {list.map((clause) => {
+          const index = issues.indexOf(clause);
+          const style = STATUS[clause.status];
+          return (
+            <li key={clause.id}>
+              <button
+                type="button"
+                onClick={() => onPick(clause)}
+                className={cn("flex min-h-[60px] w-full cursor-pointer items-center gap-3 px-4 py-2.5 text-left transition-colors active:bg-surface", clause.id === selectedId && "bg-brand-soft/60")}
+              >
+                <span className={cn("grid size-8 shrink-0 place-items-center rounded-full text-white", style.solid)} aria-hidden>
+                  <style.Icon size={16} />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-xs text-mute">
+                    Issue {index + 1} · Clause {clause.number} · page {clause.page}
+                  </span>
+                  <span className="block truncate font-semibold text-ink">{clause.title}</span>
+                </span>
+                {clause.reviewed ? <Check size={18} className="shrink-0 text-ok" aria-label="Reviewed" /> : <ChevronRight size={18} className="shrink-0 text-mute" aria-hidden />}
+              </button>
+            </li>
+          );
+        })}
+      </ul>
     );
   }
 
@@ -354,7 +386,7 @@ export default function ReviewWorkspace({ analysis }: { analysis: Analysis }) {
         ) : null}
       </div>
 
-      <div className="mt-4 flex flex-col gap-3 md:mt-3 md:flex-row md:items-center">
+      <div className="mt-4 flex flex-col gap-3 md:mt-3 md:grid md:grid-cols-[auto_minmax(0,1fr)] md:items-center min-[1360px]:grid-cols-[auto_minmax(0,1fr)_auto]">
         <ViewSwitch view={view} onChange={changeView} showChanges={Boolean(previousVersion)} showActions={Boolean(analysis.actionList)} />
         <SummaryBar
           reportHref={`/lease/${analysis.id}/report`}
@@ -430,13 +462,141 @@ export default function ReviewWorkspace({ analysis }: { analysis: Analysis }) {
       )}
 
       {view === "lease" && (
-        <div id="lease-view" ref={gridRef} className="mt-3 grid gap-4 lg:grid-cols-[minmax(0,1fr)_400px] lg:grid-rows-[minmax(0,1fr)] xl:grid-cols-[minmax(0,1fr)_460px]">
+        <div id="lease-view" ref={gridRef} className="mt-3 grid scroll-mt-20 grid-cols-1 gap-4 max-md:pb-20 lg:grid-cols-[minmax(0,1fr)_400px] lg:grid-rows-[minmax(0,1fr)] xl:grid-cols-[minmax(0,1fr)_460px]">
+          <div className="flex items-center gap-2 md:hidden">
+            <div role="tablist" aria-label="Show" className="relative grid min-w-0 flex-1 grid-cols-2 rounded-full border border-line bg-white p-1 shadow-soft">
+              <span
+                aria-hidden
+                className={cn("absolute inset-y-1 left-1 w-[calc(50%-0.25rem)] rounded-full bg-brand-dark transition-transform duration-300 ease-out motion-reduce:transition-none", leaseTab === "issues" && "translate-x-full")}
+              />
+              {(["document", "issues"] as const).map((tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  role="tab"
+                  aria-selected={leaseTab === tab}
+                  onClick={() => setLeaseTab(tab)}
+                  className={cn("relative flex min-h-10 cursor-pointer items-center justify-center gap-2 rounded-full text-sm font-semibold transition-colors duration-300", leaseTab === tab ? "text-white" : "text-mute")}
+                >
+                  {tab === "document" ? (
+                    <>
+                      <FileText size={16} aria-hidden />
+                      Document
+                    </>
+                  ) : (
+                    <>
+                      <ListChecks size={16} aria-hidden />
+                      Issues
+                      {issues.length > 0 && (
+                        <span className={cn("grid min-w-5 place-items-center rounded-full px-1.5 text-xs text-white", issues.some((c) => c.status === "red") ? "bg-bad-solid" : "bg-warn-solid")}>
+                          {issues.length - issues.filter((c) => c.reviewed).length}
+                        </span>
+                      )}
+                    </>
+                  )}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => setChatOpen(!chatOpen)}
+              aria-expanded={chatOpen}
+              aria-label="Ask ClauseGuard"
+              className="grid size-[45px] shrink-0 cursor-pointer place-items-center rounded-full bg-brand-soft text-brand-dark transition-transform active:scale-90"
+            >
+              <MessageCircleQuestion size={19} />
+            </button>
+          </div>
+
+          {leaseTab === "issues" && (
+            <div className="animate-fade-up overflow-hidden rounded-2xl border border-line bg-white shadow-soft md:hidden">
+              {issues.length > 0 ? (
+                <>
+                  <div className="border-b border-line p-4">
+                    <p className="flex items-baseline justify-between text-sm text-mute">
+                      <span className="font-display text-lg font-semibold text-brand-dark">Issues to check</span>
+                      <span>
+                        <b className="font-semibold text-ink">{issues.filter((c) => c.reviewed).length}</b> of {issues.length} checked
+                      </span>
+                    </p>
+                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-surface" aria-hidden>
+                      <div className="h-full rounded-full bg-brand transition-[width] duration-700 ease-out motion-reduce:transition-none" style={{ width: `${(issues.filter((c) => c.reviewed).length / issues.length) * 100}%` }} />
+                    </div>
+                    {issues.some((c) => !c.reviewed) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setLeaseTab("document");
+                          selectClause(issues.find((c) => !c.reviewed) ?? issues[0]);
+                        }}
+                        className="group mt-4 flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-2xl bg-brand-dark font-semibold text-white transition-transform active:scale-[0.97]"
+                      >
+                        Check next issue
+                        <ChevronRight size={18} aria-hidden className="transition-transform duration-200 group-active:translate-x-1" />
+                      </button>
+                    )}
+                  </div>
+                  {(["red", "amber"] as const).map((status) => {
+                    const group = issues.filter((c) => c.status === status);
+                    if (group.length === 0) return null;
+                    return (
+                      <div key={status}>
+                        <div className="px-4 pb-1 pt-4">
+                          <p className={cn("flex items-center gap-2 text-sm font-semibold", STATUS[status].text)}>
+                            <span className={cn("size-2.5 rounded-full", STATUS[status].solid)} aria-hidden />
+                            {STATUS[status].label} · {group.length}
+                          </p>
+                          <p className="pl-[18px] text-xs text-mute">{STATUS[status].hint}</p>
+                        </div>
+                        {issueList((clause) => {
+                          setLeaseTab("document");
+                          selectClause(clause);
+                        }, group)}
+                      </div>
+                    );
+                  })}
+                </>
+              ) : (
+                <p className="px-4 py-6 text-center text-sm text-mute">No issues found in this lease.</p>
+              )}
+            </div>
+          )}
+
+          {leaseTab === "document" && (
+            <div className="flex items-center gap-1 rounded-2xl border border-line bg-white p-1 shadow-soft md:hidden">
+              <button
+                type="button"
+                aria-label="Previous page"
+                disabled={page === 1}
+                onClick={() => setPage(page - 1)}
+                className="grid size-[45px] shrink-0 cursor-pointer place-items-center rounded-full text-brand-dark transition-transform active:scale-90 disabled:cursor-default disabled:opacity-30"
+              >
+                <ChevronLeft size={20} />
+              </button>
+              <p key={page} className="min-w-0 flex-1 animate-fade-up text-center text-sm text-mute">
+                Page <b className="font-semibold text-ink">{page}</b> of {pageCount}
+              </p>
+              <button
+                type="button"
+                aria-label="Next page"
+                disabled={page >= pageCount}
+                onClick={() => setPage(page + 1)}
+                className="grid size-[45px] shrink-0 cursor-pointer place-items-center rounded-full bg-brand-dark text-white transition-transform active:scale-90 disabled:cursor-default disabled:opacity-30"
+              >
+                <ChevronRight size={20} />
+              </button>
+            </div>
+          )}
+
           <section
             data-tour="annotated-lease"
             aria-label="Annotated lease"
-            className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-3xl border border-line bg-[#e7ecee]"
+            className={cn("flex min-h-0 min-w-0 flex-col overflow-hidden rounded-3xl border border-line bg-[#e7ecee]", leaseTab === "issues" && "max-md:hidden")}
           >
-            <div className="flex shrink-0 flex-wrap items-center justify-center gap-3 border-b border-line bg-white px-2 py-1.5 md:justify-between md:px-4 md:py-2">
+            <div className="relative flex shrink-0 flex-wrap items-center justify-center gap-3 border-b border-line bg-white px-2 py-1.5 max-md:hidden md:justify-between md:px-4 md:py-2">
+              <span className="absolute inset-x-0 bottom-0 h-[3px] bg-line md:hidden" aria-hidden>
+                <span className="block h-full rounded-r-full bg-brand transition-[width] duration-500 ease-out motion-reduce:transition-none" style={{ width: `${(page / pageCount) * 100}%` }} />
+              </span>
               <div className="flex items-center gap-1">
                 <IconButton label="Previous page" disabled={page === 1} onClick={() => setPage(page - 1)}>
                   <ChevronLeft size={18} />
@@ -464,7 +624,8 @@ export default function ReviewWorkspace({ analysis }: { analysis: Analysis }) {
             <div className="flex min-h-0 flex-1 gap-3 p-3 sm:p-6 sm:pr-3">
               <div className="min-h-0 min-w-0 flex-1 overflow-auto lg:[scrollbar-width:none] lg:[&::-webkit-scrollbar]:hidden" id="lease-scroll" ref={leaseScrollRef}>
                 <article
-                  className="mx-auto flex min-h-[560px] max-w-[680px] flex-col bg-white px-6 py-8 font-serif text-[#1d2a30] shadow-[0_1px_2px_rgb(0_0_0/0.06),0_12px_32px_-8px_rgb(10_59_67/0.25)] sm:px-14 sm:py-12"
+                  key={page}
+                  className="mx-auto flex min-h-[560px] max-w-[680px] animate-fade- flex-col bg-white px-6 py-8 font-serif text-[#1d2a30] shadow-[0_1px_2px_rgb(0_0_0/0.06),0_12px_32px_-8px_rgb(10_59_67/0.25)] sm:px-14 sm:py-12"
                   style={{ fontSize: `${(15 * zoom) / 100}px`, lineHeight: 1.75 }}
                 >
                   <header className="mb-8 flex items-baseline justify-between border-b border-[#d9e0e3] pb-3 font-sans text-xs text-mute">
@@ -480,9 +641,10 @@ export default function ReviewWorkspace({ analysis }: { analysis: Analysis }) {
                       <p className="italic text-mute">This page continues the clause from the previous page.</p>
                     )}
 
-                    {clausesOnPage.map((clause) => (
+                    {clausesOnPage.map((clause, index) => (
                       <LeaseClause
                         key={clause.id}
+                        index={index}
                         clause={clause}
                         isSelected={selected?.id === clause.id}
                         onSelect={() => selectClause(clause)}
@@ -566,52 +728,7 @@ export default function ReviewWorkspace({ analysis }: { analysis: Analysis }) {
         />
       )}
 
-      {view === "lease" && issues.length > 0 && (
-        <div className="fixed inset-x-0 bottom-0 z-40 flex items-center gap-2 border-t border-line bg-white/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur md:hidden">
-          <button
-            type="button"
-            onClick={() => selectedIssue > 0 && selectClause(issues[selectedIssue - 1])}
-            disabled={selectedIssue <= 0}
-            aria-label="Previous issue"
-            className="grid size-12 shrink-0 cursor-pointer place-items-center rounded-full border border-line text-brand-dark disabled:cursor-default disabled:opacity-35"
-          >
-            <ChevronLeft size={20} />
-          </button>
-          <button
-            type="button"
-            onClick={() => selectClause(selectedIssue >= 0 ? issues[selectedIssue] : issues[0])}
-            className="flex min-h-12 min-w-0 flex-1 cursor-pointer items-center gap-2.5 rounded-2xl bg-brand-dark px-3.5 text-left text-white"
-          >
-            <span className={cn("size-2.5 shrink-0 rounded-full ring-2 ring-white/30", STATUS[(selectedIssue >= 0 ? issues[selectedIssue] : issues[0]).status].solid)} aria-hidden />
-            <span className="min-w-0 flex-1 leading-tight">
-              <span className="block text-xs text-white/75">
-                Issue {(selectedIssue >= 0 ? selectedIssue : 0) + 1} of {issues.length}
-              </span>
-              <span className="block truncate text-sm font-semibold">{(selectedIssue >= 0 ? issues[selectedIssue] : issues[0]).title}</span>
-            </span>
-          </button>
-          <button
-            type="button"
-            onClick={() => selectClause(issues[Math.min(selectedIssue + 1, issues.length - 1)])}
-            disabled={selectedIssue >= issues.length - 1}
-            aria-label="Next issue"
-            className="grid size-12 shrink-0 cursor-pointer place-items-center rounded-full border border-line text-brand-dark disabled:cursor-default disabled:opacity-35"
-          >
-            <ChevronRight size={20} />
-          </button>
-          <button
-            type="button"
-            onClick={() => setChatOpen(!chatOpen)}
-            aria-expanded={chatOpen}
-            aria-label="Ask ClauseGuard"
-            className={cn("grid size-12 shrink-0 cursor-pointer place-items-center rounded-full border", chatOpen ? "border-brand bg-brand-soft text-brand-dark" : "border-line text-brand-dark")}
-          >
-            <MessageCircleQuestion size={20} />
-          </button>
-        </div>
-      )}
-
-      {(view === "summary" || (view === "lease" && issues.length === 0)) && (
+      {view === "summary" && (
         <div className="fixed inset-x-0 bottom-0 z-40 flex gap-2 border-t border-line bg-white/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur md:hidden">
           {isLatest && issues.length > 0 && (
             <button
@@ -668,11 +785,6 @@ export default function ReviewWorkspace({ analysis }: { analysis: Analysis }) {
         onClearReference={() => setChatClause(null)}
         hideButtonOnMobile={view !== "changes"}
       />
-
-      <p className="mt-3 flex items-center justify-center gap-2 text-center text-xs text-mute">
-        <Info size={16} className="shrink-0" />
-        ClauseGuard gives automated, informational analysis. It is not legal advice.
-      </p>
     </div>
   );
 }
@@ -700,16 +812,15 @@ function SummaryBar({
 
   return (
     <section
-      data-tour="verdict-banner"
       aria-label="Lease summary"
-      className="flex min-w-0 flex-1 flex-col gap-3 max-md:hidden sm:flex-row sm:items-center"
+      className="max-md:hidden md:contents"
     >
       {showJump && (
-        <div className="flex min-w-0 flex-1 justify-center">
+        <div className="flex min-w-0 md:max-[1359px]:col-span-2 md:max-[1359px]:row-start-2 min-[1360px]:col-start-2 min-[1360px]:row-start-1 min-[1360px]:justify-center">
           <div
             role="group"
             aria-label="Jump to clauses by rating"
-            className="flex max-w-full gap-1 overflow-x-auto rounded-[1.6rem] border border-line bg-white p-1.5 shadow-soft [scrollbar-width:none] md:inline-flex md:flex-wrap md:justify-center md:gap-0.5"
+            className="flex max-w-full gap-0.5 overflow-x-auto rounded-[1.6rem] border border-line bg-white p-1.5 shadow-soft [scrollbar-width:none]"
           >
             {STATUS_ORDER.map((s) => (
               <button
@@ -736,13 +847,14 @@ function SummaryBar({
       )}
 
       <div
+        data-tour="verdict-banner"
         className={cn(
-          "ml-auto hidden shrink-0 items-center gap-4 md:flex",
+          "hidden shrink-0 items-center gap-4 justify-self-end md:flex md:max-[1359px]:col-start-2 md:max-[1359px]:row-start-1 min-[1360px]:col-start-3 min-[1360px]:row-start-1",
           !bare && "self-start rounded-full border border-line bg-white p-1.5 shadow-soft",
         )}
       >
         {issuesTotal > 0 && (
-          <div className={cn("hidden items-center gap-2 md:flex", !bare && "pl-3")} title="Flagged clauses you have marked as reviewed">
+          <div className={cn("hidden items-center gap-2 lg:flex", !bare && "pl-3")} title="Flagged clauses you have marked as reviewed">
             <div className="h-1.5 w-20 overflow-hidden rounded-full bg-line">
               <div className="h-full rounded-full bg-brand transition-all" style={{ width: `${pct}%` }} />
             </div>
@@ -803,7 +915,7 @@ function ViewSwitch({
         {open && (
           <>
             <button type="button" aria-label="Close menu" tabIndex={-1} onClick={() => setOpen(false)} className="fixed inset-0 z-40 cursor-default" />
-            <div role="menu" className="mt-2 animate-pop-in rounded-2xl border border-line bg-white p-2 shadow-soft">
+            <div role="menu" className="relative z-50 mt-2 animate-pop-in rounded-2xl border border-line bg-white p-2 shadow-soft">
               {options.map(({ value, label, Icon }) => (
                 <button
                   key={value}
@@ -854,10 +966,12 @@ function ViewSwitch({
 
 function LeaseClause({
   clause,
+  index = 0,
   isSelected,
   onSelect,
 }: {
   clause: Clause;
+  index?: number;
   isSelected: boolean;
   onSelect: () => void;
 }) {
@@ -865,7 +979,13 @@ function LeaseClause({
 
 
   return (
-    <div id={`clause-${clause.id}`} className="relative scroll-my-6">
+    <div
+      id={`clause-${clause.id}`}
+      style={{ animationDelay: `${Math.min(index, 8) * 60}ms` }}
+      className={cn(
+        "relative scroll-my-6",
+      )}
+    >
       <Tooltip text={`${style.label}: ${style.hint}`} side="right" className="absolute -left-8 top-1 sm:-left-10">
         <span className={cn("grid size-6 place-items-center rounded-full text-white", style.solid)}>
           <style.Icon size={14} aria-hidden />
@@ -877,7 +997,7 @@ function LeaseClause({
         aria-pressed={isSelected}
         aria-label={`Clause ${clause.number}, ${clause.title}: ${style.label}`}
         className={cn(
-          "-mx-2 block w-[calc(100%+1rem)] cursor-pointer rounded-md px-2 py-1 text-left transition-colors",
+          "group -mx-2 block w-[calc(100%+1rem)] cursor-pointer rounded-md px-2 py-1 text-left transition-colors",
           isSelected ? "bg-brand-soft/70 outline-2 outline-brand" : "hover:bg-surface",
         )}
       >

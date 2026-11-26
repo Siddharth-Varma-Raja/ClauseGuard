@@ -69,7 +69,7 @@ export default function AuthLayout({
             </span>
             <span className="absolute inset-0 grid place-items-center">
               <span className="size-20 grid place-items-center rounded-3xl bg-brand-dark shadow-[0_16px_40px_rgb(10_59_67/0.35)] animate-pop-in">
-                <img src="/logo.svg" alt="" className="h-10 w-auto brightness-0 invert" />
+                <img src="/logo-light.svg" alt="" className="h-8 w-auto" />
               </span>
             </span>
           </div>

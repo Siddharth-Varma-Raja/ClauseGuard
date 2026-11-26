@@ -99,7 +99,7 @@ export default function UploadBox({ title, highlight, subtitle, isNewUser = fals
 
         <div className="animate-fade-up text-center">
           {isNewUser ? (
-            <span className="inline-flex items-center gap-2 rounded-full border border-warn-line bg-white py-1.5 pl-1.5 pr-4 text-xs text-ink shadow-soft sm:text-sm">
+            <span className="inline-flex max-w-full items-center animate-float gap-2 rounded-full border border-warn-line bg-white py-1.5 pl-1.5 pr-4 text-left text-xs text-ink shadow-soft sm:text-sm">
               <span className="grid size-7 place-items-center rounded-full bg-warn-bg text-warn">
                 <Lightbulb size={15} />
               </span>
@@ -108,17 +108,17 @@ export default function UploadBox({ title, highlight, subtitle, isNewUser = fals
               </span>
             </span>
           ) : (
-            <span className="inline-flex items-center gap-2 rounded-full border border-line bg-white py-1.5 pl-1.5 pr-4 text-xs font-semibold text-brand-dark shadow-soft sm:text-sm">
+            <span className="inline-flex items-center gap-2 animate-float rounded-full border border-line bg-white py-1.5 pl-1.5 pr-4 text-xs font-semibold text-brand-dark shadow-soft sm:text-sm">
               <span className="grid size-7 place-items-center rounded-full bg-ok-solid text-white">
                 <Scale size={15} />
               </span>
               Built on Irish tenancy law and RTB guidance
             </span>
           )}
-          <h1 className="mt-4 font-display text-3xl font-semibold tracking-tight text-brand-dark">
+          <h1 className="mt-4 text-balance font-display text-[clamp(1.6rem,7vw,1.875rem)] font-semibold tracking-tight max-sm:leading-tight text-brand-dark">
             {title} <span className="bg-[linear-gradient(transparent_62%,#ffd9a8_62%,#ffd9a8_90%,transparent_90%)]">{highlight}</span>
           </h1>
-          <p className="mt-2 text-lg text-mute">{subtitle}</p>
+          <p className="mt-2 text-base text-mute sm:text-lg">{subtitle}</p>
         </div>
 
         <label
@@ -131,12 +131,12 @@ export default function UploadBox({ title, highlight, subtitle, isNewUser = fals
           onDragLeave={() => setDragging(false)}
           onDrop={handleDrop}
           style={{ animationDelay: "150ms" }}
-          className="animate-fade-up group mx-auto mt-7 block max-w-5xl cursor-pointer rounded-[2rem] bg-[linear-gradient(135deg,#1a7d86,#0a3f47)] p-3 shadow-[0_30px_70px_-10px_rgb(11_58_66/0.45)] focus-within:outline-3 focus-within:outline-offset-4 focus-within:outline-[#1b8a98]"
+          className="animate-fade-up group mx-auto mt-6 block max-w-5xl cursor-pointer rounded-[1.75rem] p-2 sm:mt-7 sm:rounded-[2rem] sm:p-3 bg-brand-dark shadow-[0_30px_70px_-10px_rgb(11_58_66/0.45)] focus-within:outline-3 focus-within:outline-offset-4 focus-within:outline-[#1b8a98]"
         >
           <div
             className={cn(
-              "relative flex min-h-[30rem] flex-col items-center overflow-hidden rounded-3xl border-2 border-dashed px-6 pb-6 pt-8 text-center transition-colors",
-              "bg-[radial-gradient(rgb(255_255_255/0.09)_1.2px,transparent_1.2px),radial-gradient(70%_70%_at_50%_18%,rgb(120_220_215/0.35),transparent_70%)] bg-size-[22px_22px,100%_100%]",
+              "relative flex flex-col items-center overflow-hidden rounded-3xl border-2 border-dashed px-4 pb-5 pt-6 text-center transition-colors sm:min-h-[30rem] sm:px-6 sm:pb-6 sm:pt-8",
+              "bg-[radial-gradient(rgb(255_255_255/0.09)_1.2px,transparent_1.2px),radial-gradient(70%_70%_at_50%_18%,rgb(120_220_215/0.18),transparent_70%)] bg-size-[22px_22px,100%_100%]",
               dragging ? "border-white bg-white/10" : "border-white/35 group-hover:border-white/60",
             )}
           >
@@ -157,7 +157,7 @@ export default function UploadBox({ title, highlight, subtitle, isNewUser = fals
               </span>
             ))}
 
-            <div className="relative h-40 w-32">
+            <div className="relative h-28 w-24 sm:h-40 sm:w-32">
               <span className="absolute inset-0 -translate-x-3 translate-y-1 -rotate-9 rounded-2xl bg-white/35" />
               <span className="absolute inset-0 translate-x-3 translate-y-1 rotate-6 rounded-2xl bg-white/60" />
               <div className="absolute inset-0 overflow-hidden rounded-2xl bg-white px-5 py-6 shadow-[0_18px_36px_rgb(0_0_0/0.28)]">
@@ -166,27 +166,27 @@ export default function UploadBox({ title, highlight, subtitle, isNewUser = fals
                 ))}
                 <span className="animate-scan absolute inset-x-0 h-10 border-b-2 border-ok-solid bg-[linear-gradient(transparent,rgb(31_157_85/0.22))]" />
               </div>
-              <span className="absolute -bottom-5 -right-6 grid size-14 place-items-center rounded-full border-4 border-[#12636c] bg-[linear-gradient(135deg,#2bb56a,#178a4a)] text-white shadow-lg">
+              <span className="absolute -bottom-3 -right-4 grid size-11 sm:-bottom-5 sm:-right-6 sm:size-14 place-items-center rounded-full border-4 border-brand-dark bg-[linear-gradient(135deg,#2bb56a,#178a4a)] text-white shadow-lg">
                 <ShieldCheck size={26} />
               </span>
             </div>
 
-            <span className="mt-18 inline-flex items-center gap-4 rounded-full bg-white py-3 pl-3 pr-6 font-sans text-lg font-semibold whitespace-nowrap text-brand-dark shadow-[0_0_0_10px_rgb(255_255_255/0.12),0_22px_40px_rgb(0_0_0/0.28)] transition-transform group-hover:scale-[1.03] sm:pr-10">
+            <span className="mt-10 inline-flex w-full max-w-sm items-center justify-center gap-3 rounded-full bg-white py-2.5 pl-2.5 pr-5 sm:mt-18 sm:w-auto sm:max-w-none sm:justify-start sm:gap-4 sm:py-3 sm:pl-3 sm:pr-6 font-sans text-lg font-semibold whitespace-nowrap text-brand-dark shadow-[0_0_0_10px_rgb(255_255_255/0.12),0_22px_40px_rgb(0_0_0/0.28)] transition-transform group-hover:scale-[1.03] sm:pr-10">
               <span className="grid size-10 shrink-0 place-items-center rounded-full bg-[linear-gradient(135deg,#1f9d55,#0e5560)] text-white">
                 <Upload size={15} />
               </span>
               {dragging ? "Drop it here" : "Upload your lease"}
             </span>
-            <p className="mt-6 text-white/85">
+            <p className="mt-4 text-sm text-white/85 sm:mt-6 sm:text-base">
               or <span className="font-semibold text-white">drop your file anywhere in this box</span>
             </p>
 
             {isNewUser && (
-              <p className="mt-4 flex flex-wrap items-center justify-center gap-3 text-white/85">
+              <p className="mt-4 flex w-full flex-col items-center justify-center gap-2 text-sm text-white/85 sm:w-auto sm:flex-row sm:flex-wrap sm:gap-3 sm:text-base">
                 Not ready to upload yet?
                 <Link
                   href="/lease/try"
-                  className="inline-flex items-center gap-2 rounded-full border-[1.5px] border-white/55 bg-white/10 px-4 py-2 font-semibold text-white hover:bg-white/20"
+                  className="inline-flex min-h-12 w-full max-w-sm items-center justify-center gap-2 rounded-full border-[1.5px] border-white/55 bg-white/10 px-4 py-2 font-semibold text-white hover:bg-white/20 sm:min-h-0 sm:w-auto"
                 >
                   <Play size={15} />
                   Explore a sample lease
@@ -200,7 +200,7 @@ export default function UploadBox({ title, highlight, subtitle, isNewUser = fals
               </p>
             )}
 
-            <div className="mt-auto flex flex-wrap justify-center gap-x-6 gap-y-2 pt-6 text-xs text-white/65 sm:text-sm">
+            <div className="mt-auto flex flex-col items-center gap-x-6 gap-y-2 pt-5 text-xs text-white/65 sm:flex-row sm:flex-wrap sm:justify-center sm:pt-6 sm:text-sm">
               <span className="inline-flex items-center gap-2">
                 <FileText size={15} />
                 PDF, Word or photo, up to {MAX_SIZE_MB} MB

@@ -182,7 +182,7 @@ export default function TopicFeedback({
             className="mt-1.5 w-full resize-none rounded-xl border border-[#cdd8db] bg-white px-3 py-2.5 text-[15px] text-ink placeholder:text-[#8a989e] focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/30"
           />
           <p id={`${ids}-note-hint`} className="mt-1 flex justify-between gap-3 text-xs text-mute">
-            <span>Don&apos;t include names, addresses or other personal details.</span>
+            <span>Don't include names, addresses or other personal details.</span>
             <span className="shrink-0 tabular-nums">
               {note.length}/{NOTE_MAX}
             </span>

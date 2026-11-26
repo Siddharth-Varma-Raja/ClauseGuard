@@ -212,7 +212,7 @@ export default function ExportDialog({
             </div>
           )}
 
-          <p className="mt-4 text-center text-xs text-mute">Your calendar sends the reminder. ClauseGuard doesn&apos;t send reminders itself.</p>
+          <p className="mt-4 text-center text-xs text-mute">Your calendar sends the reminder. ClauseGuard doesn't send reminders itself.</p>
         </>
       )}
     </dialog>

@@ -55,7 +55,7 @@ export default function CheckList({ checks, className = "flex" }: { checks: Noti
       )}
 
       <div className="flex items-center justify-between gap-3 border-t border-line bg-[#f4f8f8] px-4 py-2.5 sm:px-5">
-        <p className="text-xs text-mute">General information based on Irish tenancy law. It isn&apos;t legal advice.</p>
+        <p className="text-xs text-mute">General information based on Irish tenancy law. It isn't legal advice.</p>
         <Pager page={current} pages={pages} label="Pages of checks" onChange={setPage} />
       </div>
     </section>

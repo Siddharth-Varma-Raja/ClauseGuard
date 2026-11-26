@@ -96,7 +96,7 @@ export default function NoticeResultPage() {
         ) : error || !notice ? (
           <section className="rounded-2xl border border-[#d5e3e4] bg-white px-5 py-10 text-center shadow-soft sm:px-8">
             <FileQuestion size={36} className="mx-auto text-mute" aria-hidden />
-            <h1 className="mt-4 text-xl font-semibold text-brand-dark">We can&apos;t show this check</h1>
+            <h1 className="mt-4 text-xl font-semibold text-brand-dark">We can't show this check</h1>
             <p role="status" className="mt-2 text-mute">
               {error}
             </p>

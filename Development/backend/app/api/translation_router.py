@@ -95,13 +95,17 @@ def map_risk_to_status(risk_level: Any) -> str:
 
 
 def get_genai_client() -> genai.Client:
-    api_key = settings.gemini_api_key or os.environ.get("GEMINI_API_KEY")
-    if not api_key:
+    project_id = settings.gcp_project_id or os.environ.get("GCP_PROJECT_ID")
+    if not project_id:
         raise HTTPException(
             status_code=503,
-            detail="GEMINI_API_KEY is not configured in backend environment.",
+            detail="GCP_PROJECT_ID is not configured in backend environment.",
         )
-    return genai.Client(api_key=api_key)
+    return genai.Client(
+        vertexai=True,
+        project=project_id,
+        location="global",  # Use "europe-west1" if strict EU-only residency is required
+    )
 
 
 _ALLOWED_CONTENT_TYPES = {
@@ -697,6 +701,56 @@ async def delete_all_analyses(
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
+@router.delete("/analyses/{id}", status_code=status.HTTP_204_NO_CONTENT, tags=["Analyses"])
+async def delete_analysis(
+    id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Response:
+    """
+    Soft-delete one lease analysis and wipe its stored files.
+
+    The list shows each lease once, as its latest version, so deleting it
+    removes every version of that lease. Deleting only the given version
+    would just bring the previous one back into the list.
+    """
+    doc_result = await db.execute(
+        select(Document).where(
+            Document.id == id,
+            Document.user_id == current_user.id,
+            Document.is_deleted == False,  # noqa: E712
+        )
+    )
+    doc = doc_result.scalar_one_or_none()
+    if not doc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Analysis not found.",
+        )
+
+    group_id = doc.lease_group_id or doc.id
+    versions_result = await db.execute(
+        select(Document).where(
+            (Document.id == group_id) | (Document.lease_group_id == group_id),
+            Document.user_id == current_user.id,
+            Document.is_deleted == False,  # noqa: E712
+        )
+    )
+
+    now = datetime.now(timezone.utc)
+    for version in versions_result.scalars().all():
+        if version.s3_key:
+            try:
+                delete_from_gcs(version.s3_key)
+            except Exception as e:
+                logger.error(f"Error deleting stored file {version.s3_key}: {e}")
+        version.is_deleted = True
+        version.deleted_at = now
+
+    await db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
 @router.post(
     "/analyses/{analysis_id}/clauses/{clause_id}/questions",
     response_model=ClauseQuestionResponse,
@@ -758,11 +812,12 @@ async def ask_clause_question(
     try:
         client = get_genai_client()
         response = client.models.generate_content(
-            model="gemini-3.8-flash",
+            model="gemini-3.5-flash-lite",
             contents=contents,
             config=types.GenerateContentConfig(
                 system_instruction=system_instruction,
                 temperature=0.2,
+                max_output_tokens=1024,
             ),
         )
         reply = response.text or "No response could be generated."
