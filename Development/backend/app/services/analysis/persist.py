@@ -56,6 +56,7 @@ async def save_analysis(db: AsyncSession, document_id: str, redacted_text: str) 
         tenancy_start=a["tenancyStart"],
         term_months=a["termMonths"],
         page_count=a["pageCount"],
+        action_list=json.dumps(a["actionList"]),
         review_status=ReviewStatus.COMPLETED,
         reviewed_at=datetime.now(timezone.utc),
     )

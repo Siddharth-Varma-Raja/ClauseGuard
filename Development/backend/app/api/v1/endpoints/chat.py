@@ -67,8 +67,8 @@ async def retrieve_relevant_context(
                 status_code=404,
                 detail=f"Document '{document_id}' not found.",
             )
-        if doc.gcs_key:
-            lease_text = get_text_from_gcs(doc.gcs_key)
+        if doc.s3_key:
+            lease_text = get_text_from_gcs(doc.s3_key)
             return lease_text
     except HTTPException:
         raise

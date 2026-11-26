@@ -9,7 +9,7 @@ export default function Footer() {
     <footer className="border-t border-line bg-white p-3">
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4 container mx-auto px-6 py-6 text-mute">
         <p className="text-sm">@2026 ClauseGuard</p>
-        <nav className="flex flex-row flex-wrap justify-center gap-x-5 gap-y-2">
+        <nav className="flex flex-row flex-wrap justify-center gap-x-4 sm:gap-x-5 gap-y-2">
           <Link href="/terms" className={linkHoverClass}>Terms</Link>
           <Link href="/privacy" className={linkHoverClass}>Privacy</Link>
           <Link href="/contact" className={linkHoverClass}>Contact</Link>

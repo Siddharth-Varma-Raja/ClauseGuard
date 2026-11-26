@@ -78,11 +78,11 @@ async def delete_account(
     user_documents = docs_result.scalars().all()
     
     for doc in user_documents:
-        if doc.gcs_key:
+        if doc.s3_key:
             try:
-                delete_from_gcs(doc.gcs_key)
+                delete_from_gcs(doc.s3_key)
             except Exception as e:
-                logger.error(f"Failed to delete GCS file {doc.gcs_key} during account deletion: {e}")
+                logger.error(f"Failed to delete GCS file {doc.s3_key} during account deletion: {e}")
         
         doc.is_deleted = True
         doc.deleted_at = datetime.now(timezone.utc)

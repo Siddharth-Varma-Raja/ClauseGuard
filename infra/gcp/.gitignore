@@ -1,0 +1,3 @@
+.last_image
+deploy.env
+*.creds.json

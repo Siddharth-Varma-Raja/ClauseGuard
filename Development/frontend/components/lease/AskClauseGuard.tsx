@@ -20,12 +20,14 @@ export default function AskClauseGuard({
   reference,
   onOpenChange,
   onClearReference,
+  hideButtonOnMobile = false,
 }: {
   analysisId: string;
   open: boolean;
   reference: Clause | null;
   onOpenChange: (open: boolean) => void;
   onClearReference: () => void;
+  hideButtonOnMobile?: boolean;
 }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [question, setQuestion] = useState("");
@@ -239,13 +241,11 @@ export default function AskClauseGuard({
         aria-expanded={open}
         aria-label={open ? "Collapse Ask ClauseGuard" : "Open Ask ClauseGuard"}
         data-tour="ask-clauseguard"
-        className="fixed bottom-6 right-6 z-50 grid size-14 cursor-pointer place-items-center rounded-full bg-brand-dark text-white shadow-xl transition-all duration-300 hover:scale-105 hover:bg-brand"
+        className={cn("fixed bottom-6 right-6 z-50 grid size-14 cursor-pointer place-items-center rounded-full bg-brand-dark text-white shadow-xl transition-all duration-300 hover:scale-105 hover:bg-brand", hideButtonOnMobile && "max-md:hidden")}
       >
-        <Tooltip text={open ? "Close Ask ClauseGuard" : "Ask ClauseGuard a question about this lease"} side="left" className="absolute inset-0 grid place-items-center">
-          <span key={open ? "open" : "closed"} className="animate-pop-in">
-            {open ? <ChevronDown size={24} /> : <MessageCircleQuestion size={24} />}
-          </span>
-        </Tooltip>
+        <span key={open ? "open" : "closed"} className="animate-pop-in">
+          {open ? <ChevronDown size={24} /> : <MessageCircleQuestion size={24} />}
+        </span>
         {!open && reference && (
           <span className="absolute right-1 top-1 size-3.5 rounded-full border-2 border-white bg-warn-solid" aria-hidden />
         )}

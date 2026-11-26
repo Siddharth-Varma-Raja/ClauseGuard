@@ -16,6 +16,11 @@ import type {
   Notice,
   UploadLeaseResponse,
   UserProfile,
+  ModelSummary,
+  ModelVersion,
+  RetrainRun,
+  ReviewCorrection,
+  TopicCorrection,
 } from "./notice-types";
 import { SAMPLE_ANSWER, SAMPLE_UPDATED_ID, getSampleLease, isSampleId, sampleLandlordEmail } from "./sample-lease";
 
@@ -52,17 +57,94 @@ export function errorMessage(error: unknown, fallback = "Something went wrong. P
 type RequestOptions = RequestInit & {
   auth?: boolean;
   timeoutMs?: number;
-  /** For POSTs that change no stored data (questions, email drafts): keep the GET cache. */
   keepCache?: boolean;
+  onProgress?: (event: UploadProgress) => void;
 };
+
+export type UploadStep = "received" | "extract" | "lease_check" | "redact" | "store" | "analyse";
+
+export type UploadProgress =
+  | {
+    kind: "step";
+    step: UploadStep;
+    seconds: number;
+    elapsedMs: number;
+  }
+  | {
+    kind: "estimate";
+    remainingSeconds: number;
+    elapsedMs: number;
+  };
+
+type StreamEvent =
+  | { type: "step"; step: UploadStep; seconds: number }
+  | { type: "estimate"; remainingSeconds: number }
+  | { type: "result"; status: number; data: unknown; totalSeconds: number }
+  | { type: "error"; status: number; detail: unknown };
+
+async function readProgressStream<T>(
+  response: Response,
+  onProgress: ((event: UploadProgress) => void) | undefined,
+  startedAt: number,
+  timeoutMs: number,
+): Promise<T> {
+  if (!response.body) throw new ApiError(0, "The server's reply was empty. Please try again.");
+  const reader = response.body.getReader();
+  let timedOut = false;
+  const remainingMs = Math.max(timeoutMs - (performance.now() - startedAt), 1_000);
+  const timer = setTimeout(() => {
+    timedOut = true;
+    reader.cancel().catch(() => undefined);
+  }, remainingMs);
+
+  try {
+    return await readEvents<T>(reader, onProgress, startedAt);
+  } catch (error) {
+    if (timedOut) throw new ApiError(408, "The server took too long to respond. Please try again.");
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function readEvents<T>(
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+  onProgress: ((event: UploadProgress) => void) | undefined,
+  startedAt: number,
+): Promise<T> {
+  const decoder = new TextDecoder();
+  let buffered = "";
+  for (; ;) {
+    const { value, done } = await reader.read();
+    buffered += decoder.decode(value, { stream: !done });
+    const lines = buffered.split("\n");
+    buffered = done ? "" : (lines.pop() ?? "");
+
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      const event = JSON.parse(line) as StreamEvent;
+      if (event.type === "step") {
+        onProgress?.({ kind: "step", step: event.step, seconds: event.seconds, elapsedMs: performance.now() - startedAt });
+      } else if (event.type === "estimate") {
+        onProgress?.({ kind: "estimate", remainingSeconds: event.remainingSeconds, elapsedMs: performance.now() - startedAt });
+      } else if (event.type === "result") {
+        return event.data as T;
+      } else if (event.type === "error") {
+        const detail = typeof event.detail === "string" ? event.detail : "The upload didn't go through. Try again.";
+        throw new ApiError(event.status, detail);
+      }
+    }
+    if (done) throw new ApiError(0, "The connection closed before the analysis finished. Please try again.");
+  }
+}
 
 async function send<T>(path: string, options: RequestOptions = {}): Promise<T> {
   if (!API_URL) {
     throw new ApiError(503, "The backend is not connected. Set NEXT_PUBLIC_API_URL in .env.local.");
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { auth: needsAuth = true, timeoutMs = DEFAULT_TIMEOUT_MS, keepCache, ...init } = options;
+  const { auth: needsAuth = true, timeoutMs = DEFAULT_TIMEOUT_MS, keepCache, onProgress, ...init } = options;
+  const startedAt = performance.now();
   const headers = new Headers(init.headers);
 
   if (needsAuth) {
@@ -99,10 +181,12 @@ async function send<T>(path: string, options: RequestOptions = {}): Promise<T> {
   }
 
   if (response.status === 204) return undefined as T;
+  if (response.headers.get("Content-Type")?.startsWith("application/x-ndjson")) {
+    return readProgressStream<T>(response, onProgress, startedAt, timeoutMs);
+  }
   return (await response.json()) as T;
 }
 
-// Clear cached data when the signed-in account changes (sign-out included).
 let cacheOwner: string | null = null;
 if (typeof window !== "undefined") {
   onAuthStateChanged(auth, (user) => {
@@ -114,10 +198,6 @@ if (typeof window !== "undefined") {
   });
 }
 
-/**
- * GETs go through the in-memory cache (see apiCache.ts). Any other method
- * clears it once it finishes, unless the call is marked `keepCache`.
- */
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const method = (options.method ?? "GET").toUpperCase();
   const uid = auth.currentUser?.uid;
@@ -204,25 +284,27 @@ export const getAnalyses = () => request<AnalysisSummary[]>("/analyses");
 export const getAnalysis = (analysisId: string) =>
   isSampleId(analysisId) ? Promise.resolve(getSampleLease(analysisId)) : getOrNull<Analysis>(`/analyses/${id(analysisId)}`);
 
-/**
- * Upload a lease document. Runs extraction, redaction, and analysis,
- * returning the completed analysis summary.
- */
-export async function uploadLease(file: File): Promise<UploadLeaseResponse> {
+export async function uploadLease(file: File, onProgress?: (event: UploadProgress) => void): Promise<UploadLeaseResponse> {
   const form = new FormData();
   form.append("file", file);
-  return request<UploadLeaseResponse>("/analyses", {
+  return request<UploadLeaseResponse>("/analyses?stream=true", {
     method: "POST",
     body: form,
     timeoutMs: UPLOAD_TIMEOUT_MS,
+    onProgress,
   });
 }
 
-export function uploadLeaseVersion(analysisId: string, file: File | null) {
+export function uploadLeaseVersion(analysisId: string, file: File | null, onProgress?: (event: UploadProgress) => void) {
   if (isSampleId(analysisId)) return Promise.resolve({ id: SAMPLE_UPDATED_ID });
   const form = new FormData();
   if (file) form.append("file", file);
-  return request<UploadLeaseResponse>(`/analyses/${id(analysisId)}/versions`, { method: "POST", body: form, timeoutMs: UPLOAD_TIMEOUT_MS });
+  return request<UploadLeaseResponse>(`/analyses/${id(analysisId)}/versions?stream=true`, {
+    method: "POST",
+    body: form,
+    timeoutMs: UPLOAD_TIMEOUT_MS,
+    onProgress,
+  });
 }
 
 export async function generateLandlordEmail(analysisId: string, clauses: Clause[]): Promise<LandlordEmailDraft> {
@@ -254,6 +336,8 @@ export function setClauseReviewed(analysisId: string, clauseId: string, reviewed
 }
 
 export const deleteAllAnalyses = () => request<void>("/analyses", { method: "DELETE" });
+
+export const deleteAnalysis = (analysisId: string) => request<void>(`/analyses/${id(analysisId)}`, {method: "DELETE"});
 
 export async function askAboutClause(analysisId: string, clauseId: string, question: string, history: ChatMessage[]) {
   if (isSampleId(analysisId)) return SAMPLE_ANSWER;
@@ -307,3 +391,19 @@ export const updatePreferences = (changes: Partial<Preferences>) =>
 export const exportMyData = () => request<GdprExport>("/me/gdpr-export");
 export const deleteMyAccount = () => request<void>("/me", { method: "DELETE" });
 export const deleteMyData = deleteMyAccount;
+
+export const getTopics = () => request<{ key: string; title: string }[]>("/topics");
+
+export const sendTopicCorrection = (analysisId: string, clauseId: string, topic: string, note: string) =>
+  request<TopicCorrection>(`/analyses/${id(analysisId)}/clauses/${id(clauseId)}/topic-correction`, {
+    method: "POST",
+    body: JSON.stringify({ topic, note: note || null }),
+  });
+
+export const getReviewQueue = () => requestUncached<ReviewCorrection[]>("/admin/corrections?status=pending");
+export const decideCorrection = (correctionId: string, status: "approved" | "rejected" | "pending") =>
+  request<ReviewCorrection>(`/admin/corrections/${id(correctionId)}`, { method: "PATCH", body: JSON.stringify({ status }) });
+export const getModelSummary = () => requestUncached<ModelSummary>("/admin/model");
+export const getModelVersions = () => requestUncached<ModelVersion[]>("/admin/model/versions");
+export const getLatestRetrain = () => requestUncached<RetrainRun | null>("/admin/retrain/latest");
+export const startRetrain = () => request<RetrainRun>("/admin/retrain", { method: "POST" });

@@ -58,3 +58,6 @@ gcp-key.json
 
 # Claude Code
 .claude/
+
+# trained models contain lease text
+*.joblib

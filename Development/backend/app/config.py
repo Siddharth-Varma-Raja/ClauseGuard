@@ -57,6 +57,10 @@ class Settings(BaseSettings):
     # ── Firebase Web API Key (for dev token generator) ────────────────────────
     firebase_web_api_key: str = ""
 
+    # Mounts /api/dev/* (test-token helpers). Local development ONLY: it hands
+    # out login tokens without authentication.
+    enable_dev_token: bool = False
+
     # ── Gemini API Key (for chatbot) ──────────────────────────────────────────
     gemini_api_key: str = ""
 

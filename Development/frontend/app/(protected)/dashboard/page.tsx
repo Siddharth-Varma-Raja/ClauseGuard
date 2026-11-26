@@ -19,6 +19,7 @@ import { leaseOpenedTimes } from "@/lib/leaseVisits";
 import type { Analysis, AnalysisSummary, NoticeSummary, TimelineEvent } from "@/lib/notice-types";
 import FeatureTiles from "@/components/dashboard/FeatureTiles";
 import UploadLeaseButton from "@/components/ui/UploadLeaseButton";
+import MobileDashboard from "@/components/dashboard/MobileDashboard";
 
 const RECENT_COUNT = 3;
 const MAX_LEASES_CHECKED = 10;
@@ -86,8 +87,10 @@ export default function Dashboard() {
         </>
       )}
 
+      {!isNewUser && data && <PageTour steps={DASHBOARD_TOUR} tourId="dashboard" key="returning" />}
+
       {!isNewUser && (
-        <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex flex-wrap items-start justify-between gap-4 max-md:hidden">
           <div>
             <p className="text-xs font-semibold uppercase tracking-widest text-mute">{today}</p>
             <h1 className="mt-1.5 font-display text-3xl font-semibold tracking-tight text-brand-dark sm:text-4xl">
@@ -96,7 +99,6 @@ export default function Dashboard() {
           </div>
           {data && (
             <div className="grid w-full grid-cols-1 gap-2.5 sm:mt-4 sm:flex sm:w-auto">
-              <PageTour key="returning" tourId="dashboard" steps={DASHBOARD_TOUR} />
               <Link
                 href="/notices"
                 className="inline-flex items-center justify-center gap-2 rounded-full border border-[#cfe3e4] bg-white px-5 py-3.5 font-semibold text-brand-dark transition-all hover:-translate-y-0.5 hover:border-brand"
@@ -118,15 +120,23 @@ export default function Dashboard() {
         <DashboardSkeleton />
       ) : isNewUser ? null : (
         <>
-          <div className={`stagger mt-6 grid gap-5 *:min-w-0 ${data.details.length > 0 ? "lg:grid-cols-[7fr_5fr]" : ""}`}>
-            {data.details.length > 0 ? <RentalOverview leases={data.details} events={data.events} /> : null}
-            <ActionList items={items} />
-          </div>
-          <div className="animate-fade-up mt-5" style={{ animationDelay: "200ms" }}>
-            <LeaseList leases={data.leases.slice(0, RECENT_COUNT)} details={data.details} totalCount={data.leases.length} opened={data.opened} />
-          </div>
-          <div className="animate-fade-up mt-5" style={{ animationDelay: "350ms" }}>
-            <TimelineStrip events={data.events} lease={data.details[0]} />
+          <MobileDashboard
+            greetingText={`${greeting()}${firstName ? `, ${firstName}` : ""}`}
+            leases={data.details}
+            events={data.events}
+            items={items}
+          />
+          <div className="max-md:hidden">
+            <div className={`stagger mt-6 grid gap-5 *:min-w-0 ${data.details.length > 0 ? "lg:grid-cols-[7fr_5fr]" : ""}`}>
+              {data.details.length > 0 ? <RentalOverview leases={data.details} events={data.events} /> : null}
+              <ActionList items={items} />
+            </div>
+            <div className="animate-fade-up mt-5" style={{ animationDelay: "200ms" }}>
+              <LeaseList leases={data.leases.slice(0, RECENT_COUNT)} details={data.details} totalCount={data.leases.length} opened={data.opened} />
+            </div>
+            <div className="animate-fade-up mt-5" style={{ animationDelay: "350ms" }}>
+              <TimelineStrip events={data.events} lease={data.details[0]} />
+            </div>
           </div>
         </>
       )}

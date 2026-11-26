@@ -1,0 +1,19 @@
+# Files NOT uploaded to Cloud Build by `gcloud builds submit`
+.gcloudignore
+.git
+.gitignore
+.venv/
+__pycache__/
+*.py[cod]
+.env
+.env.*
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+tests/
+firebase-service-account.json
+secrets/
+*.pem
+*-key.json

@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 506 278" role="img" aria-label="ClauseGuard">
+<title>ClauseGuard</title>
+<style>
+.draw { stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw 0.8s cubic-bezier(0.65, 0, 0.35, 1) forwards; }
+.g { animation-delay: 0.25s; }
+.fold { opacity: 0; transform-origin: 461px 44px; animation: fold 0.4s ease-out 0.9s forwards; }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+@keyframes fold { from { opacity: 0; transform: scale(0.4); } to { opacity: 1; transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) {
+  .draw { animation: none; stroke-dashoffset: 0; }
+  .fold { animation: none; opacity: 1; }
+}
+</style>
+<defs>
+<mask id="cut-c" maskUnits="userSpaceOnUse" x="0" y="0" width="506" height="278">
+<rect width="506" height="278" fill="white"/>
+<path d="M 505 23 H 309 A 116 116 0 0 0 309 255 H 482 V 160 H 410" fill="none" stroke="black" stroke-width="64"/>
+</mask>
+<mask id="cut-g" maskUnits="userSpaceOnUse" x="0" y="0" width="506" height="278">
+<rect width="506" height="278" fill="white"/>
+<polygon points="461,-2 510,-2 510,46" fill="black"/>
+</mask>
+</defs>
+<path class="draw" pathLength="1" d="M 262 23 H 140 A 116 116 0 0 0 140 255 H 262" fill="none" stroke="#ffffff" stroke-width="46" mask="url(#cut-c)"/>
+<path class="draw g" pathLength="1" d="M 505 23 H 309 A 116 116 0 0 0 309 255 H 482 V 160 H 410" fill="none" stroke="#7fd4cf" stroke-width="46" mask="url(#cut-g)"/>
+<g class="fold">
+<polygon points="461,0 461,44 505,44" fill="#062a30" opacity=".3" transform="translate(-3 4)"/>
+<polygon points="461,0 461,44 505,44" fill="#c9ecea"/>
+</g>
+</svg>

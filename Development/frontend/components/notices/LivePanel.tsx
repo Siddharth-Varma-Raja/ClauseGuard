@@ -98,7 +98,7 @@ function TerminationNumbers({ values }: { values: Values }) {
     <>
       <div className="mt-2 flex items-baseline gap-2">
         <p className="font-display text-[38px] font-semibold leading-none tabular-nums">{notice}</p>
-        <p className="text-sm text-white/70">days&apos; notice</p>
+        <p className="text-sm text-white/70">day's notice</p>
       </div>
       <p className="mt-1 text-[13px] text-white/75">From the date on the notice to the day the tenancy ends.</p>
       <Stats stats={stats} />
@@ -116,7 +116,7 @@ function EntryNumbers({ values }: { values: Values }) {
     <>
       <div className="mt-2 flex items-baseline gap-2">
         <p className="font-display text-[38px] font-semibold leading-none tabular-nums">{hours}</p>
-        <p className="text-sm text-white/70">hours&apos; notice</p>
+        <p className="text-sm text-white/70">hour's notice</p>
       </div>
       <p className="mt-1 text-[13px] text-white/75">{hours >= 48 ? `That's ${plural(Math.floor(hours / 24), "day")} and ${plural(hours % 24, "hour")}.` : "Between being told and the visit."}</p>
       <Stats

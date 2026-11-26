@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
-import { ArrowLeft, ChevronRight, Download, Info } from "lucide-react";
+import { ArrowLeft, ChevronRight, Download, FileText, Info, LayoutGrid, List, ListChecks } from "lucide-react";
 import Alert from "@/components/ui/Alert";
 import { addEvent, errorMessage, getEvents } from "@/lib/api";
 import type { Analysis, Clause, NewTimelineEvent, Status } from "@/lib/notice-types";
@@ -17,11 +17,16 @@ import AllClauses from "./AllClauses";
 import Overview from "@/components/report/Overview";
 import AllTab from "@/components/report/AllTab";
 import DetailsTab from "@/components/report/DetailsTab";
+import LeaseActionList from "@/components/review/LeaseActionList";
+import { actionCount } from "@/lib/actionList";
 import { useAuth } from "@/components/auth/AuthProvider";
 
 import { cn } from "@/lib/cn";
 import { pdf } from "@react-pdf/renderer";
 import ReportPdf from "../report/ReportPdf";
+
+const TAB_SHORT: Record<string, string> = { overview: "Overview", details: "Details", actions: "Actions", all: "Clauses" };
+const TAB_ICONS: Record<string, typeof List> = { overview: LayoutGrid, details: FileText, actions: ListChecks, all: List };
 
 function longDate(value: string | null) {
   if (!value) return "—";
@@ -49,7 +54,7 @@ function termEnd(startIso: string, months: number) {
   return end.toISOString().slice(0, 10);
 }
 
-type Tab = "overview" | "all" | "details";
+type Tab = "overview" | "all" | "details" | "actions";
 
 export default function LeaseReport({ analysis }: { analysis: Analysis }) {
   const { clauses } = analysis;
@@ -147,6 +152,18 @@ export default function LeaseReport({ analysis }: { analysis: Analysis }) {
   const tabs: { id: Tab; label: string; intro?: { title: string; text: string } }[] = [
     { id: "overview", label: "Overview" },
     { id: "details", label: "Lease details", intro: { title: "Lease details", text: "The key facts we found in your lease. Check they match what you agreed." } },
+    ...(analysis.actionList
+      ? [
+          {
+            id: "actions" as const,
+            label: "Action list",
+            intro: {
+              title: `Your action list${actionCount(analysis.actionList) ? `: ${actionCount(analysis.actionList)} items` : ""}`,
+              text: "What your lease says you and your landlord must, can't and may do. Built from your lease using fixed rules, no AI reads your lease for this.",
+            },
+          },
+        ]
+      : []),
     { id: "all", label: "All clauses", intro: { title: `All ${total} clauses`, text: "Every clause in your lease, in order. Select a clause to open it in Lease viewer." } },
   ];
   const money = (cents: number | null) => (cents == null ? null : new Intl.NumberFormat("en-IE", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(cents / 100));
@@ -173,10 +190,10 @@ export default function LeaseReport({ analysis }: { analysis: Analysis }) {
         Back to my leases
       </Link>
 
-      <div className="mt-2 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="font-display text-3xl font-semibold tracking-tight text-brand-dark sm:text-4xl">{leaseName}</h1>
-          <p className="mt-1 text-mute">
+      <div className="mt-2 flex items-start justify-between gap-3 sm:flex-wrap sm:items-end sm:gap-4">
+        <div className="min-w-0">
+          <h1 className="font-display text-2xl font-semibold tracking-tight text-brand-dark [overflow-wrap:anywhere] max-sm:line-clamp-2 sm:text-4xl">{leaseName}</h1>
+          <p className="mt-1 text-sm text-mute sm:text-base">
             Lease report
             {start && end ? `, tenancy ${new Date(`${start}T00:00:00`).toLocaleDateString("en-IE", { day: "numeric", month: "short", year: "numeric" })} to ${new Date(`${end}T00:00:00`).toLocaleDateString("en-IE", { day: "numeric", month: "short", year: "numeric" })}` : ""}
           </p>
@@ -185,26 +202,26 @@ export default function LeaseReport({ analysis }: { analysis: Analysis }) {
           <button
             type="button"
             onClick={downloadReport}
-            className="inline-flex min-h-14 cursor-pointer items-center gap-2.5 rounded-full bg-brand-dark px-7 text-lg font-semibold text-white shadow-[0_10px_24px_-10px_rgb(10_59_67/0.6)] transition hover:-translate-y-0.5 hover:bg-brand"
+            aria-label="Download PDF"
+            className="inline-flex min-h-12 cursor-pointer items-center gap-2 rounded-full border-[1.5px] border-brand-dark bg-white px-5 font-semibold text-brand-dark transition hover:bg-brand-soft active:scale-95 max-sm:size-12 max-sm:justify-center max-sm:px-0"
           >
-            <Download size={20} />
-            Download PDF
+            <Download size={19} />
+            <span className="max-sm:hidden">Download PDF</span>
           </button>
         </div>
       </div>
 
-      <div role="note" aria-label="Important" className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 rounded-[24px] border border-[#d5dde1] bg-[#eef2f4] px-5 py-3.5">
-        <span className="inline-flex items-center gap-2.5 font-bold text-ink">
-          <Info size={20} className="text-neu" />
-          Not legal advice
+      <p role="note" className="mt-4 flex items-start gap-2.5 rounded-2xl border border-[#d5dde1] bg-[#eef2f4] px-4 py-2.5 text-sm text-ink/85 sm:mt-5 sm:items-center sm:px-5 sm:py-3">
+        <Info size={18} className="mt-px shrink-0 text-neu sm:mt-0" aria-hidden />
+        <span>
+          <b className="font-bold text-ink">Not legal advice.</b> ClauseGuard gives automated, informational analysis.
         </span>
-        <p className="w-full text-ink/85 sm:w-auto sm:min-w-0 sm:flex-1">ClauseGuard gives automated, informational analysis. It is not legal advice.</p>
-      </div>
+      </p>
 
       <OlderVersionNote analysis={analysis} />
 
       <div ref={tabsRef} className="sticky top-16 z-20 md:top-0 -mx-2 mt-5 bg-white/70 px-2 py-2 backdrop-blur print:hidden">
-        <div role="tablist" aria-label="Report sections, read them in order" className="flex gap-1.5 overflow-x-auto rounded-full border border-[#cfe1e2] bg-white p-1.5 shadow-soft">
+        <div role="tablist" aria-label="Report sections, read them in order" className="grid auto-cols-fr grid-flow-col gap-1 rounded-2xl border border-[#cfe1e2] bg-white p-1 shadow-soft sm:flex sm:gap-1.5 sm:overflow-x-auto sm:rounded-full sm:p-1.5">
           {tabs.map((t, i) => {
             const on = tab === t.id;
             return (
@@ -215,12 +232,17 @@ export default function LeaseReport({ analysis }: { analysis: Analysis }) {
                 aria-selected={on}
                 onClick={() => go(t.id)}
                 className={cn(
-                  "inline-flex min-h-12 shrink-0 cursor-pointer items-center gap-2.5 rounded-full px-5 font-semibold transition-colors lg:flex-1 lg:justify-center",
+                  "inline-flex min-h-12 shrink-0 cursor-pointer items-center gap-2.5 rounded-xl px-5 font-semibold transition-colors duration-300 max-sm:min-h-[54px] max-sm:flex-col max-sm:justify-center max-sm:gap-1 max-sm:px-1 max-sm:text-xs sm:rounded-full lg:flex-1 lg:justify-center",
                   on ? "bg-brand-dark text-white" : "text-ink/70 hover:bg-surface hover:text-ink",
                 )}
               >
-                <span className={cn("grid size-6 place-items-center rounded-full text-xs font-bold", on ? "bg-white text-brand-dark" : "bg-surface text-mute")}>{i + 1}</span>
-                {t.label}
+                <span className={cn("grid size-6 place-items-center rounded-full text-xs font-bold max-sm:hidden", on ? "bg-white text-brand-dark" : "bg-surface text-mute")}>{i + 1}</span>
+                {(() => {
+                  const TabIcon = TAB_ICONS[t.id];
+                  return <TabIcon size={19} aria-hidden className="sm:hidden" />;
+                })()}
+                <span className="sm:hidden">{TAB_SHORT[t.id]}</span>
+                <span className="max-sm:hidden">{t.label}</span>
               </button>
             );
           })}
@@ -230,8 +252,8 @@ export default function LeaseReport({ analysis }: { analysis: Analysis }) {
       <div key={tab} role="tabpanel" aria-label={current?.label} className="animate-fade-up mt-5 print:hidden">
         {current?.intro && (
           <div className="mb-5">
-            <h2 className="font-display text-3xl font-semibold text-brand-dark">{current.intro.title}</h2>
-            <p className="mt-1 text-lg text-mute">{current.intro.text}</p>
+            <h2 className="font-display text-2xl font-semibold text-brand-dark sm:text-3xl">{current.intro.title}</h2>
+            <p className="mt-1 text-mute sm:text-lg">{current.intro.text}</p>
           </div>
         )}
         {tab === "overview" && (
@@ -253,10 +275,11 @@ export default function LeaseReport({ analysis }: { analysis: Analysis }) {
         )}
 
         {tab === "all" && <AllTab clauses={clauses} risk={risk} onRisk={setRisk} onOpen={open} />}
+        {tab === "actions" && analysis.actionList && <LeaseActionList actionList={analysis.actionList} clauses={clauses} onView={open} showHeader={false} />}
         {tab === "details" && <DetailsTab analysis={analysis} end={end} busy={timeline.busy} onAddDates={addDatesToTimeline} />}
 
-        {tab !== "overview" && (
-          <div className="mt-8 flex flex-wrap items-center justify-between gap-3 rounded-[28px] border border-[#cfe1e2] bg-white px-6 py-5">
+        {(tab !== "overview" || nextTab) && (
+          <div className="mt-8 flex flex-wrap items-center justify-between gap-3 rounded-[24px] border border-[#cfe1e2] bg-white px-5 py-4 sm:rounded-[28px] sm:px-6 sm:py-5">
             <p className="text-mute">
               {nextTab ? (
                 <>
@@ -269,10 +292,10 @@ export default function LeaseReport({ analysis }: { analysis: Analysis }) {
             <button
               type="button"
               onClick={() => go(nextTab ? nextTab.id : "overview")}
-              className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-full bg-brand-dark px-5 font-semibold text-white hover:bg-brand"
+              className="group inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-full bg-brand-dark px-5 font-semibold text-white transition-transform hover:bg-brand active:scale-95 max-sm:w-full"
             >
               {nextTab ? `Go to ${nextTab.label}` : "Back to the summary"}
-              <ChevronRight size={17} />
+              <ChevronRight size={17} className="transition-transform group-hover:translate-x-0.5 group-active:translate-x-0.5" />
             </button>
           </div>
         )}
@@ -283,6 +306,11 @@ export default function LeaseReport({ analysis }: { analysis: Analysis }) {
           <ShortAnswer counts={counts} total={total} />
           <CountBoxes counts={counts} />
           <LeaseDetails rows={printRows} missing={[]} />
+          {analysis.actionList && (
+            <div className="mt-6 break-before-page">
+              <LeaseActionList actionList={analysis.actionList} clauses={clauses} onView={open} />
+            </div>
+          )}
           <NextSteps counts={counts} onDownload={downloadReport} onEmail={openEmail} />
           <FlaggedClauses analysisId={analysis.id} clauses={clauses} printing raised={null} onEmail={openEmail} />
           <AllClauses analysisId={analysis.id} clauses={clauses} printing />

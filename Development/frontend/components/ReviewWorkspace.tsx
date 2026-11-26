@@ -14,11 +14,11 @@ import {
   Info,
   Minus,
   Plus, ChevronDown,
-  MessageCircleQuestion, Download, List, FileText, FlaskConical, Upload, GitCompare, History, Mail
+  MessageCircleQuestion, Download, List, FileText, FlaskConical, Upload, GitCompare, History, Mail, MoreHorizontal, ListChecks
 } from "lucide-react";
 
 import Tooltip from "./ui/Tooltip";
-import type { Analysis, Clause } from "@/lib/notice-types";
+import type { Analysis, Clause, TopicCorrection } from "@/lib/notice-types";
 import { STATUS, STATUS_ORDER } from "@/lib/status";
 import { cn } from "@/lib/cn";
 import { errorMessage, getPreferences, setClauseReviewed } from "@/lib/api";
@@ -26,6 +26,8 @@ import AskClauseGuard from "@/components/lease/AskClauseGuard";
 import PageTour from "@/components/PageTour";
 import { REVIEW_LEASE_TOUR, REVIEW_TOUR, SAMPLE_TOUR } from "@/lib/tours";
 import ReviewSummary from "@/components/review/ReviewSummary";
+import MobileSummary from "@/components/review/MobileSummary";
+import ClauseSheet from "@/components/review/ClauseSheet";
 import { loadViewPreference, saveViewPreference, type ReviewView } from "@/lib/viewPreference";
 import LeaseScrollBar from "./review/LeaseScrollBar";
 import AddToEmailButton from "./review/AddToEmailButton";
@@ -33,12 +35,14 @@ import LandlordEmailPanel from "./review/LandlordEmailPanel";
 import UploadVersionDialog from "./review/UploadVersionDialog";
 import VersionSwitcher from "./review/VersionSwitcher";
 import WhatChanged from "./review/WhatChanged";
+import TopicFeedback from "./review/TopicFeedback";
+import LeaseActionList from "./review/LeaseActionList";
+import { actionCount } from "@/lib/actionList";
 import { fmtDate } from "@/lib/format";
 import { loadRaised, saveRaised } from "@/lib/raisedClauses";
 import { SAMPLE_ID, isSampleId } from "@/lib/sample-lease";
-import { match } from "assert";
 
-type WorkspaceView = ReviewView | "changes";
+type WorkspaceView = ReviewView | "changes" | "actions";
 
 export default function ReviewWorkspace({ analysis }: { analysis: Analysis }) {
   const versions = analysis.versions ?? [];
@@ -69,6 +73,7 @@ export default function ReviewWorkspace({ analysis }: { analysis: Analysis }) {
   const [view, setView] = useState<WorkspaceView>(() => {
     if (wantedClause) return "lease";
     const wanted = typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("view");
+    if (wanted === "actions" && analysis.actionList) return "actions";
     return wanted === "changes" && previousVersion ? "changes" : loadViewPreference();
   });
   const [selectedId, setSelectedId] = useState<string | null>(initialClause?.id ?? null);
@@ -80,6 +85,9 @@ export default function ReviewWorkspace({ analysis }: { analysis: Analysis }) {
   const leaseScrollRef = useRef<HTMLDivElement>(null);
   const centreNextScroll = useRef(false);
   const [jumps, setJumps] = useState(0);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [leaseTab, setLeaseTab] = useState<"document" | "issues">("document");
+  const [moreOpen, setMoreOpen] = useState(false);
 
   useEffect(() => {
     const grid = gridRef.current;
@@ -107,6 +115,7 @@ export default function ReviewWorkspace({ analysis }: { analysis: Analysis }) {
   }, [view, raised]);
 
   const selected = clauses.find((c) => c.id === selectedId) ?? null;
+  const selectedIssue = issues.findIndex((c) => c.id === selectedId);
   const pageCount = Math.max(analysis.pageCount || 1, ...clauses.map((c) => c.page || 1));
   const clausesOnPage = clauses.filter((c) => c.page === page);
   const countOf = (status: Clause["status"]) => clauses.filter((c) => c.status === status).length;
@@ -155,6 +164,17 @@ export default function ReviewWorkspace({ analysis }: { analysis: Analysis }) {
     }
   }
 
+  const [correctId, setCorrectId] = useState<string | null>(null);
+
+  function correctClause(clause: Clause) {
+    setCorrectId(clause.id);
+    openInLease(clause);
+  }
+
+  function saveCorrection(clause: Clause, correction: TopicCorrection) {
+    setClauses((prev) => prev.map((c) => (c.id === clause.id ? { ...c, correction } : c)));
+  }
+
   function changeView(next: WorkspaceView) {
     setView(next);
   }
@@ -187,30 +207,62 @@ export default function ReviewWorkspace({ analysis }: { analysis: Analysis }) {
     );
   }
 
+  function issueList(onPick: (clause: Clause) => void, list: Clause[] = issues) {
+    return (
+      <ul className="row-in divide-y divide-line">
+        {list.map((clause) => {
+          const index = issues.indexOf(clause);
+          const style = STATUS[clause.status];
+          return (
+            <li key={clause.id}>
+              <button
+                type="button"
+                onClick={() => onPick(clause)}
+                className={cn("flex min-h-[60px] w-full cursor-pointer items-center gap-3 px-4 py-2.5 text-left transition-colors active:bg-surface", clause.id === selectedId && "bg-brand-soft/60")}
+              >
+                <span className={cn("grid size-8 shrink-0 place-items-center rounded-full text-white", style.solid)} aria-hidden>
+                  <style.Icon size={16} />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-xs text-mute">
+                    Issue {index + 1} · Clause {clause.number} · page {clause.page}
+                  </span>
+                  <span className="block truncate font-semibold text-ink">{clause.title}</span>
+                </span>
+                {clause.reviewed ? <Check size={18} className="shrink-0 text-ok" aria-label="Reviewed" /> : <ChevronRight size={18} className="shrink-0 text-mute" aria-hidden />}
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    );
+  }
+
   function selectClause(clause: Clause) {
     setSelectedId(clause.id);
     setPage(clause.page);
     setJumps((n) => n + 1);
-    if (window.innerWidth < 1024) {
-      panelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
+    if (window.innerWidth < 1024) setSheetOpen(true);
   }
 
   return (
-    <div className="mx-auto max-w-[1400px]">
+    <div className="mx-auto max-w-[1400px] pb-24 md:pb-0">
       {isSampleId(analysis.id) && (
-        <div className="mb-5 flex flex-wrap items-center gap-3 rounded-2xl border border-[#bfe0e2] bg-brand-soft px-4 py-3 text-sm text-brand-dark">
+        <div className="mb-4 flex items-center gap-3 rounded-2xl border border-[#bfe0e2] bg-brand-soft py-2 pl-4 pr-2 text-sm text-brand-dark md:mb-5 md:flex-wrap md:py-3 md:pr-4">
           <FlaskConical size={18} className="shrink-0 text-brand" />
-          <p>
-            <b className="font-semibold">Sample lease.</b> Explore freely, nothing here is saved.
+          <p className="min-w-0 flex-1 md:flex-none">
+            <b className="font-semibold">Sample lease.</b>
+            <span className="hidden md:inline"> Explore freely, nothing here is saved.</span>
           </p>
-          <div className="ml-auto flex items-center gap-4">
-            <Link href="/dashboard" className="font-semibold underline underline-offset-4">
-              Exit sample
+          <div className="flex shrink-0 items-center gap-1 md:ml-auto md:gap-4">
+            <Link href="/dashboard" className="inline-flex min-h-[45px] min-w-[45px] items-center justify-center px-2 font-semibold underline underline-offset-4 md:min-h-0 md:min-w-0 md:px-0">
+              <span className="md:hidden">Exit</span>
+              <span className="hidden md:inline">Exit sample</span>
             </Link>
-            <Link href="/lease/new" data-tour="sample-own" className="inline-flex items-center gap-2 rounded-full bg-brand-dark px-4 py-2 font-semibold text-white hover:bg-brand">
+            <Link href="/lease/new" data-tour="sample-own" className="inline-flex min-h-[45px] items-center gap-2 rounded-full bg-brand-dark px-4 font-semibold text-white hover:bg-brand md:min-h-0 md:py-2">
               <Upload size={15} />
-              Check my own lease
+              <span className="md:hidden">My lease</span>
+              <span className="hidden md:inline">Check my own lease</span>
             </Link>
           </div>
         </div>
@@ -230,25 +282,76 @@ export default function ReviewWorkspace({ analysis }: { analysis: Analysis }) {
         </div>
       )}
 
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+      <div className="flex items-center justify-between gap-x-4 gap-y-2 md:flex-wrap">
         <div className="flex min-w-0 items-center gap-3">
           <Tooltip text="Back to my leases" side="bottom" className="shrink-0">
             <Link
               href="/lease"
               aria-label="Back to my leases"
-              className="grid size-9 place-items-center rounded-full border border-line bg-white text-brand-dark hover:bg-brand-soft"
+              className="grid size-[45px] place-items-center rounded-full border border-line bg-white text-brand-dark hover:bg-brand-soft md:size-9"
             >
               <ArrowLeft size={17} />
             </Link>
           </Tooltip>
           <div className="min-w-0">
-            <p className="text-xs font-medium uppercase tracking-wide text-mute">Lease review</p>
-            <h1 className="truncate font-display text-xl font-semibold text-brand-dark">{analysis.fileName}</h1>
+            <p className="hidden text-xs font-medium uppercase tracking-wide text-mute md:block">Lease review</p>
+            <h1 className="truncate font-display text-lg font-semibold text-brand-dark md:text-xl">{analysis.fileName}</h1>
             {versions.length > 1 && <VersionSwitcher analysis={analysis} versions={versions} onUpload={() => setUploadOpen(true)} />}
           </div>
         </div>
+        <div className="relative shrink-0 md:hidden">
+          <button
+            type="button"
+            onClick={() => setMoreOpen(!moreOpen)}
+            aria-label="More options"
+            aria-expanded={moreOpen}
+            className="grid size-[45px] cursor-pointer place-items-center rounded-full border border-line bg-white text-brand-dark"
+          >
+            <MoreHorizontal size={20} />
+          </button>
+          {moreOpen && (
+            <>
+              <button type="button" aria-label="Close menu" tabIndex={-1} onClick={() => setMoreOpen(false)} className="fixed inset-0 z-40 cursor-default" />
+              <div role="menu" className="absolute right-0 top-full z-50 mt-2 w-60 animate-pop-in rounded-2xl border border-line bg-white p-2 shadow-xl">
+                {isLatest && issues.length > 0 && view === "lease" && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setMoreOpen(false);
+                      openEmail();
+                    }}
+                    className="flex min-h-12 w-full cursor-pointer items-center gap-3 rounded-xl px-3 font-semibold text-ink hover:bg-surface"
+                  >
+                    <Mail size={18} className="text-brand" />
+                    Email landlord
+                    {emailIds.length > 0 && <span className="ml-auto grid min-w-6 place-items-center rounded-full bg-brand-dark px-1.5 text-xs text-white">{emailIds.length}</span>}
+                  </button>
+                )}
+                <Link role="menuitem" href={`/lease/${analysis.id}/report`} className="flex min-h-12 items-center gap-3 rounded-xl px-3 font-semibold text-ink hover:bg-surface">
+                  <FileText size={18} className="text-brand" />
+                  Full report
+                </Link>
+                {isLatest && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setMoreOpen(false);
+                      setUploadOpen(true);
+                    }}
+                    className="flex min-h-12 w-full cursor-pointer items-center gap-3 rounded-xl px-3 font-semibold text-ink hover:bg-surface"
+                  >
+                    <Upload size={18} className="text-brand" />
+                    Upload updated lease
+                  </button>
+                )}
+              </div>
+            </>
+          )}
+        </div>
         {isLatest && (
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="hidden flex-wrap items-center gap-2 md:flex">
             {issues.length > 0 && (
               <button
                 type="button"
@@ -283,8 +386,8 @@ export default function ReviewWorkspace({ analysis }: { analysis: Analysis }) {
         ) : null}
       </div>
 
-      <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center">
-        <ViewSwitch view={view} onChange={changeView} showChanges={Boolean(previousVersion)} />
+      <div className="mt-4 flex flex-col gap-3 md:mt-3 md:grid md:grid-cols-[auto_minmax(0,1fr)] md:items-center min-[1360px]:grid-cols-[auto_minmax(0,1fr)_auto]">
+        <ViewSwitch view={view} onChange={changeView} showChanges={Boolean(previousVersion)} showActions={Boolean(analysis.actionList)} />
         <SummaryBar
           reportHref={`/lease/${analysis.id}/report`}
           counts={{ red: countOf("red"), amber: countOf("amber"), green: countOf("green"), grey: countOf("grey") }}
@@ -327,24 +430,173 @@ export default function ReviewWorkspace({ analysis }: { analysis: Analysis }) {
       )}
 
       {view === "summary" && (
-        <ReviewSummary
-          analysis={analysis}
-          clauses={clauses}
-          onOpenClause={openInLease}
-          onAskClause={askAbout}
-          emailIds={isLatest ? emailIds : undefined}
-          onToggleEmail={isLatest ? toggleEmail : undefined}
-        />
+        <>
+          <MobileSummary
+            analysis={analysis}
+            clauses={clauses}
+            onOpenClause={openInLease}
+            onAskClause={askAbout}
+            emailIds={isLatest ? emailIds : undefined}
+            onToggleEmail={isLatest ? toggleEmail : undefined}
+            onToggleReviewed={toggleReviewed}
+          />
+          <div className="hidden md:block">
+            <ReviewSummary
+              analysis={analysis}
+              clauses={clauses}
+              onOpenClause={openInLease}
+              onAskClause={askAbout}
+              emailIds={isLatest ? emailIds : undefined}
+              onToggleEmail={isLatest ? toggleEmail : undefined}
+              actionCount={analysis.actionList ? actionCount(analysis.actionList) : null}
+              onShowActions={() => changeView("actions")}
+            />
+          </div>
+        </>
+      )}
+
+      {view === "actions" && analysis.actionList && (
+        <div className="mt-4">
+          <LeaseActionList actionList={analysis.actionList} clauses={clauses} onView={openInLease} onCorrect={correctClause} />
+        </div>
       )}
 
       {view === "lease" && (
-        <div id="lease-view" ref={gridRef} className="mt-3 grid gap-4 lg:grid-cols-[minmax(0,1fr)_400px] lg:grid-rows-[minmax(0,1fr)] xl:grid-cols-[minmax(0,1fr)_460px]">
+        <div id="lease-view" ref={gridRef} className="mt-3 grid scroll-mt-20 grid-cols-1 gap-4 max-md:pb-20 lg:grid-cols-[minmax(0,1fr)_400px] lg:grid-rows-[minmax(0,1fr)] xl:grid-cols-[minmax(0,1fr)_460px]">
+          <div className="flex items-center gap-2 md:hidden">
+            <div role="tablist" aria-label="Show" className="relative grid min-w-0 flex-1 grid-cols-2 rounded-full border border-line bg-white p-1 shadow-soft">
+              <span
+                aria-hidden
+                className={cn("absolute inset-y-1 left-1 w-[calc(50%-0.25rem)] rounded-full bg-brand-dark transition-transform duration-300 ease-out motion-reduce:transition-none", leaseTab === "issues" && "translate-x-full")}
+              />
+              {(["document", "issues"] as const).map((tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  role="tab"
+                  aria-selected={leaseTab === tab}
+                  onClick={() => setLeaseTab(tab)}
+                  className={cn("relative flex min-h-10 cursor-pointer items-center justify-center gap-2 rounded-full text-sm font-semibold transition-colors duration-300", leaseTab === tab ? "text-white" : "text-mute")}
+                >
+                  {tab === "document" ? (
+                    <>
+                      <FileText size={16} aria-hidden />
+                      Document
+                    </>
+                  ) : (
+                    <>
+                      <ListChecks size={16} aria-hidden />
+                      Issues
+                      {issues.length > 0 && (
+                        <span className={cn("grid min-w-5 place-items-center rounded-full px-1.5 text-xs text-white", issues.some((c) => c.status === "red") ? "bg-bad-solid" : "bg-warn-solid")}>
+                          {issues.length - issues.filter((c) => c.reviewed).length}
+                        </span>
+                      )}
+                    </>
+                  )}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => setChatOpen(!chatOpen)}
+              aria-expanded={chatOpen}
+              aria-label="Ask ClauseGuard"
+              className="grid size-[45px] shrink-0 cursor-pointer place-items-center rounded-full bg-brand-soft text-brand-dark transition-transform active:scale-90"
+            >
+              <MessageCircleQuestion size={19} />
+            </button>
+          </div>
+
+          {leaseTab === "issues" && (
+            <div className="animate-fade-up overflow-hidden rounded-2xl border border-line bg-white shadow-soft md:hidden">
+              {issues.length > 0 ? (
+                <>
+                  <div className="border-b border-line p-4">
+                    <p className="flex items-baseline justify-between text-sm text-mute">
+                      <span className="font-display text-lg font-semibold text-brand-dark">Issues to check</span>
+                      <span>
+                        <b className="font-semibold text-ink">{issues.filter((c) => c.reviewed).length}</b> of {issues.length} checked
+                      </span>
+                    </p>
+                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-surface" aria-hidden>
+                      <div className="h-full rounded-full bg-brand transition-[width] duration-700 ease-out motion-reduce:transition-none" style={{ width: `${(issues.filter((c) => c.reviewed).length / issues.length) * 100}%` }} />
+                    </div>
+                    {issues.some((c) => !c.reviewed) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setLeaseTab("document");
+                          selectClause(issues.find((c) => !c.reviewed) ?? issues[0]);
+                        }}
+                        className="group mt-4 flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-2xl bg-brand-dark font-semibold text-white transition-transform active:scale-[0.97]"
+                      >
+                        Check next issue
+                        <ChevronRight size={18} aria-hidden className="transition-transform duration-200 group-active:translate-x-1" />
+                      </button>
+                    )}
+                  </div>
+                  {(["red", "amber"] as const).map((status) => {
+                    const group = issues.filter((c) => c.status === status);
+                    if (group.length === 0) return null;
+                    return (
+                      <div key={status}>
+                        <div className="px-4 pb-1 pt-4">
+                          <p className={cn("flex items-center gap-2 text-sm font-semibold", STATUS[status].text)}>
+                            <span className={cn("size-2.5 rounded-full", STATUS[status].solid)} aria-hidden />
+                            {STATUS[status].label} · {group.length}
+                          </p>
+                          <p className="pl-[18px] text-xs text-mute">{STATUS[status].hint}</p>
+                        </div>
+                        {issueList((clause) => {
+                          setLeaseTab("document");
+                          selectClause(clause);
+                        }, group)}
+                      </div>
+                    );
+                  })}
+                </>
+              ) : (
+                <p className="px-4 py-6 text-center text-sm text-mute">No issues found in this lease.</p>
+              )}
+            </div>
+          )}
+
+          {leaseTab === "document" && (
+            <div className="flex items-center gap-1 rounded-2xl border border-line bg-white p-1 shadow-soft md:hidden">
+              <button
+                type="button"
+                aria-label="Previous page"
+                disabled={page === 1}
+                onClick={() => setPage(page - 1)}
+                className="grid size-[45px] shrink-0 cursor-pointer place-items-center rounded-full text-brand-dark transition-transform active:scale-90 disabled:cursor-default disabled:opacity-30"
+              >
+                <ChevronLeft size={20} />
+              </button>
+              <p key={page} className="min-w-0 flex-1 animate-fade-up text-center text-sm text-mute">
+                Page <b className="font-semibold text-ink">{page}</b> of {pageCount}
+              </p>
+              <button
+                type="button"
+                aria-label="Next page"
+                disabled={page >= pageCount}
+                onClick={() => setPage(page + 1)}
+                className="grid size-[45px] shrink-0 cursor-pointer place-items-center rounded-full bg-brand-dark text-white transition-transform active:scale-90 disabled:cursor-default disabled:opacity-30"
+              >
+                <ChevronRight size={20} />
+              </button>
+            </div>
+          )}
+
           <section
             data-tour="annotated-lease"
             aria-label="Annotated lease"
-            className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-3xl border border-line bg-[#e7ecee]"
+            className={cn("flex min-h-0 min-w-0 flex-col overflow-hidden rounded-3xl border border-line bg-[#e7ecee]", leaseTab === "issues" && "max-md:hidden")}
           >
-            <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-line bg-white px-4 py-2">
+            <div className="relative flex shrink-0 flex-wrap items-center justify-center gap-3 border-b border-line bg-white px-2 py-1.5 max-md:hidden md:justify-between md:px-4 md:py-2">
+              <span className="absolute inset-x-0 bottom-0 h-[3px] bg-line md:hidden" aria-hidden>
+                <span className="block h-full rounded-r-full bg-brand transition-[width] duration-500 ease-out motion-reduce:transition-none" style={{ width: `${(page / pageCount) * 100}%` }} />
+              </span>
               <div className="flex items-center gap-1">
                 <IconButton label="Previous page" disabled={page === 1} onClick={() => setPage(page - 1)}>
                   <ChevronLeft size={18} />
@@ -357,7 +609,7 @@ export default function ReviewWorkspace({ analysis }: { analysis: Analysis }) {
                 </IconButton>
               </div>
 
-              <div className="flex items-center gap-1">
+              <div className="hidden items-center gap-1 md:flex">
                 <IconButton label="Zoom out" disabled={zoom <= 80} onClick={() => setZoom(zoom - 10)}>
                   <Minus size={16} />
                 </IconButton>
@@ -372,7 +624,8 @@ export default function ReviewWorkspace({ analysis }: { analysis: Analysis }) {
             <div className="flex min-h-0 flex-1 gap-3 p-3 sm:p-6 sm:pr-3">
               <div className="min-h-0 min-w-0 flex-1 overflow-auto lg:[scrollbar-width:none] lg:[&::-webkit-scrollbar]:hidden" id="lease-scroll" ref={leaseScrollRef}>
                 <article
-                  className="mx-auto flex min-h-[560px] max-w-[680px] flex-col bg-white px-6 py-8 font-serif text-[#1d2a30] shadow-[0_1px_2px_rgb(0_0_0/0.06),0_12px_32px_-8px_rgb(10_59_67/0.25)] sm:px-14 sm:py-12"
+                  key={page}
+                  className="mx-auto flex min-h-[560px] max-w-[680px] animate-fade- flex-col bg-white px-6 py-8 font-serif text-[#1d2a30] shadow-[0_1px_2px_rgb(0_0_0/0.06),0_12px_32px_-8px_rgb(10_59_67/0.25)] sm:px-14 sm:py-12"
                   style={{ fontSize: `${(15 * zoom) / 100}px`, lineHeight: 1.75 }}
                 >
                   <header className="mb-8 flex items-baseline justify-between border-b border-[#d9e0e3] pb-3 font-sans text-xs text-mute">
@@ -388,9 +641,10 @@ export default function ReviewWorkspace({ analysis }: { analysis: Analysis }) {
                       <p className="italic text-mute">This page continues the clause from the previous page.</p>
                     )}
 
-                    {clausesOnPage.map((clause) => (
+                    {clausesOnPage.map((clause, index) => (
                       <LeaseClause
                         key={clause.id}
+                        index={index}
                         clause={clause}
                         isSelected={selected?.id === clause.id}
                         onSelect={() => selectClause(clause)}
@@ -417,7 +671,7 @@ export default function ReviewWorkspace({ analysis }: { analysis: Analysis }) {
             ref={panelRef}
             data-tour="clause-details"
             aria-label="Clause details"
-            className="flex min-h-0 scroll-mt-6 flex-col lg:overflow-hidden"
+            className="hidden min-h-0 scroll-mt-6 flex-col lg:flex lg:overflow-hidden"
           >
             {actionError && (
               <p role="alert" className="mb-3 rounded-xl border border-bad-line bg-bad-bg p-3 text-sm text-bad">{actionError}</p>
@@ -431,6 +685,9 @@ export default function ReviewWorkspace({ analysis }: { analysis: Analysis }) {
                 onSelect={selectClause}
                 onAsk={() => askAbout(selected)}
                 onToggleReviewed={() => toggleReviewed(selected)}
+                analysisId={analysis.id}
+                startCorrection={correctId === selected.id}
+                onCorrected={(correction) => saveCorrection(selected, correction)}
                 inEmail={emailIds.includes(selected.id)}
                 onToggleEmail={canEmail(selected) ? () => toggleEmail(selected) : undefined}
               />
@@ -440,6 +697,65 @@ export default function ReviewWorkspace({ analysis }: { analysis: Analysis }) {
               </div>
             )}
           </aside>
+        </div>
+      )}
+
+      {view === "lease" && (
+        <ClauseSheet
+          clause={sheetOpen ? selected : null}
+          onClose={() => setSheetOpen(false)}
+          className="lg:hidden"
+          position={
+            selected && selectedIssue >= 0
+              ? {
+                index: selectedIssue,
+                total: issues.length,
+                onPrev: selectedIssue > 0 ? () => selectClause(issues[selectedIssue - 1]) : undefined,
+                onNext: selectedIssue < issues.length - 1 ? () => selectClause(issues[selectedIssue + 1]) : undefined,
+              }
+              : undefined
+          }
+          reviewed={selected && selectedIssue >= 0 ? { value: selected.reviewed, onToggle: () => toggleReviewed(selected) } : undefined}
+          email={selected && canEmail(selected) ? { added: emailIds.includes(selected.id), onToggle: () => toggleEmail(selected) } : undefined}
+          onAsk={
+            selected
+              ? () => {
+                setSheetOpen(false);
+                askAbout(selected);
+              }
+              : undefined
+          }
+        />
+      )}
+
+      {view === "summary" && (
+        <div className="fixed inset-x-0 bottom-0 z-40 flex gap-2 border-t border-line bg-white/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur md:hidden">
+          {isLatest && issues.length > 0 && (
+            <button
+              type="button"
+              onClick={() => openEmail()}
+              className="flex min-h-12 min-w-12 flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl bg-brand-dark font-semibold text-white"
+            >
+              <Mail size={18} aria-hidden />
+              Email landlord
+              {emailIds.length > 0 && (
+                <span className="grid min-w-5 place-items-center rounded-full bg-white px-1.5 text-xs text-brand-dark">{emailIds.length}</span>
+              )}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setChatOpen(!chatOpen)}
+            aria-expanded={chatOpen}
+            className={cn(
+              "flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-xl border px-4 font-semibold",
+              chatOpen ? "border-brand bg-brand-soft text-brand-dark" : "border-line bg-white text-brand-dark",
+              !(isLatest && issues.length > 0) && "flex-1",
+            )}
+          >
+            <MessageCircleQuestion size={18} aria-hidden />
+            Ask
+          </button>
         </div>
       )}
 
@@ -467,12 +783,8 @@ export default function ReviewWorkspace({ analysis }: { analysis: Analysis }) {
         reference={chatClause}
         onOpenChange={setChatOpen}
         onClearReference={() => setChatClause(null)}
+        hideButtonOnMobile={view !== "changes"}
       />
-
-      <p className="mt-3 flex items-center justify-center gap-2 text-center text-xs text-mute">
-        <Info size={16} className="shrink-0" />
-        ClauseGuard gives automated, informational analysis. It is not legal advice.
-      </p>
     </div>
   );
 }
@@ -500,16 +812,15 @@ function SummaryBar({
 
   return (
     <section
-      data-tour="verdict-banner"
       aria-label="Lease summary"
-      className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-center"
+      className="max-md:hidden md:contents"
     >
       {showJump && (
-        <div className="flex min-w-0 flex-1 justify-center">
+        <div className="flex min-w-0 md:max-[1359px]:col-span-2 md:max-[1359px]:row-start-2 min-[1360px]:col-start-2 min-[1360px]:row-start-1 min-[1360px]:justify-center">
           <div
             role="group"
             aria-label="Jump to clauses by rating"
-            className="inline-flex max-w-full flex-wrap justify-center gap-0.5 rounded-[1.6rem] border border-line bg-white p-1.5 shadow-soft"
+            className="flex max-w-full gap-0.5 overflow-x-auto rounded-[1.6rem] border border-line bg-white p-1.5 shadow-soft [scrollbar-width:none]"
           >
             {STATUS_ORDER.map((s) => (
               <button
@@ -520,7 +831,7 @@ function SummaryBar({
                 title={counts[s] ? `Jump to the next “${STATUS[s].label.toLowerCase()}” clause` : undefined}
                 aria-pressed={activeStatus === s}
                 className={cn(
-                  "inline-flex h-9 cursor-pointer font-semibold items-center gap-2 rounded-full px-3.5 text-sm transition-all duration-200 disabled:cursor-default disabled:opacity-45",
+                  "inline-flex h-[45px] shrink-0 cursor-pointer font-semibold items-center gap-2 whitespace-nowrap rounded-full px-3.5 text-sm transition-all duration-200 disabled:cursor-default disabled:opacity-45 md:h-9",
                   activeStatus === s
                     ? "bg-brand-dark text-white shadow-sm"
                     : "text-mute enabled:hover:bg-surface enabled:hover:text-ink",
@@ -536,13 +847,14 @@ function SummaryBar({
       )}
 
       <div
+        data-tour="verdict-banner"
         className={cn(
-          "ml-auto flex shrink-0 items-center gap-4",
+          "hidden shrink-0 items-center gap-4 justify-self-end md:flex md:max-[1359px]:col-start-2 md:max-[1359px]:row-start-1 min-[1360px]:col-start-3 min-[1360px]:row-start-1",
           !bare && "self-start rounded-full border border-line bg-white p-1.5 shadow-soft",
         )}
       >
         {issuesTotal > 0 && (
-          <div className={cn("hidden items-center gap-2 md:flex", !bare && "pl-3")} title="Flagged clauses you have marked as reviewed">
+          <div className={cn("hidden items-center gap-2 lg:flex", !bare && "pl-3")} title="Flagged clauses you have marked as reviewed">
             <div className="h-1.5 w-20 overflow-hidden rounded-full bg-line">
               <div className="h-full rounded-full bg-brand transition-all" style={{ width: `${pct}%` }} />
             </div>
@@ -568,50 +880,98 @@ function ViewSwitch({
   view,
   onChange,
   showChanges,
+  showActions,
 }: {
   view: WorkspaceView;
   onChange: (view: WorkspaceView) => void;
   showChanges: boolean;
+  showActions: boolean;
 }) {
   const options: { value: WorkspaceView; label: string; Icon: typeof List }[] = [
     { value: "summary", label: "Summary", Icon: List },
     { value: "lease", label: "Lease viewer", Icon: FileText },
+    ...(showActions ? [{ value: "actions" as const, label: "Action list", Icon: ListChecks }] : []),
     ...(showChanges ? [{ value: "changes" as const, label: "What changed", Icon: GitCompare }] : []),
   ];
+  const [open, setOpen] = useState(false);
+  const current = options.find((o) => o.value === view) ?? options[0];
+  const Current = current.Icon;
 
   return (
-    <div
-      data-tour="view-switch"
-      role="radiogroup"
-      aria-label="How to show the lease"
-      className="inline-flex max-w-full shrink-0 items-center gap-1 self-start overflow-x-auto rounded-full border border-line bg-white p-1.5 shadow-soft"
-    >
-      {options.map(({ value, label, Icon }) => (
+    <>
+      <div className="relative md:hidden">
         <button
-          key={value}
           type="button"
-          role="radio"
-          aria-checked={view === value}
-          onClick={() => onChange(value)}
-          className={cn(
-            "inline-flex h-9 shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-full px-3 text-sm font-semibold transition-colors sm:px-4",
-            view === value ? "bg-brand-dark text-white shadow-sm" : "text-brand-dark hover:bg-surface",
-          )}
+          onClick={() => setOpen(!open)}
+          aria-haspopup="menu"
+          aria-expanded={open}
+          aria-label={`How to show the lease: ${current.label}`}
+          className="flex min-h-12 w-full cursor-pointer items-center gap-3 rounded-2xl border border-line bg-white px-4 text-base font-semibold text-brand-dark shadow-soft"
         >
-          <Icon size={15} aria-hidden className={cn(showChanges && "hidden sm:block")} />
-          {label}
+          <Current size={18} className="text-brand" aria-hidden />
+          {current.label}
+          <ChevronDown size={20} className={cn("ml-auto transition-transform duration-300 motion-reduce:transition-none", open && "rotate-180")} aria-hidden />
         </button>
-      ))}
-    </div>
+        {open && (
+          <>
+            <button type="button" aria-label="Close menu" tabIndex={-1} onClick={() => setOpen(false)} className="fixed inset-0 z-40 cursor-default" />
+            <div role="menu" className="relative z-50 mt-2 animate-pop-in rounded-2xl border border-line bg-white p-2 shadow-soft">
+              {options.map(({ value, label, Icon }) => (
+                <button
+                  key={value}
+                  type="button"
+                  role="menuitemradio"
+                  aria-checked={view === value}
+                  onClick={() => {
+                    setOpen(false);
+                    onChange(value);
+                  }}
+                  className={cn("flex min-h-12 w-full cursor-pointer items-center gap-3 rounded-xl px-3 font-semibold text-ink hover:bg-surface", view === value && "bg-surface")}
+                >
+                  <Icon size={18} className="text-brand" aria-hidden />
+                  {label}
+                  {view === value && <Check size={18} className="ml-auto text-brand" aria-hidden />}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+      <div
+        data-tour="view-switch"
+        role="radiogroup"
+        aria-label="How to show the lease"
+        className={cn("max-md:hidden", "flex w-full shrink-0 items-center gap-1 self-start overflow-x-auto rounded-full border border-line bg-white p-1.5 shadow-soft md:inline-flex md:w-auto md:max-w-full")}
+      >
+        {options.map(({ value, label, Icon }) => (
+          <button
+            key={value}
+            type="button"
+            role="radio"
+            aria-checked={view === value}
+            onClick={() => onChange(value)}
+            className={cn(
+              "inline-flex h-[45px] flex-1 shrink-0 cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-3 text-sm font-semibold transition-colors sm:px-4 md:h-9 md:flex-none",
+              view === value ? "bg-brand-dark text-white shadow-sm" : "text-brand-dark hover:bg-surface",
+            )}
+          >
+            <Icon size={15} aria-hidden className={cn(options.length > 2 && "hidden sm:block")} />
+            {label}
+          </button>
+        ))}
+      </div>
+    </>
   );
 }
 
 function LeaseClause({
   clause,
+  index = 0,
   isSelected,
   onSelect,
 }: {
   clause: Clause;
+  index?: number;
   isSelected: boolean;
   onSelect: () => void;
 }) {
@@ -619,7 +979,13 @@ function LeaseClause({
 
 
   return (
-    <div id={`clause-${clause.id}`} className="relative scroll-my-6">
+    <div
+      id={`clause-${clause.id}`}
+      style={{ animationDelay: `${Math.min(index, 8) * 60}ms` }}
+      className={cn(
+        "relative scroll-my-6",
+      )}
+    >
       <Tooltip text={`${style.label}: ${style.hint}`} side="right" className="absolute -left-8 top-1 sm:-left-10">
         <span className={cn("grid size-6 place-items-center rounded-full text-white", style.solid)}>
           <style.Icon size={14} aria-hidden />
@@ -631,7 +997,7 @@ function LeaseClause({
         aria-pressed={isSelected}
         aria-label={`Clause ${clause.number}, ${clause.title}: ${style.label}`}
         className={cn(
-          "-mx-2 block w-[calc(100%+1rem)] cursor-pointer rounded-md px-2 py-1 text-left transition-colors",
+          "group -mx-2 block w-[calc(100%+1rem)] cursor-pointer rounded-md px-2 py-1 text-left transition-colors",
           isSelected ? "bg-brand-soft/70 outline-2 outline-brand" : "hover:bg-surface",
         )}
       >
@@ -659,6 +1025,9 @@ function ClausePanel({
   onToggleReviewed,
   inEmail,
   onToggleEmail,
+  analysisId,
+  startCorrection,
+  onCorrected,
 }: {
   clause: Clause;
   issues: Clause[];
@@ -668,6 +1037,9 @@ function ClausePanel({
   onToggleReviewed: () => void;
   inEmail: boolean;
   onToggleEmail?: () => void;
+  analysisId: string;
+  startCorrection: boolean;
+  onCorrected: (correction: TopicCorrection) => void;
 }) {
   const style = STATUS[clause.status];
   const issueIndex = issues.findIndex((c) => c.id === clause.id);
@@ -692,7 +1064,7 @@ function ClausePanel({
                 disabled={!previousIssue}
                 aria-label="Previous issue"
                 title="Previous issue"
-                className="grid size-8 cursor-pointer place-items-center rounded-full text-brand-dark hover:bg-white/70 disabled:cursor-not-allowed disabled:opacity-30"
+                className="grid size-[45px] cursor-pointer place-items-center rounded-full text-brand-dark hover:bg-white/70 disabled:cursor-not-allowed disabled:opacity-30 lg:size-8"
               >
                 <ChevronLeft size={17} />
               </button>
@@ -703,7 +1075,7 @@ function ClausePanel({
                 disabled={!nextIssue}
                 aria-label="Next issue"
                 title="Next issue"
-                className="grid size-8 cursor-pointer place-items-center rounded-full bg-brand text-white hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-30"
+                className="grid size-[45px] cursor-pointer place-items-center rounded-full bg-brand text-white hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-30 lg:size-8"
               >
                 <ChevronRight size={17} />
               </button>
@@ -783,14 +1155,16 @@ function ClausePanel({
             </ul>
           </div>
         )}
+
+        <TopicFeedback analysisId={analysisId} clause={clause} demo={isSampleId(analysisId)} startOpen={startCorrection} onSent={onCorrected} />
       </div>
 
-      <div className="flex shrink-0 flex-wrap gap-2 border-t border-line bg-white px-4 py-3">
+      <div className="flex shrink-0 flex-wrap gap-2 border-t border-line bg-white px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 lg:pb-3">
         {onToggleEmail && <AddToEmailButton added={inEmail} onToggle={onToggleEmail} fullWidth />}
         <button
           type="button"
           onClick={onAsk}
-          className="flex min-h-10 flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl bg-brand px-3 text-sm font-semibold text-white transition-colors hover:bg-brand-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+          className="flex min-h-12 flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl bg-brand px-3 text-sm font-semibold text-white lg:min-h-10 transition-colors hover:bg-brand-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
         >
           <MessageCircleQuestion size={16} aria-hidden />Ask about this clause
         </button>
@@ -799,7 +1173,7 @@ function ClausePanel({
           onClick={onToggleReviewed}
           aria-pressed={clause.reviewed}
           className={cn(
-            "flex min-h-10 cursor-pointer items-center justify-center gap-1.5 rounded-xl border px-3 text-sm font-semibold transition-colors",
+            "flex min-h-12 cursor-pointer items-center justify-center gap-1.5 rounded-xl border px-3 text-sm font-semibold transition-colors lg:min-h-10",
             clause.reviewed ? "border-ok-line bg-ok-bg text-ok" : "border-line bg-white text-brand-dark hover:bg-surface",
           )}
         >
@@ -829,7 +1203,7 @@ function IconButton({
         aria-label={label}
         disabled={disabled}
         onClick={onClick}
-        className="grid size-9 cursor-pointer place-items-center rounded-full text-brand-dark hover:bg-surface disabled:cursor-not-allowed disabled:opacity-30"
+        className="grid size-[45px] cursor-pointer place-items-center rounded-full text-brand-dark hover:bg-surface disabled:cursor-not-allowed disabled:opacity-30 md:size-9"
       >
         {children}
       </button>
