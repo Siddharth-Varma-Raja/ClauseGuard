@@ -107,15 +107,12 @@ gcloud config set project clauseguard-512316
 
 Both should print `ACTIVE`.
 
-**3. Optional overrides only.** Create `deploy.env` only if you want to change a default (e.g. `MIN_INSTANCES=1` for a demo):
+**3. Overrides.** Create `deploy.env` to change a default (e.g. `MIN_INSTANCES=1` for a demo). Always set `FIREBASE_PROJECT_ID` to the production Firebase project there, so a release never picks up the development project from `frontend/.env.local`:
 
 ```bash
 cd infra/gcp
-cp deploy.env.example deploy.env      # git-ignored; leave the three ID lines empty
-set -a; source deploy.env; set +a
+cp deploy.env.example deploy.env      # git-ignored; the script loads it automatically
 ```
-
-Without a `deploy.env`, just `cd infra/gcp` and run the steps.
 
 ---
 
@@ -206,9 +203,7 @@ STEP=service ./setup_load_balancer.sh
 ### How
 
 ```bash
-cd infra/gcp
-# only if you created deploy.env for overrides:
-# set -a; source deploy.env; set +a
+cd infra/gcp      # deploy.env, if present, is loaded by the script
 ```
 
 ### 4.1 `STEP=apis` — enable Google APIs
@@ -311,6 +306,29 @@ STEP=service ./setup_load_balancer.sh
 ```
 
 The load balancer, Armor and DNS do not change between deploys.
+
+`setup_load_balancer.sh` loads `infra/gcp/deploy.env` by itself, so there is no need to `source` it first. Set `FIREBASE_PROJECT_ID=clauseguard-512316` there: otherwise the script falls back to `Development/frontend/.env.local`, which may point at a development Firebase project and would break logins on the live site.
+
+### Trained clause classifier
+
+The backend uses the trained classifier only when `CLAUSE_MODEL_PATH` is set, and falls back to the keyword classifier otherwise. The release step sets it from `deploy.env`:
+
+```bash
+MODEL_BUCKET=clauseguard-models          # private bucket holding the .joblib file
+MODEL_FILE=clause_classifier_v2.joblib   # file name inside the bucket
+```
+
+With `MODEL_BUCKET` set, `STEP=service` switches the service to the second-generation environment, mounts the bucket read-only at `/models` and sets `CLAUSE_MODEL_PATH=/models/<MODEL_FILE>`. Leave `MODEL_BUCKET` empty to turn the model off, then run `STEP=service` again.
+
+Do not set `CLAUSE_MODEL_PATH` with a one-off `gcloud run services update`. `STEP=service` uses `--set-env-vars`, which replaces every variable, so the next release would remove it. For the same reason, never use `--set-env-vars` by hand to add one variable: use `--update-env-vars`.
+
+To check the model loaded, analyse one lease, then:
+
+```bash
+gcloud logging read 'resource.type="cloud_run_revision" AND resource.labels.service_name="clauseguard-api" AND textPayload:"Trained classifier"' --freshness=1h --limit=20
+```
+
+`Trained classifier loaded: hybrid-<file name>` means it is in use. `Trained classifier not loaded (<ErrorType>)` means the backend fell back to the keyword classifier.
 
 ---
 

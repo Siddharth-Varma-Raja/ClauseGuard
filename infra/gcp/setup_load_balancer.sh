@@ -19,6 +19,18 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BACKEND_DIR="${SCRIPT_DIR}/../../Development/backend"
 
+# Load deploy.env when it exists, so releases never depend on remembering to
+# `source` it. A value already exported in the shell still wins. Plain KEY=value
+# lines only (no quotes, no trailing comments).
+if [[ -f "${SCRIPT_DIR}/deploy.env" ]]; then
+  while IFS='=' read -r _key _val; do
+    [[ "${_key}" =~ ^[A-Z_][A-Z0-9_]*$ ]] || continue
+    if [[ -z "$(eval "echo \${${_key}+set}")" ]]; then
+      export "${_key}=${_val}"
+    fi
+  done < "${SCRIPT_DIR}/deploy.env"
+fi
+
 # Fall back to the backend .env (GCP_PROJECT_ID / DOC_AI_PROCESSOR_ID) when the
 # deploy variables are not exported. Reads only these two keys.
 _from_backend_env() {
@@ -161,6 +173,25 @@ step_migrate() {
 }
 
 # ── 6. Cloud Run service — reachable ONLY through the load balancer ──────────
+# Trained clause classifier (optional). Set MODEL_BUCKET to mount that private
+# bucket read-only at /models and point CLAUSE_MODEL_PATH at MODEL_FILE. Leave it
+# empty and the backend uses the keyword classifier. It lives here, not in a
+# one-off `gcloud run services update`, because --set-env-vars below replaces
+# every variable, so a variable set by hand would vanish at the next release.
+# Bucket mounts need the second-generation execution environment.
+_model_flags=()
+_model_env=""
+if [[ -n "${MODEL_BUCKET:-}" ]]; then
+  _model_flags=(
+    --execution-environment=gen2
+    --add-volume="name=models,type=cloud-storage,bucket=${MODEL_BUCKET},readonly=true"
+    --add-volume-mount="volume=models,mount-path=/models"
+  )
+  _model_env=",CLAUSE_MODEL_PATH=/models/${MODEL_FILE:-clause_classifier_v2.joblib}"
+fi
+
+# Env vars use gcloud's "^@^" delimiter (see `gcloud topic escaping`) because
+# ALLOWED_ORIGINS holds a comma-separated list; plain commas would split it.
 step_service() {
   gcloud run deploy "${SERVICE}" --region="${REGION}" --image="$(_image)" \
     --service-account="${SA}" \
@@ -169,8 +200,9 @@ step_service() {
     --cpu=2 --memory=2Gi --concurrency=10 --timeout=300 \
     --min-instances="${MIN_INSTANCES}" --max-instances=5 \
     --add-cloudsql-instances="${SQL_CONN}" \
-    --set-env-vars="${_common_env},RUN_MIGRATIONS=false,TRUSTED_PROXY_COUNT=1,ALLOWED_ORIGINS=${ALLOWED_ORIGINS}" \
+    --set-env-vars="^@^${_common_env//,/@}@RUN_MIGRATIONS=false@TRUSTED_PROXY_COUNT=1@ALLOWED_ORIGINS=${ALLOWED_ORIGINS}${_model_env//,/@}" \
     --set-secrets="${_common_secrets}" \
+    ${_model_flags[@]+"${_model_flags[@]}"} \
     --startup-probe=httpGet.path=/health,initialDelaySeconds=5,periodSeconds=5,failureThreshold=12 \
     --liveness-probe=httpGet.path=/health,periodSeconds=30,failureThreshold=3
 }
