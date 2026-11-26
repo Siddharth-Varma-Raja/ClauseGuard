@@ -121,7 +121,7 @@ export default function TenancyStrip({
           </p>
           <LeasePicker leases={leases} value={leaseId} onChange={onLeaseChange} />
         </div>
-        <p className="text-sm text-mute">This lease doesn&apos;t say when the tenancy starts, so we can&apos;t show its progress. Pick another lease above.</p>
+        <p className="text-sm text-mute">This lease doesn't say when the tenancy starts, so we can't show its progress. Pick another lease above.</p>
       </section>
     );
   }

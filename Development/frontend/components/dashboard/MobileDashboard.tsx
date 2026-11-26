@@ -32,9 +32,9 @@ function sentenceCase(text: string) {
 
 function verdict(lease: Analysis) {
     const { red, amber } = lease.counts;
-    if (red > 0) return { tone: "bg-bad-bg text-bad", title: "Don’t sign yet", text: `${red} thing${red === 1 ? "" : "s"} in this lease may not be allowed. Fix ${red === 1 ? "it" : "them"} with your landlord first.`, button: "See what to fix" };
-    if (amber > 0) return { tone: "bg-warn-bg text-warn", title: "Ask a few questions", text: `${amber} thing${amber === 1 ? "" : "s"} could be clearer. Ask your landlord before you sign.`, button: "See what to ask" };
-    return { tone: "bg-ok-bg text-ok", title: "Looks good to sign", text: "We didn’t find anything that breaks Irish tenancy rules.", button: "Open report" };
+    if (red > 0) return { tone: "bg-bad-bg text-bad", label: "High Risk", title: "Don’t sign yet", text: `${red} thing${red === 1 ? "" : "s"} in this lease may not be allowed. Fix ${red === 1 ? "it" : "them"} with your landlord first.`, button: "See what to fix" };
+    if (amber > 0) return { tone: "bg-warn-bg text-warn", label: "Medium Risk", title: "Ask a few questions", text: `${amber} thing${amber === 1 ? "" : "s"} could be clearer. Ask your landlord before you sign.`, button: "See what to ask" };
+    return { tone: "bg-ok-bg text-ok", label: "Low Risk", title: "Looks good to sign", text: "We didn’t find anything that breaks Irish tenancy rules.", button: "Open report" };
 }
 
 function LeaseCard({ lease }: { lease: Analysis }) {
@@ -60,10 +60,10 @@ function LeaseCard({ lease }: { lease: Analysis }) {
                 {grey > 0 && <span className="rounded-full bg-white/30" style={{ width: `${(grey / total) * 100}%` }} />}
             </div>
             <p className="relative mt-2.5 flex flex-wrap gap-x-4 gap-y-1 text-sm text-white/80">
-                <span className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-[#ff9b8f]" />{red} to fix</span>
-                <span className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-[#f5c451]" />{amber} to ask</span>
-                <span className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-[#7fdca5]" />{green} fine</span>
-                {grey > 0 && <span className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-white/40" />{grey} for info</span>}
+                <span className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-[#ff9b8f]" />{red} High</span>
+                <span className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-[#f5c451]" />{amber} Medium</span>
+                <span className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-[#7fdca5]" />{green} Low</span>
+                {grey > 0 && <span className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-white/40" />{grey} Informational</span>}
             </p>
 
             <Link href={`/lease/${lease.id}`} className="group relative mt-6 inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-white font-semibold text-brand-dark active:scale-[0.98]">
@@ -123,7 +123,7 @@ export default function MobileDashboard({
                                                 </span>
                                                 <span className="min-w-0 flex-1">
                                                     <span className="block truncate font-semibold text-ink">{leaseTitle(lease)}</span>
-                                                    <span className={`mt-1 inline-flex rounded-md px-2 py-0.5 text-xs font-semibold ${result.tone}`}>{result.title}</span>
+                                                    <span className={`mt-1 inline-flex rounded-md px-2 py-0.5 text-xs font-semibold ${result.tone}`}>{result.label}</span>
                                                 </span>
                                                 <ChevronRight size={18} aria-hidden className="shrink-0 text-[#a9babd]" />
                                             </Link>
@@ -206,38 +206,6 @@ export default function MobileDashboard({
                     </ul>
                 </section>
             )}
-
-            <section className="mt-8 animate-fade-up [animation-delay:400ms]">
-                <h2 className="font-display text-xl font-semibold text-brand-dark">Something else?</h2>
-                <div className="mt-3 overflow-hidden rounded-3xl bg-white shadow-soft">
-                    {leases[0] && (
-                        <Link href={`/lease/${leases[0].id}`} className="flex items-center gap-3 border-b border-line px-4 py-4">
-                            <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-brand-soft text-brand-dark"><MessageCircleQuestion size={20} aria-hidden /></span>
-                            <span className="min-w-0 flex-1">
-                                <span className="block font-semibold text-ink">Ask about a clause</span>
-                                <span className="block text-sm text-mute">Get a plain-English answer</span>
-                            </span>
-                            <ChevronRight size={18} aria-hidden className="text-[#a9babd]" />
-                        </Link>
-                    )}
-                    <Link href="/notices" className="flex items-center gap-3 border-b border-line px-4 py-4">
-                        <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-brand-soft text-brand-dark"><FileCheck size={20} aria-hidden /></span>
-                        <span className="min-w-0 flex-1">
-                            <span className="block font-semibold text-ink">Check a notice</span>
-                            <span className="block text-sm text-mute">Rent increase or notice to leave</span>
-                        </span>
-                        <ChevronRight size={18} aria-hidden className="text-[#a9babd]" />
-                    </Link>
-                    <Link href="/lease/new" className="flex items-center gap-3 px-4 py-4">
-                        <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-brand-soft text-brand-dark"><Upload size={20} aria-hidden /></span>
-                        <span className="min-w-0 flex-1">
-                            <span className="block font-semibold text-ink">Upload another lease</span>
-                            <span className="block text-sm text-mute">Compare a different place</span>
-                        </span>
-                        <ChevronRight size={18} aria-hidden className="text-[#a9babd]" />
-                    </Link>
-                </div>
-            </section>
         </div>
     );
 }
