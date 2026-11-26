@@ -154,15 +154,15 @@ export default function LeaseReport({ analysis }: { analysis: Analysis }) {
     { id: "details", label: "Lease details", intro: { title: "Lease details", text: "The key facts we found in your lease. Check they match what you agreed." } },
     ...(analysis.actionList
       ? [
-          {
-            id: "actions" as const,
-            label: "Action list",
-            intro: {
-              title: `Your action list${actionCount(analysis.actionList) ? `: ${actionCount(analysis.actionList)} items` : ""}`,
-              text: "What your lease says you and your landlord must, can't and may do. Built from your lease using fixed rules, no AI reads your lease for this.",
-            },
+        {
+          id: "actions" as const,
+          label: "Action list",
+          intro: {
+            title: `Your action list${actionCount(analysis.actionList) ? `: ${actionCount(analysis.actionList)} items` : ""}`,
+            text: "What your lease says you and your landlord must, can't and may do. Built from your lease using fixed rules, no AI reads your lease for this.",
           },
-        ]
+        },
+      ]
       : []),
     { id: "all", label: "All clauses", intro: { title: `All ${total} clauses`, text: "Every clause in your lease, in order. Select a clause to open it in Lease viewer." } },
   ];
@@ -190,20 +190,20 @@ export default function LeaseReport({ analysis }: { analysis: Analysis }) {
         Back to my leases
       </Link>
 
-      <div className="mt-2 flex items-start justify-between gap-3 sm:flex-wrap sm:items-end sm:gap-4">
-        <div className="min-w-0">
-          <h1 className="font-display text-2xl font-semibold tracking-tight text-brand-dark [overflow-wrap:anywhere] max-sm:line-clamp-2 sm:text-4xl">{leaseName}</h1>
+      <div className="mt-2 flex items-start justify-between gap-3 sm:gap-6">
+        <div className="min-w-0 flex-1">
+          <h1 title={leaseName} className="line-clamp-2 font-display text-2xl font-semibold tracking-tight text-brand-dark [overflow-wrap:anywhere] sm:text-4xl">{leaseName}</h1>
           <p className="mt-1 text-sm text-mute sm:text-base">
             Lease report
             {start && end ? `, tenancy ${new Date(`${start}T00:00:00`).toLocaleDateString("en-IE", { day: "numeric", month: "short", year: "numeric" })} to ${new Date(`${end}T00:00:00`).toLocaleDateString("en-IE", { day: "numeric", month: "short", year: "numeric" })}` : ""}
           </p>
         </div>
-        <div className="flex gap-3 print:hidden">
+        <div className="flex shrink-0 gap-3 sm:pt-1 print:hidden">
           <button
             type="button"
             onClick={downloadReport}
             aria-label="Download PDF"
-            className="inline-flex min-h-12 cursor-pointer items-center gap-2 rounded-full border-[1.5px] border-brand-dark bg-white px-5 font-semibold text-brand-dark transition hover:bg-brand-soft active:scale-95 max-sm:size-12 max-sm:justify-center max-sm:px-0"
+            className="inline-flex min-h-12 cursor-pointer items-center gap-2 whitespace-nowrap rounded-full border-[1.5px] border-brand-dark bg-white px-5 font-semibold text-brand-dark transition hover:bg-brand-soft active:scale-95 max-sm:size-12 max-sm:justify-center max-sm:px-0"
           >
             <Download size={19} />
             <span className="max-sm:hidden">Download PDF</span>
