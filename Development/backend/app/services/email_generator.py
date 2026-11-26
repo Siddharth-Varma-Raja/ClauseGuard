@@ -37,11 +37,12 @@ def generate_landlord_email(
     
     try:
         response = client.models.generate_content(
-            model='gemini-3.8-flash',
+            model="gemini-3.5-flash-lite",
             contents=prompt,
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
-                temperature=0.2 
+                temperature=0.2,
+                max_output_tokens=1500,
             ),
         )
         return json.loads(response.text)

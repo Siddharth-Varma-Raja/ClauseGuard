@@ -3,11 +3,11 @@
 Pipeline (all pure Python, no database, no S3, no GPU):
 
     split_clean()            language_stream/split.py    split the text into clauses
-    baseline.predict()       language_stream/baseline.py keyword stand-in for the trained classifier
+    classify()               language_stream/classifier.py trained model if configured, else keyword baseline
     Engine.evaluate()        rules_engine/               check the clause against the written rules
     -> dict shaped like the frontend `Analysis` type (Development/frontend/lib/types.ts)
 
-The keyword baseline is a STAND-IN. To use the trained classifier later, replace `classify()` only.
+The keyword baseline is the fallback when no trained model is configured (CLAUSE_MODEL_PATH).
 All rules are still `draft`, so results are labelled as such in the `sources` and `reason` fields.
 """
 from __future__ import annotations
@@ -17,12 +17,12 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
-from language_stream.baseline import predict
+from language_stream.classifier import KEYWORD_NAME, classifier_name, classify as _classify
 from language_stream.split import split_clean
 from language_stream.action_list import extract as extract_actions
 from rules_engine import ClauseInput, Engine, LeaseContext
 
-CLASSIFIER_NAME = "keyword-baseline-v0"
+CLASSIFIER_NAME = KEYWORD_NAME  # name used when no trained model is loaded
 
 # Classifier topic -> topic name used by rules in rules_engine/rules/rules.yaml
 RULE_TOPIC = {"deposit": "deposit", "termination": "termination", "access": "access",
@@ -67,8 +67,8 @@ def get_engine() -> Engine:
 
 
 def classify(text: str) -> tuple[str, str]:
-    """Return (topic, classifier_name). Swap this function for the trained model later."""
-    return predict(text), CLASSIFIER_NAME
+    """Return (topic, classifier_name): the trained model if CLAUSE_MODEL_PATH is set, else the keyword baseline."""
+    return _classify(text)
 
 
 # ---- lease-level facts (optional; None when not found) -------------------------------------
@@ -174,7 +174,7 @@ def analyse_text(text: str, file_name: str = "lease") -> dict[str, Any]:
         "clauses": clauses,
         "actionList": action_list,
         # extra fields the frontend can ignore; useful for the demo and the docs
-        "engine": {"classifier": CLASSIFIER_NAME, "rulesStatus": "draft", "lawVersion": get_engine().law_version},
+        "engine": {"classifier": classifier_name(), "rulesStatus": "draft", "lawVersion": get_engine().law_version},
     }
 
 
