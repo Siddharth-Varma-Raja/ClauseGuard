@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { Eye, EyeOff, User, Lock, Mail, ArrowRight } from "lucide-react";
 import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { auth } from "@/lib/firebase";
+import { startOnboarding } from "@/components/GuidedTour";
 
 export default function RegisterForm() {
   const [name, setName] = useState("");
@@ -59,6 +60,7 @@ export default function RegisterForm() {
     try {
       const { user } = await createUserWithEmailAndPassword(auth, email, password);
       await updateProfile(user, { displayName: name });
+      startOnboarding(user.uid);
       router.replace("/dashboard");
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Something went wrong. Please try again.";
