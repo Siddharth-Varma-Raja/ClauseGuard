@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { CircleHelp } from "lucide-react";
-import GuidedTour, { hasSeenTour } from "@/components/GuidedTour";
+import GuidedTour, { hasSeenTour, isOnboarding } from "@/components/GuidedTour";
+import { auth } from "@/lib/firebase";
 import { TourStep } from "@/lib/tours";
 
 export const START_TOUR = "clauseguard-start-tour";
@@ -13,7 +14,9 @@ export default function PageTour({ tourId, steps, showButton = false, autoStart 
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    if (!autoStart || hasSeenTour(tourId)) return;
+    // Auto-start only during the first session after signup; otherwise the
+    // tour opens only from a "Take a tour" button (the START_TOUR event below).
+    if (!autoStart || !isOnboarding(auth.currentUser?.uid) || hasSeenTour(tourId)) return;
     const timer = setTimeout(() => setOpen(true), 400);
     return () => clearTimeout(timer);
   }, [tourId, autoStart]);
