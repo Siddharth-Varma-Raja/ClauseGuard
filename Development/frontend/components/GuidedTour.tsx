@@ -21,11 +21,39 @@ export function hasSeenTour(tourId: string) {
   }
 }
 
+
+const ONBOARDING_KEY = "clauseguard-onboarding";
+
+export function startOnboarding(uid: string) {
+  try {
+    sessionStorage.setItem(ONBOARDING_KEY, uid);
+  } catch {
+
+  }
+}
+
+export function endOnboarding() {
+  try {
+    sessionStorage.removeItem(ONBOARDING_KEY);
+  } catch {
+
+  }
+}
+
+export function isOnboarding(uid: string | undefined) {
+  if (!uid) return false;
+  try {
+    return sessionStorage.getItem(ONBOARDING_KEY) === uid;
+  } catch {
+    return false;
+  }
+}
+
 function markTourSeen(tourId: string) {
   try {
     localStorage.setItem(storageKey(tourId), "yes");
   } catch {
-    // the tour will just show again next time
+
   }
 }
 
